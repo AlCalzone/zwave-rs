@@ -14,19 +14,17 @@ fn main() {
     port.write(hex::decode("01030008f4").unwrap()).unwrap();
 
     let port_ref = Arc::new(Mutex::new(port));
-    let shared_port = port_ref.clone();
+    let shared_port: Arc<Mutex<serial::serial::OpenSerialPortBinding>> = port_ref.clone();
     let shared_receiver = receiver.clone();
     {
         thread::spawn(move || {
             for msg in shared_receiver.iter().take(2) {
                 {
                     let mut port_ref = shared_port.lock().unwrap();
-                    if let SerialAPIFrame::Command(data) = &msg {
-                        if data[0] == 0x01 {
-                            // ACK
-                            port_ref.write(vec![0x06]).unwrap();
-                        }
-                        if data.len() > 2 && data[1] == 0x0b {
+                    if let SerialAPIFrame::Command(ref cmd) = &msg {
+                        // Send ACK
+                        port_ref.write(ACK_BUFFER.to_vec()).unwrap();
+                        if cmd.as_raw()[1] == 0x0b {
                             port_ref.write(hex::decode("01030002fe").unwrap()).unwrap();
                         }
                     }
