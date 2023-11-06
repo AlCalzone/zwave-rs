@@ -27,17 +27,13 @@ pub struct SerialAPICommand {
     data: Vec<u8>,
 }
 
-pub trait AsRaw {
-    fn as_raw(&self) -> &[u8];
-}
-
-impl AsRaw for SerialAPIFrame {
-    fn as_raw(&self) -> &[u8] {
+impl AsRef<[u8]> for SerialAPIFrame {
+    fn as_ref(&self) -> &[u8] {
         match &self {
             SerialAPIFrame::ACK => &ACK_BUFFER,
             SerialAPIFrame::NAK => &NAK_BUFFER,
             SerialAPIFrame::CAN => &CAN_BUFFER,
-            SerialAPIFrame::Command(cmd) => cmd.as_raw(),
+            SerialAPIFrame::Command(cmd) => cmd.as_ref(),
             SerialAPIFrame::Garbage(data) => &data,
         }
     }
@@ -57,8 +53,8 @@ impl SerialAPICommand {
     }
 }
 
-impl AsRaw for SerialAPICommand {
-    fn as_raw(&self) -> &[u8] {
+impl AsRef<[u8]> for SerialAPICommand {
+    fn as_ref(&self) -> &[u8] {
         &self.data
     }
 }
@@ -172,19 +168,27 @@ impl SerialAPIFrame {
     }
 }
 
-pub type SerialAPIListener = crossbeam_channel::Sender<SerialAPIFrame>;
+pub type SerialAPIListener = crossbeam_channel::Receiver<SerialAPIFrame>;
+pub trait SerialAPIWriter<'a> {
+    // FIXME: Do not accept garbage here
+    fn write(&self, frame: SerialAPIFrame) -> Result<()>;
+    fn write_raw(&self, data: impl AsRef<[u8]>) -> Result<()>;
+}
 
 pub trait PortBinding {
     type Open;
 
     fn new(path: &str) -> Self;
 
-    fn open(self, listener: SerialAPIListener) -> Result<Self::Open>;
+    fn open(self) -> Result<Self::Open>;
 }
 
 pub trait OpenPortBinding {
     type Closed;
 
     fn close(self) -> Result<Self::Closed>;
-    fn write(&mut self, data: Vec<u8>) -> Result<()>;
+    fn listener(&self) -> SerialAPIListener;
+    fn writer<'a>(&self) -> impl SerialAPIWriter + Clone;
+
+    // fn write(&mut self, data: Vec<u8>) -> Result<()>;
 }

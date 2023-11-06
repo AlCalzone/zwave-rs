@@ -1,7 +1,7 @@
-use crate::common::{AsRaw, OpenPortBinding, PortBinding, SerialAPIFrame, SerialAPIListener};
+use crate::common::{OpenPortBinding, PortBinding, SerialAPIFrame, SerialAPIWriter};
 use crate::error::Result;
 use bytes::{Buf, BytesMut};
-use crossbeam_channel::{Sender, TryRecvError};
+use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use serialport::SerialPortBuilder;
 use std::io::{self};
 use std::thread;
@@ -21,7 +21,8 @@ enum ThreadCommand {
 pub struct OpenSerialPortBinding {
     builder: SerialPortBuilder,
     thread: JoinHandle<()>,
-    thread_signal: Sender<ThreadCommand>,
+    command_tx: Sender<ThreadCommand>,
+    frames_rx: Receiver<SerialAPIFrame>,
 }
 
 impl PortBinding for SerialPortBinding {
@@ -32,9 +33,12 @@ impl PortBinding for SerialPortBinding {
         return Self { builder };
     }
 
-    fn open(self, listener: SerialAPIListener) -> Result<Self::Open> {
+    fn open(self) -> Result<Self::Open> {
         let mut port = self.builder.clone().open()?;
-        let (tx, rx) = crossbeam_channel::unbounded::<ThreadCommand>();
+        // Create a channel to communicate with the thread
+        let (command_tx, command_rx) = crossbeam_channel::unbounded::<ThreadCommand>();
+        // Create a channel to allow callers to listen for frames
+        let (frames_tx, frames_rx) = crossbeam_channel::unbounded::<SerialAPIFrame>();
 
         let thread = thread::spawn(move || {
             // parse_buf keeps track of the data that has been read from the serial port
@@ -44,38 +48,21 @@ impl PortBinding for SerialPortBinding {
             let mut serial_buf: Vec<u8> = vec![0; 256];
 
             loop {
-                let cmd = match rx.try_recv() {
+                let cmd = match command_rx.try_recv() {
                     Ok(ThreadCommand::Stop) | Err(TryRecvError::Disconnected) => break,
                     Err(TryRecvError::Empty) => None,
                     Ok(cmd) => Some(cmd),
                 };
 
-                if !cmd.is_none() {
-                    println!("Got command {:?}", cmd);
-                }
-
                 // Try to read from serial port and store the data into the serial buffer at the offset
                 match port.read(&mut serial_buf) {
                     Ok(t) => {
-                        println!("Read {} bytes", t);
                         parse_buf.extend_from_slice(&serial_buf[..t]);
                         while let Ok((remaining, frame)) =
                             SerialAPIFrame::parse(&parse_buf.to_vec())
                         {
-                            match &frame {
-                                SerialAPIFrame::Command(cmd) => {
-                                    println!("<< {}", hex::encode(cmd.as_raw()));
-                                }
-                                SerialAPIFrame::Garbage(data) => {
-                                    println!("DISCARDED: {}", hex::encode(data));
-                                }
-                                SerialAPIFrame::ACK | SerialAPIFrame::CAN | SerialAPIFrame::NAK => {
-                                    println!("<< {:?}", &frame);
-                                }
-                            }
-
                             // Emit the data to the listener and exit when there isn't one anymore
-                            if listener.send(frame).is_err() {
+                            if frames_tx.send(frame).is_err() {
                                 break;
                             }
 
@@ -95,15 +82,56 @@ impl PortBinding for SerialPortBinding {
                 // When we're done or there's nothing to read, handle pending writes
                 if let Some(ThreadCommand::Send(data)) = cmd {
                     port.write_all(&data).unwrap();
-                    println!(">> {}", hex::encode(data));
                 }
             }
         });
         return Ok(OpenSerialPortBinding {
             builder: self.builder,
             thread,
-            thread_signal: tx,
+            command_tx,
+            frames_rx,
         });
+    }
+}
+
+struct SerialPortWriter {
+    sender: Sender<ThreadCommand>,
+}
+
+impl SerialAPIWriter<'_> for SerialPortWriter {
+    fn write_raw(&self, data: impl AsRef<[u8]>) -> Result<()> {
+        let data = data.as_ref();
+        if data.len() > 1 {
+            println!(">> {}", hex::encode(&data));
+        }
+
+        self.sender
+            .send(ThreadCommand::Send(data.as_ref().to_vec()))
+            .unwrap();
+        Ok(())
+    }
+
+    fn write(&self, frame: SerialAPIFrame) -> Result<()> {
+        let data = frame.as_ref();
+        match &frame {
+            SerialAPIFrame::Command(_) => {
+                println!(">> {}", hex::encode(&data));
+            }
+            SerialAPIFrame::ACK | SerialAPIFrame::CAN | SerialAPIFrame::NAK => {
+                println!(">> {:?}", &frame);
+            }
+            _ => (),
+        }
+
+        self.write_raw(data)
+    }
+}
+
+impl Clone for SerialPortWriter {
+    fn clone(&self) -> Self {
+        Self {
+            sender: self.sender.clone(),
+        }
     }
 }
 
@@ -114,7 +142,7 @@ impl OpenPortBinding for OpenSerialPortBinding {
         // Stop the thread and wait for it. We have to expect that the
         // thread has already exited due to no listeners being active anymore,
         // so ignore a potential Error
-        let _ = self.thread_signal.send(ThreadCommand::Stop);
+        let _ = self.command_tx.send(ThreadCommand::Stop);
         self.thread.join().unwrap();
 
         Ok(SerialPortBinding {
@@ -122,10 +150,13 @@ impl OpenPortBinding for OpenSerialPortBinding {
         })
     }
 
-    fn write(&mut self, data: Vec<u8>) -> Result<()> {
-        self.thread_signal.send(ThreadCommand::Send(data)).unwrap();
+    fn writer<'a>(&self) -> impl crate::common::SerialAPIWriter<'_> + Clone {
+        SerialPortWriter {
+            sender: self.command_tx.clone(),
+        }
+    }
 
-        // TODO: Handle errors
-        Ok(())
+    fn listener(&self) -> crate::common::SerialAPIListener {
+        self.frames_rx.clone()
     }
 }

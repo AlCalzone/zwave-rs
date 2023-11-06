@@ -10,3 +10,4 @@ hex = "0.4.3"
 serialport = "4.2.2"
 serial = { path = "../serial" }
 crossbeam-channel = "0.5.8"
+crossbeam = "0.8.2"

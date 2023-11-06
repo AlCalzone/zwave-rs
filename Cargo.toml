@@ -3,3 +3,4 @@ members = [
 	"packages/serial",
 	"packages/cli"
 ]
+resolver = "2"
