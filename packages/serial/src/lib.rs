@@ -1,5 +1,5 @@
-pub mod consts;
 pub mod error;
-pub mod common;
-pub mod serial;
+pub mod binding;
+pub mod serialport;
 mod parse;
+pub mod frame;

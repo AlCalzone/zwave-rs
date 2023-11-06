@@ -1,5 +1,6 @@
-use crate::common::{OpenPortBinding, PortBinding, SerialAPIFrame, SerialAPIWriter};
+use crate::binding::{OpenBinding, Binding, SerialWriter};
 use crate::error::Result;
+use crate::frame::SerialFrame;
 use bytes::{Buf, BytesMut};
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use serialport::SerialPortBuilder;
@@ -14,7 +15,7 @@ pub struct SerialPortBinding {
 #[derive(Debug)]
 enum ThreadCommand {
     Stop,
-    Send(Vec<u8>),
+    Write(Vec<u8>),
 }
 
 #[derive(Debug)]
@@ -22,10 +23,10 @@ pub struct OpenSerialPortBinding {
     builder: SerialPortBuilder,
     thread: JoinHandle<()>,
     command_tx: Sender<ThreadCommand>,
-    frames_rx: Receiver<SerialAPIFrame>,
+    frames_rx: Receiver<SerialFrame>,
 }
 
-impl PortBinding for SerialPortBinding {
+impl Binding for SerialPortBinding {
     type Open = OpenSerialPortBinding;
 
     fn new(path: &str) -> Self {
@@ -38,7 +39,7 @@ impl PortBinding for SerialPortBinding {
         // Create a channel to communicate with the thread
         let (command_tx, command_rx) = crossbeam_channel::unbounded::<ThreadCommand>();
         // Create a channel to allow callers to listen for frames
-        let (frames_tx, frames_rx) = crossbeam_channel::unbounded::<SerialAPIFrame>();
+        let (frames_tx, frames_rx) = crossbeam_channel::unbounded::<SerialFrame>();
 
         let thread = thread::spawn(move || {
             // parse_buf keeps track of the data that has been read from the serial port
@@ -59,7 +60,7 @@ impl PortBinding for SerialPortBinding {
                     Ok(t) => {
                         parse_buf.extend_from_slice(&serial_buf[..t]);
                         while let Ok((remaining, frame)) =
-                            SerialAPIFrame::parse(&parse_buf.to_vec())
+                            SerialFrame::parse(&parse_buf.to_vec())
                         {
                             // Emit the data to the listener and exit when there isn't one anymore
                             if frames_tx.send(frame).is_err() {
@@ -80,7 +81,7 @@ impl PortBinding for SerialPortBinding {
                 }
 
                 // When we're done or there's nothing to read, handle pending writes
-                if let Some(ThreadCommand::Send(data)) = cmd {
+                if let Some(ThreadCommand::Write(data)) = cmd {
                     port.write_all(&data).unwrap();
                 }
             }
@@ -98,7 +99,7 @@ struct SerialPortWriter {
     sender: Sender<ThreadCommand>,
 }
 
-impl SerialAPIWriter<'_> for SerialPortWriter {
+impl SerialWriter<'_> for SerialPortWriter {
     fn write_raw(&self, data: impl AsRef<[u8]>) -> Result<()> {
         let data = data.as_ref();
         if data.len() > 1 {
@@ -106,18 +107,18 @@ impl SerialAPIWriter<'_> for SerialPortWriter {
         }
 
         self.sender
-            .send(ThreadCommand::Send(data.as_ref().to_vec()))
+            .send(ThreadCommand::Write(data.as_ref().to_vec()))
             .unwrap();
         Ok(())
     }
 
-    fn write(&self, frame: SerialAPIFrame) -> Result<()> {
+    fn write(&self, frame: SerialFrame) -> Result<()> {
         let data = frame.as_ref();
         match &frame {
-            SerialAPIFrame::Command(_) => {
+            SerialFrame::Data(_) => {
                 println!(">> {}", hex::encode(&data));
             }
-            SerialAPIFrame::ACK | SerialAPIFrame::CAN | SerialAPIFrame::NAK => {
+            SerialFrame::ACK | SerialFrame::CAN | SerialFrame::NAK => {
                 println!(">> {:?}", &frame);
             }
             _ => (),
@@ -135,7 +136,7 @@ impl Clone for SerialPortWriter {
     }
 }
 
-impl OpenPortBinding for OpenSerialPortBinding {
+impl OpenBinding for OpenSerialPortBinding {
     type Closed = SerialPortBinding;
 
     fn close(self) -> Result<Self::Closed> {
@@ -150,13 +151,13 @@ impl OpenPortBinding for OpenSerialPortBinding {
         })
     }
 
-    fn writer<'a>(&self) -> impl crate::common::SerialAPIWriter<'_> + Clone {
+    fn writer<'a>(&self) -> impl crate::binding::SerialWriter<'_> + Clone {
         SerialPortWriter {
             sender: self.command_tx.clone(),
         }
     }
 
-    fn listener(&self) -> crate::common::SerialAPIListener {
+    fn listener(&self) -> crate::binding::SerialListener {
         self.frames_rx.clone()
     }
 }

@@ -1,6 +1,7 @@
 use crossbeam::thread;
-use serial::common::*;
-use serial::serial::SerialPortBinding;
+use zwave_serial::binding::*;
+use zwave_serial::frame::SerialFrame;
+use zwave_serial::serialport::SerialPortBinding;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -24,20 +25,20 @@ fn main() {
                     {
                         let data = frame.as_ref();
                         match &frame {
-                            SerialAPIFrame::Command(_) => {
+                            SerialFrame::Data(_) => {
                                 println!("<< {}", hex::encode(&data));
                             }
-                            SerialAPIFrame::Garbage(_) => {
+                            SerialFrame::Garbage(_) => {
                                 println!("DISCARDED: {}", hex::encode(&data));
                             }
-                            SerialAPIFrame::ACK | SerialAPIFrame::CAN | SerialAPIFrame::NAK => {
+                            SerialFrame::ACK | SerialFrame::CAN | SerialFrame::NAK => {
                                 println!("<< {:?}", &frame);
                             }
                         }
 
-                        if let SerialAPIFrame::Command(_) = &frame {
+                        if let SerialFrame::Data(_) = &frame {
                             // Send ACK
-                            writer2.write(SerialAPIFrame::ACK).unwrap();
+                            writer2.write(SerialFrame::ACK).unwrap();
                             if data[1] == 0x0b {
                                 writer2
                                     .write_raw(hex::decode("01030002fe").unwrap())
