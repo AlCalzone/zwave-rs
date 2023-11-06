@@ -1,9 +1,9 @@
 use crossbeam::thread;
+use std::thread::sleep;
+use std::time::Duration;
 use zwave_serial::binding::*;
 use zwave_serial::frame::SerialFrame;
 use zwave_serial::serialport::SerialPortBinding;
-use std::thread::sleep;
-use std::time::Duration;
 
 fn main() {
     let port = SerialPortBinding::new("/dev/ttyUSB0");
@@ -23,12 +23,11 @@ fn main() {
             s.spawn(|_| {
                 for frame in listener.iter().take(2) {
                     {
-                        let data = frame.as_ref();
                         match &frame {
-                            SerialFrame::Data(_) => {
+                            SerialFrame::Data(data) => {
                                 println!("<< {}", hex::encode(&data));
                             }
-                            SerialFrame::Garbage(_) => {
+                            SerialFrame::Garbage(data) => {
                                 println!("DISCARDED: {}", hex::encode(&data));
                             }
                             SerialFrame::ACK | SerialFrame::CAN | SerialFrame::NAK => {
@@ -36,7 +35,11 @@ fn main() {
                             }
                         }
 
-                        if let SerialFrame::Data(_) = &frame {
+                        if let SerialFrame::Data(data) = &frame {
+                            match zwave_serial::command::Command::parse(data) {
+                                Ok((_, command)) => println!("received {:#?}", command),
+                                Err(e) => println!("error: {:?}", e),
+                            }
                             // Send ACK
                             writer2.write(SerialFrame::ACK).unwrap();
                             if data[1] == 0x0b {
@@ -45,7 +48,7 @@ fn main() {
                                     .unwrap();
                             }
                         }
-                        println!("received {:?}", frame);
+                        // println!("received {:#?}", frame);
                     }
                     sleep(Duration::from_millis(100));
                 }

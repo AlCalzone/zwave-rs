@@ -1,4 +1,4 @@
-use crate::parse;
+use crate::{command::Command, parse};
 use derive_try_from_primitive::*;
 use nom::{
     branch::alt,
@@ -27,8 +27,12 @@ pub enum SerialFrame {
     ACK,
     NAK,
     CAN,
-    Data(SerialData),
+    Data(Vec<u8>),
     Garbage(Vec<u8>),
+}
+
+pub trait Serialize {
+    fn serialize(&self) -> Vec<u8>;
 }
 
 fn consume_garbage(i: parse::Input) -> parse::Result<SerialFrame> {
@@ -57,7 +61,7 @@ fn parse_data(i: parse::Input) -> parse::Result<SerialFrame> {
     let (i, data) = take(len + 2)(i)?;
 
     // And return the whole thing
-    Ok((i, SerialFrame::Data(SerialData::new(data.to_vec()))))
+    Ok((i, SerialFrame::Data(data.to_vec())))
 }
 
 impl SerialFrame {
@@ -70,45 +74,22 @@ impl SerialFrame {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct SerialData {
-    data: Vec<u8>,
-}
-
-impl AsRef<[u8]> for SerialFrame {
-    fn as_ref(&self) -> &[u8] {
+impl Serialize for SerialFrame {
+    fn serialize(&self) -> Vec<u8> {
         match &self {
-            SerialFrame::ACK => &ACK_BUFFER,
-            SerialFrame::NAK => &NAK_BUFFER,
-            SerialFrame::CAN => &CAN_BUFFER,
-            SerialFrame::Data(cmd) => cmd.as_ref(),
-            SerialFrame::Garbage(data) => &data,
+            SerialFrame::ACK => Vec::from(ACK_BUFFER),
+            SerialFrame::NAK => Vec::from(NAK_BUFFER),
+            SerialFrame::CAN => Vec::from(CAN_BUFFER),
+            SerialFrame::Data(data) => data.clone(),
+            SerialFrame::Garbage(data) => data.clone(),
         }
-    }
-}
-
-impl SerialData {
-    pub fn new(data: Vec<u8>) -> Self {
-        Self { data }
-    }
-
-    pub fn payload(&self) -> &[u8] {
-        &self.data[2..&self.data.len() - 1]
-    }
-
-    pub fn checksum(&self) -> u8 {
-        *self.data.last().unwrap()
-    }
-}
-
-impl AsRef<[u8]> for SerialData {
-    fn as_ref(&self) -> &[u8] {
-        &self.data
     }
 }
 
 #[cfg(test)]
 mod test {
+    use crate::command::definitions::{CommandType, FunctionType};
+
     use super::*;
 
     #[test]
@@ -147,10 +128,7 @@ mod test {
         let remaining = hex::decode("06").unwrap();
         assert_eq!(
             parse_data(&data),
-            Ok((
-                remaining.as_slice(),
-                SerialFrame::Data(SerialData { data: expected }),
-            ))
+            Ok((remaining.as_slice(), SerialFrame::Data(expected),))
         );
     }
 
@@ -170,7 +148,7 @@ mod test {
         assert_eq!(
             results,
             vec![
-                SerialFrame::Data(SerialData { data: expected }),
+                SerialFrame::Data(expected),
                 SerialFrame::ACK,
                 SerialFrame::CAN,
                 SerialFrame::Garbage(garbage),

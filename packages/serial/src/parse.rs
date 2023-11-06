@@ -12,17 +12,27 @@ use nom::{ErrorConvert, Slice};
 pub enum ErrorKind {
     Nom(NomErrorKind),
     Context(&'static str),
+    Validation(String),
 }
 
 #[derive(PartialEq)]
 pub struct Error<I> {
-    // was NomErrorKind, now ErrorKind
     pub errors: Vec<(I, ErrorKind)>,
+}
+
+pub fn fail_validation<T>(input: Input, reason: String) -> Result<T> {
+    return Err(nom::Err::Failure(Error::failure(input, reason)));
+}
+
+impl<I> Error<I> {
+    fn failure(input: I, reason: String) -> Self {
+        let errors = vec![(input, ErrorKind::Validation(reason))];
+        Self { errors }
+    }
 }
 
 impl<I> NomParseError<I> for Error<I> {
     fn from_error_kind(input: I, kind: NomErrorKind) -> Self {
-        // was (input, kind)
         let errors = vec![(input, ErrorKind::Nom(kind))];
         Self { errors }
     }
@@ -129,6 +139,7 @@ impl<'a> fmt::Debug for Error<&'a [u8]> {
             let prefix = match kind {
                 ErrorKind::Context(ctx) => format!("...in {}", ctx),
                 ErrorKind::Nom(err) => format!("nom error {:?}", err),
+                ErrorKind::Validation(reason) => format!("validation error: {}", reason),
             };
 
             write!(f, "{}\n", prefix)?;
@@ -171,7 +182,7 @@ macro_rules! impl_bit_parsable_for_ux {
     ($($width: expr),*) => {
         $(
             paste::item! {
-				use ux::[<u $width>];
+                use ux::[<u $width>];
                 impl BitParsable for [<u $width>] {
                     fn parse(i: BitInput) -> BitResult<Self> {
                         map(take_bits($width as usize), Self::new)(i)

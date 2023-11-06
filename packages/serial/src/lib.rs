@@ -3,3 +3,4 @@ pub mod binding;
 pub mod serialport;
 mod parse;
 pub mod frame;
+pub mod command;

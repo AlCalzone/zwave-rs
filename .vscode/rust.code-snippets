@@ -1,0 +1,14 @@
+{
+  "Nom Parser": {
+    "scope": "rust",
+    "prefix": "parse",
+    "body": [
+      "pub fn parse(i: parse::Input) -> parse::Result<Self> {",
+      "\tcontext(",
+      "\t\t\"${1:StructName}\",",
+      "\t\t${0:take(1 as usize)},",
+      "\t)(i)",
+      "}"
+    ]
+  }
+}

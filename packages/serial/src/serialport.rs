@@ -1,6 +1,6 @@
 use crate::binding::{OpenBinding, Binding, SerialWriter};
 use crate::error::Result;
-use crate::frame::SerialFrame;
+use crate::frame::{SerialFrame, Serialize};
 use bytes::{Buf, BytesMut};
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use serialport::SerialPortBuilder;
@@ -113,7 +113,7 @@ impl SerialWriter<'_> for SerialPortWriter {
     }
 
     fn write(&self, frame: SerialFrame) -> Result<()> {
-        let data = frame.as_ref();
+        let data = frame.serialize();
         match &frame {
             SerialFrame::Data(_) => {
                 println!(">> {}", hex::encode(&data));
