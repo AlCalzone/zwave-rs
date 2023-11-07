@@ -1,4 +1,4 @@
-use crate::{command::Command, parse};
+use crate::parse;
 use derive_try_from_primitive::*;
 use nom::{
     branch::alt,
@@ -29,10 +29,6 @@ pub enum SerialFrame {
     CAN,
     Data(Vec<u8>),
     Garbage(Vec<u8>),
-}
-
-pub trait Serialize {
-    fn serialize(&self) -> Vec<u8>;
 }
 
 fn consume_garbage(i: parse::Input) -> parse::Result<SerialFrame> {
@@ -74,9 +70,9 @@ impl SerialFrame {
     }
 }
 
-impl Serialize for SerialFrame {
-    fn serialize(&self) -> Vec<u8> {
-        match &self {
+impl Into<Vec<u8>> for &SerialFrame {
+    fn into(self) -> Vec<u8> {
+        match self {
             SerialFrame::ACK => Vec::from(ACK_BUFFER),
             SerialFrame::NAK => Vec::from(NAK_BUFFER),
             SerialFrame::CAN => Vec::from(CAN_BUFFER),
@@ -86,10 +82,23 @@ impl Serialize for SerialFrame {
     }
 }
 
+pub trait Serialize {
+    fn serialize(&self) -> Vec<u8>;
+}
+
+// Adds convenience for all references that can be converted into a Vec<u8>
+// This way, one can call `a.serialize()`, rather than `(&a).into()`
+impl<T> Serialize for T
+where
+    for<'a> &'a T: Into<Vec<u8>>,
+{
+    fn serialize(&self) -> Vec<u8> {
+        self.into()
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::command::definitions::{CommandType, FunctionType};
-
     use super::*;
 
     #[test]

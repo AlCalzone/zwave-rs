@@ -4,10 +4,35 @@
     "prefix": "parse",
     "body": [
       "pub fn parse(i: parse::Input) -> parse::Result<Self> {",
-      "\tcontext(",
-      "\t\t\"${1:StructName}\",",
-      "\t\t${0:take(1 as usize)},",
-      "\t)(i)",
+      "    context(",
+      "        \"${1:StructName}\",",
+      "        ${0:take(1 as usize)},",
+      "    )(i)",
+      "}"
+    ]
+  },
+  "impl TryFrom (Parser)": {
+    "scope": "rust",
+    "prefix": "impltryfrom",
+    "body": [
+      "impl TryFrom<&[u8]> for ${1:StructName} {",
+      "    type Error = crate::error::Error;",
+      "",
+      "    fn try_from(value: &[u8]) -> crate::error::Result<Self> {",
+      "        Self::parse(value).into_result()",
+      "    }",
+      "}"
+    ]
+  },
+  "impl Serialize": {
+    "scope": "rust",
+    "prefix": "implserialize",
+    "body": [
+      "impl Into<Vec<u8>> for &${1:StructName} {",
+      "    fn into(self) -> Vec<u8> {",
+      "        let mut result = vec![${0}];",
+      "        result",
+      "    }",
       "}"
     ]
   }

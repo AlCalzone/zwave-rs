@@ -20,14 +20,19 @@ pub struct Error<I> {
     pub errors: Vec<(I, ErrorKind)>,
 }
 
-pub fn fail_validation<T>(input: Input, reason: String) -> Result<T> {
-    return Err(nom::Err::Failure(Error::failure(input, reason)));
-}
-
 impl<I> Error<I> {
-    fn failure(input: I, reason: String) -> Self {
+    fn validation_failure(input: I, reason: String) -> Self {
         let errors = vec![(input, ErrorKind::Validation(reason))];
         Self { errors }
+    }
+}
+
+/// Validates that the given condition is satisfied, otherwise results in a
+/// nom Failure with the given error message.
+pub fn validate(input: Input, condition: bool, message: String) -> Result<()> {
+    match condition {
+        true => Ok((input, ())),
+        false => Err(nom::Err::Failure(Error::validation_failure(input, message))),
     }
 }
 
@@ -173,6 +178,49 @@ where
     Self: Sized,
 {
     fn parse(i: BitInput) -> BitResult<Self>;
+}
+
+// Convert all errors into a ParseError, while preserving validation errors
+impl<T> crate::error::IntoResult for Result<'_, T> {
+    type Output = T;
+
+    fn into_result(self) -> crate::error::Result<Self::Output> {
+        use crate::error::Error;
+        let reason = match self {
+            Ok((_, output)) => return Ok(output),
+
+            Err(nom::Err::Incomplete(_)) | Err(nom::Err::Error(_)) => None,
+            Err(nom::Err::Failure(e)) => {
+                // Try to extract the failure reason
+                e.errors.iter().find_map(|(_, kind)| match kind {
+                    ErrorKind::Validation(reason) => Some(reason.clone()),
+                    _ => None,
+                })
+            }
+        };
+        Err(Error::Parser(reason))
+    }
+}
+
+impl<T> crate::error::IntoResult for BitResult<'_, T> {
+    type Output = T;
+
+    fn into_result(self) -> crate::error::Result<Self::Output> {
+        use crate::error::Error;
+        let reason = match self {
+            Ok((_, output)) => return Ok(output),
+
+            Err(nom::Err::Incomplete(_)) | Err(nom::Err::Error(_)) => None,
+            Err(nom::Err::Failure(e)) => {
+                // Try to extract the failure reason
+                e.errors.iter().find_map(|(_, kind)| match kind {
+                    ErrorKind::Validation(reason) => Some(reason.clone()),
+                    _ => None,
+                })
+            }
+        };
+        Err(Error::Parser(reason))
+    }
 }
 
 use nom::bits::streaming::take as take_bits;

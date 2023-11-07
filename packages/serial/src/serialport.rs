@@ -1,4 +1,4 @@
-use crate::binding::{OpenBinding, Binding, SerialWriter};
+use crate::binding::{Binding, OpenBinding, SerialWriter};
 use crate::error::Result;
 use crate::frame::{SerialFrame, Serialize};
 use bytes::{Buf, BytesMut};
@@ -59,9 +59,7 @@ impl Binding for SerialPortBinding {
                 match port.read(&mut serial_buf) {
                     Ok(t) => {
                         parse_buf.extend_from_slice(&serial_buf[..t]);
-                        while let Ok((remaining, frame)) =
-                            SerialFrame::parse(&parse_buf.to_vec())
-                        {
+                        while let Ok((remaining, frame)) = SerialFrame::parse(&parse_buf.to_vec()) {
                             // Emit the data to the listener and exit when there isn't one anymore
                             if frames_tx.send(frame).is_err() {
                                 break;
@@ -113,7 +111,7 @@ impl SerialWriter<'_> for SerialPortWriter {
     }
 
     fn write(&self, frame: SerialFrame) -> Result<()> {
-        let data = frame.serialize();
+        let data: Vec<u8> = frame.serialize();
         match &frame {
             SerialFrame::Data(_) => {
                 println!(">> {}", hex::encode(&data));

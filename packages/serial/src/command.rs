@@ -2,16 +2,17 @@ pub mod definitions;
 use custom_debug_derive::Debug;
 
 use nom::{
-    bytes::streaming::{tag, take},
+    bytes::complete::{tag, take},
     combinator::peek,
-    number::streaming::be_u8,
+    number::complete::be_u8,
     sequence::tuple,
 };
 
 use crate::{
     command::definitions::{CommandType, FunctionType},
-    frame::{SerialControlByte, Serialize},
-    parse::{self, fail_validation},
+    error::IntoResult,
+    frame::SerialControlByte,
+    parse::{self, validate},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -61,15 +62,14 @@ impl Command {
         let (i, checksum) = be_u8(i)?;
 
         let expected_checksum = compute_checksum(raw_data);
-        if checksum != expected_checksum {
-            return fail_validation(
-                rem,
-                format!(
-                    "checksum mismatch: expected {:#04x}, got {:#04x}",
-                    expected_checksum, checksum
-                ),
-            );
-        }
+        validate(
+            rem,
+            checksum == expected_checksum,
+            format!(
+                "checksum mismatch: expected {:#04x}, got {:#04x}",
+                expected_checksum, checksum
+            ),
+        )?;
 
         Ok((
             i,
@@ -83,8 +83,16 @@ impl Command {
     }
 }
 
-impl Serialize for Command {
-    fn serialize(&self) -> Vec<u8> {
+impl TryFrom<&[u8]> for Command {
+    type Error = crate::error::Error;
+
+    fn try_from(value: &[u8]) -> crate::error::Result<Self> {
+        Self::parse(value).into_result()
+    }
+}
+
+impl Into<Vec<u8>> for &Command {
+    fn into(self) -> Vec<u8> {
         let mut result = vec![
             SerialControlByte::SOF as u8,
             self.payload.len() as u8 + 3,
@@ -94,5 +102,22 @@ impl Serialize for Command {
         result.append(&mut self.payload.clone());
         result.push(self.checksum);
         result
+    }
+}
+
+#[test]
+fn test_parse_invalid_checksum() {
+    // This is an actual message with a correct checksum
+    let input = hex::decode("01030002fe").unwrap();
+    let result = Command::try_from(input.as_ref());
+    assert!(result.is_ok());
+
+    // Now it is wrong
+    let input = hex::decode("01030002ff").unwrap();
+    let result = Command::try_from(input.as_ref());
+    match result {
+        Ok(_) => panic!("Expected an error"),
+        Err(crate::error::Error::Parser(_)) => (),
+        Err(_) => panic!("Expected a parser error"),
     }
 }
