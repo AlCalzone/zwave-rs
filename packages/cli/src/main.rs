@@ -1,66 +1,24 @@
-use crossbeam::thread;
-use std::thread::sleep;
+use std::thread;
 use std::time::Duration;
-use zwave_serial::binding::*;
-use zwave_serial::frame::SerialFrame;
-use zwave_serial::serialport::SerialPortBinding;
 
 fn main() {
-    let port = SerialPortBinding::new("/dev/ttyUSB0");
+    let driver = zwave_driver::Driver::new("/dev/ttyUSB0");
+    println!("driver started");
 
-    let port = port.open().unwrap();
-
-    {
-        let listener = port.listener();
-        let writer = port.writer();
-        let writer2 = writer.clone();
-
-        writer
-            .write_raw(&hex::decode("01030008f4").unwrap())
-            .unwrap();
-
-        thread::scope(|s| {
-            s.spawn(|_| {
-                for frame in listener.iter().take(2) {
-                    {
-                        match &frame {
-                            SerialFrame::Data(data) => {
-                                println!("<< {}", hex::encode(&data));
-                            }
-                            SerialFrame::Garbage(data) => {
-                                println!("DISCARDED: {}", hex::encode(&data));
-                            }
-                            SerialFrame::ACK | SerialFrame::CAN | SerialFrame::NAK => {
-                                println!("<< {:?}", &frame);
-                            }
-                        }
-
-                        if let SerialFrame::Data(data) = &frame {
-                            match zwave_serial::command::Command::parse(data) {
-                                Ok((_, command)) => println!("received {:#?}", command),
-                                Err(e) => println!("error: {:?}", e),
-                            }
-                            // Send ACK
-                            writer2.write(SerialFrame::ACK).unwrap();
-                            if data[1] == 0x0b {
-                                writer2
-                                    .write_raw(hex::decode("01030002fe").unwrap())
-                                    .unwrap();
-                            }
-                        }
-                        // println!("received {:#?}", frame);
-                    }
-                    sleep(Duration::from_millis(100));
-                }
-            });
-        })
+    driver
+        .write_raw(&hex::decode("01030008f4").unwrap())
         .unwrap();
 
-        println!("received 2 messages... closing");
-        sleep(Duration::from_millis(2000));
+    thread::sleep(Duration::from_millis(10000));
 
-        drop(writer)
-    }
+    drop(driver);
+    println!("driver stopped");
 
-    port.close().unwrap();
+    let driver = zwave_driver::Driver::new("/dev/ttyUSB0");
+    println!("driver started again");
+
+    thread::sleep(Duration::from_millis(10000));
+
+    drop(driver);
+    println!("driver stopped again");
 }

@@ -1,6 +1,3 @@
 [workspace]
-members = [
-	"packages/serial",
-	"packages/cli"
-]
+members = ["packages/serial", "packages/cli", "packages/driver"]
 resolver = "2"

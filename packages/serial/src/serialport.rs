@@ -97,9 +97,8 @@ struct SerialPortWriter {
     sender: Sender<ThreadCommand>,
 }
 
-impl SerialWriter<'_> for SerialPortWriter {
-    fn write_raw(&self, data: impl AsRef<[u8]>) -> Result<()> {
-        let data = data.as_ref();
+impl SerialWriter for SerialPortWriter {
+    fn write_raw(&self, data: &[u8]) -> Result<()> {
         if data.len() > 1 {
             println!(">> {}", hex::encode(&data));
         }
@@ -122,7 +121,7 @@ impl SerialWriter<'_> for SerialPortWriter {
             _ => (),
         }
 
-        self.write_raw(data)
+        self.write_raw(data.as_slice())
     }
 }
 
@@ -149,10 +148,10 @@ impl OpenBinding for OpenSerialPortBinding {
         })
     }
 
-    fn writer<'a>(&self) -> impl crate::binding::SerialWriter<'_> + Clone {
-        SerialPortWriter {
+    fn writer(&self) -> Box<dyn crate::binding::SerialWriter> {
+        Box::new(SerialPortWriter {
             sender: self.command_tx.clone(),
-        }
+        })
     }
 
     fn listener(&self) -> crate::binding::SerialListener {
