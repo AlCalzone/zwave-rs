@@ -28,10 +28,22 @@
     "scope": "rust",
     "prefix": "implserialize",
     "body": [
-      "impl Into<Vec<u8>> for &${1:StructName} {",
-      "    fn into(self) -> Vec<u8> {",
-      "        let mut result = vec![${0}];",
-      "        result",
+      "pub fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {",
+      "    use cf::{bytes::be_u8, sequence::tuple};",
+      "",
+      "    ${0:tuple((be_u8(1), be_u8(2)))}",
+      "}"
+    ]
+  },
+  "impl TryInto (Serializer)": {
+    "scope": "rust",
+    "prefix": "impltryinto",
+    "body": [
+      "impl TryInto<Vec<u8>> for &${0:StructName} {",
+      "    type Error = crate::error::Error;",
+      "",
+      "    fn try_into(self) -> Result<Vec<u8>, Self::Error> {",
+      "        cf::gen_simple(self.serialize(), Vec::new()).into_result()",
       "    }",
       "}"
     ]

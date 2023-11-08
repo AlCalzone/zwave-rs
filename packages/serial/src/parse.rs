@@ -3,6 +3,7 @@
 use std::fmt;
 use std::ops::RangeFrom;
 
+use cookie_factory::GenError;
 use nom::error::{
     ContextError as NomContextError, ErrorKind as NomErrorKind, ParseError as NomParseError,
 };
@@ -223,6 +224,14 @@ impl<T> crate::error::IntoResult for BitResult<'_, T> {
     }
 }
 
+impl<T> crate::error::IntoResult for std::result::Result<T, GenError> {
+    type Output = T;
+    fn into_result(self) -> crate::error::Result<Self::Output> {
+        use crate::error::Error;
+        self.map_err(|e| Error::Serialization(format!("{:?}", e)))
+    }
+}
+
 use nom::bits::streaming::take as take_bits;
 use nom::combinator::map;
 
@@ -242,3 +251,33 @@ macro_rules! impl_bit_parsable_for_ux {
 }
 
 impl_bit_parsable_for_ux!(1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15);
+
+macro_rules! impl_vec_conversion_for_serializable {
+    ($struct_name:ident) => {
+        impl TryFrom<&[u8]> for $struct_name {
+            type Error = crate::error::Error;
+        
+            fn try_from(value: &[u8]) -> crate::error::Result<Self> {
+                use crate::error::IntoResult;
+                Self::parse(value).into_result()
+            }
+        }
+        
+        impl TryInto<Vec<u8>> for &$struct_name {
+            type Error = crate::error::Error;
+        
+            fn try_into(self) -> Result<Vec<u8>, Self::Error> {
+                use crate::error::IntoResult;
+                cf::gen_simple(self.serialize(), Vec::new()).into_result()
+            }
+        }
+        
+        impl TryInto<Vec<u8>> for $struct_name {
+            type Error = crate::error::Error;
+        
+            fn try_into(self) -> Result<Vec<u8>, Self::Error> {
+                (&self).try_into()
+            }
+        }
+    };
+}

@@ -1,4 +1,6 @@
 use crate::parse;
+
+use cookie_factory as cf;
 use derive_try_from_primitive::*;
 use nom::{
     branch::alt,
@@ -68,34 +70,23 @@ impl SerialFrame {
             alt((consume_garbage, parse_control, parse_data)),
         )(i)
     }
-}
 
-impl Into<Vec<u8>> for &SerialFrame {
-    fn into(self) -> Vec<u8> {
-        match self {
-            SerialFrame::ACK => Vec::from(ACK_BUFFER),
-            SerialFrame::NAK => Vec::from(NAK_BUFFER),
-            SerialFrame::CAN => Vec::from(CAN_BUFFER),
-            SerialFrame::Data(data) => data.clone(),
-            SerialFrame::Garbage(data) => data.clone(),
+    pub fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+        use cf::{bytes::be_u8, combinator::slice};
+
+        move |out| match self {
+            SerialFrame::ACK => be_u8(SerialControlByte::ACK as u8)(out),
+            SerialFrame::NAK => be_u8(SerialControlByte::NAK as u8)(out),
+            SerialFrame::CAN => be_u8(SerialControlByte::CAN as u8)(out),
+            SerialFrame::Data(data) => slice(data)(out),
+            SerialFrame::Garbage(_) => unimplemented!("Garbage is not serializable"),
         }
     }
 }
 
-pub trait Serialize {
-    fn serialize(&self) -> Vec<u8>;
-}
-
-// Adds convenience for all references that can be converted into a Vec<u8>
-// This way, one can call `a.serialize()`, rather than `(&a).into()`
-impl<T> Serialize for T
-where
-    for<'a> &'a T: Into<Vec<u8>>,
-{
-    fn serialize(&self) -> Vec<u8> {
-        self.into()
-    }
-}
+impl_vec_conversion_for_serializable!(SerialFrame);
 
 #[cfg(test)]
 mod test {

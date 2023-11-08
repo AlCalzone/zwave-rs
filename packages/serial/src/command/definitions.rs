@@ -1,4 +1,5 @@
 use crate::parse;
+use cookie_factory as cf;
 use derive_try_from_primitive::*;
 use nom::{combinator::map, error::context, number::complete::be_u8};
 
@@ -15,6 +16,13 @@ impl CommandType {
             "CommandType",
             map(be_u8, |x| CommandType::try_from(x).unwrap()),
         )(i)
+    }
+
+    pub fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+        use cf::bytes::be_u8;
+        be_u8(*self as u8)
     }
 }
 
@@ -205,6 +213,14 @@ impl FunctionType {
             "FunctionType",
             map(be_u8, |x| FunctionType::try_from(x).unwrap()),
         )(i)
+    }
+
+    pub fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+        use cf::bytes::be_u8;
+
+        be_u8(*self as u8)
     }
 }
 

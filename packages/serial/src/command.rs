@@ -8,9 +8,10 @@ use nom::{
     sequence::tuple,
 };
 
+use cookie_factory as cf;
+
 use crate::{
     command::definitions::{CommandType, FunctionType},
-    error::IntoResult,
     frame::SerialControlByte,
     parse::{self, validate},
 };
@@ -81,29 +82,40 @@ impl Command {
             },
         ))
     }
-}
 
-impl TryFrom<&[u8]> for Command {
-    type Error = crate::error::Error;
+    fn serialize_no_checksum<'a, W: std::io::Write + 'a>(
+        &'a self,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+        use cf::{bytes::be_u8, combinator::slice, sequence::tuple};
 
-    fn try_from(value: &[u8]) -> crate::error::Result<Self> {
-        Self::parse(value).into_result()
+        let sof = be_u8(SerialControlByte::SOF as u8);
+        let len = be_u8(self.payload.len() as u8 + 3);
+        let command_type = self.command_type.serialize();
+        let function_type = self.function_type.serialize();
+        let payload = slice(&self.payload);
+        let checksum = be_u8(0); // placeholder
+
+        tuple((sof, len, command_type, function_type, payload, checksum))
+    }
+
+    pub fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+        use cf::{bytes::be_u8, combinator::slice};
+
+        // First serialize the command without checksum,
+        move |out| {
+            let mut buf = cf::gen_simple(self.serialize_no_checksum(), Vec::new())?;
+            let checksum = compute_checksum(&buf);
+            // then write the checksum into the last byte
+            let len = buf.len();
+            cf::gen_simple(be_u8(checksum), &mut buf[len - 1..])?;
+            slice(buf)(out)
+        }
     }
 }
 
-impl Into<Vec<u8>> for &Command {
-    fn into(self) -> Vec<u8> {
-        let mut result = vec![
-            SerialControlByte::SOF as u8,
-            self.payload.len() as u8 + 3,
-            self.command_type as u8,
-            self.function_type as u8,
-        ];
-        result.append(&mut self.payload.clone());
-        result.push(self.checksum);
-        result
-    }
-}
+impl_vec_conversion_for_serializable!(Command);
 
 #[test]
 fn test_parse_invalid_checksum() {
