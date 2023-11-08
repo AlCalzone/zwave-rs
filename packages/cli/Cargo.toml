@@ -9,4 +9,4 @@ edition = "2021"
 hex = "0.4.3"
 zwave-serial = { path = "../serial" }
 zwave-driver = { path = "../driver" }
-crossbeam = "0.8.2"
+tokio = { version = "1.33.0", features = ["rt-multi-thread", "macros"] }

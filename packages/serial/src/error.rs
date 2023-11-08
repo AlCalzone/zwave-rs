@@ -6,6 +6,8 @@ use thiserror::Error;
 pub enum Error {
     #[error(transparent)]
     Serialport(#[from] serialport::Error),
+    #[error(transparent)]
+    IO(#[from] tokio::io::Error),
     #[error("Parser error: {0:?}")]
     Parser(Option<String>),
     #[error("Serialization error: {0:?}")]

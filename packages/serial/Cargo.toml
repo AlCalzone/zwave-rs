@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 bytes = "1.5.0"
 cookie-factory = "0.3.2"
-crossbeam-channel = "0.5.8"
 custom_debug_derive = "0.5.1"
 derive-try-from-primitive = "1.0.0"
 hex = "0.4.3"
@@ -17,3 +16,7 @@ paste = "1.0.14"
 serialport = "4.2.2"
 thiserror = "1.0.50"
 ux = "0.1.5"
+tokio = { version = "1.33.0", features = ["rt"] }
+tokio-serial = "5.4.4"
+tokio-util = { version = "0.7.10", features = ["codec"] }
+futures = "0.3.29"

@@ -1,23 +1,12 @@
 use crate::{error::Result, frame::SerialFrame};
 
-pub type SerialListener = crossbeam_channel::Receiver<SerialFrame>;
-pub trait SerialWriter {
-    // FIXME: Do not accept garbage here
-    fn write(&self, frame: SerialFrame) -> Result<()>;
-    fn write_raw(&self, data: &[u8]) -> Result<()>;
-}
+pub trait SerialBinding {
+    fn new(path: &str) -> Result<Self>
+    where
+        Self: Sized;
 
-pub trait Binding {
-    type Open;
+    fn write(&mut self, frame: SerialFrame)
+        -> impl std::future::Future<Output = Result<()>> + Send;
 
-    fn new(path: &str) -> Self;
-    fn open(self) -> Result<Self::Open>;
-}
-
-pub trait OpenBinding {
-    type Closed;
-
-    fn close(self) -> Result<Self::Closed>;
-    fn listener(&self) -> SerialListener;
-    fn writer(&self) -> Box<dyn SerialWriter>;
+    fn read(&mut self) -> impl std::future::Future<Output = Option<SerialFrame>> + Send;
 }

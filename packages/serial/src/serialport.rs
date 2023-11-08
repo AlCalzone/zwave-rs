@@ -1,115 +1,30 @@
-use crate::binding::{Binding, OpenBinding, SerialWriter};
-use crate::error::Result;
+use crate::binding::SerialBinding;
+use crate::error::{IntoResult, Result};
 use crate::frame::SerialFrame;
 use bytes::{Buf, BytesMut};
-use crossbeam_channel::{Receiver, Sender, TryRecvError};
-use serialport::SerialPortBuilder;
-use std::io::{self};
-use std::thread;
-use std::{thread::JoinHandle, time::Duration};
+use futures::stream::{SplitSink, SplitStream};
+use futures::{SinkExt, StreamExt};
+use tokio_serial::{SerialPortBuilderExt, SerialStream};
+use tokio_util::codec::{Decoder, Encoder, Framed};
 
-pub struct SerialPortBinding {
-    builder: SerialPortBuilder,
+pub struct SerialPort {
+    writer: SplitSink<Framed<SerialStream, SerialFrameCodec>, SerialFrame>,
+    reader: SplitStream<Framed<SerialStream, SerialFrameCodec>>,
 }
 
-#[derive(Debug)]
-enum ThreadCommand {
-    Stop,
-    Write(Vec<u8>),
-}
+impl SerialBinding for SerialPort {
+    fn new(path: &str) -> Result<Self> {
+        let mut port = tokio_serial::new(path, 115_200).open_native_async()?;
 
-#[derive(Debug)]
-pub struct OpenSerialPortBinding {
-    builder: SerialPortBuilder,
-    thread: JoinHandle<()>,
-    command_tx: Sender<ThreadCommand>,
-    frames_rx: Receiver<SerialFrame>,
-}
-
-impl Binding for SerialPortBinding {
-    type Open = OpenSerialPortBinding;
-
-    fn new(path: &str) -> Self {
-        let builder = serialport::new(path, 115_200).timeout(Duration::from_millis(10));
-        return Self { builder };
+        #[cfg(unix)]
+        port.set_exclusive(false)
+            .expect("Unable to set serial port exclusive to false");
+        let codec = SerialFrameCodec.framed(port);
+        let (writer, reader) = codec.split();
+        Ok(Self { writer, reader })
     }
 
-    fn open(self) -> Result<Self::Open> {
-        let mut port = self.builder.clone().open()?;
-        // Create a channel to communicate with the thread
-        let (command_tx, command_rx) = crossbeam_channel::unbounded::<ThreadCommand>();
-        // Create a channel to allow callers to listen for frames
-        let (frames_tx, frames_rx) = crossbeam_channel::unbounded::<SerialFrame>();
-
-        let thread = thread::spawn(move || {
-            // parse_buf keeps track of the data that has been read from the serial port
-            // and allows easy appending of new data
-            let mut parse_buf = BytesMut::with_capacity(512);
-            // serial_buf is needed to read data from the serial port
-            let mut serial_buf: Vec<u8> = vec![0; 256];
-
-            loop {
-                let cmd = match command_rx.try_recv() {
-                    Ok(ThreadCommand::Stop) | Err(TryRecvError::Disconnected) => break,
-                    Err(TryRecvError::Empty) => None,
-                    Ok(cmd) => Some(cmd),
-                };
-
-                // Try to read from serial port and store the data into the serial buffer at the offset
-                match port.read(&mut serial_buf) {
-                    Ok(t) => {
-                        parse_buf.extend_from_slice(&serial_buf[..t]);
-                        while let Ok((remaining, frame)) = SerialFrame::parse(&parse_buf.to_vec()) {
-                            // Emit the data to the listener and exit when there isn't one anymore
-                            if frames_tx.send(frame).is_err() {
-                                break;
-                            }
-
-                            let bytes_read = parse_buf.len() - remaining.len();
-                            parse_buf.advance(bytes_read);
-                        }
-                    }
-                    Err(ref e) if e.kind() == io::ErrorKind::TimedOut => {
-                        // No data to read, continue
-                    }
-                    Err(e) => {
-                        eprintln!("{:?}", e);
-                        break;
-                    }
-                }
-
-                // When we're done or there's nothing to read, handle pending writes
-                if let Some(ThreadCommand::Write(data)) = cmd {
-                    port.write_all(&data).unwrap();
-                }
-            }
-        });
-        return Ok(OpenSerialPortBinding {
-            builder: self.builder,
-            thread,
-            command_tx,
-            frames_rx,
-        });
-    }
-}
-
-struct SerialPortWriter {
-    sender: Sender<ThreadCommand>,
-}
-
-impl SerialWriter for SerialPortWriter {
-    fn write_raw(&self, data: &[u8]) -> Result<()> {
-        if data.len() > 1 {
-            println!(">> {}", hex::encode(&data));
-        }
-
-        self.sender
-            .send(ThreadCommand::Write(data.as_ref().to_vec()))
-            .unwrap();
-        Ok(())
-    }
-
-    fn write(&self, frame: SerialFrame) -> Result<()> {
+    async fn write(&mut self, frame: SerialFrame) -> Result<()> {
         let data: Vec<u8> = (&frame).try_into()?;
         match &frame {
             SerialFrame::Data(_) => {
@@ -121,40 +36,50 @@ impl SerialWriter for SerialPortWriter {
             _ => (),
         }
 
-        self.write_raw(data.as_slice())
+        self.writer.send(frame).await
     }
-}
 
-impl Clone for SerialPortWriter {
-    fn clone(&self) -> Self {
-        Self {
-            sender: self.sender.clone(),
+    async fn read(&mut self) -> Option<SerialFrame> {
+        let ret = self.reader.next().await;
+        match ret {
+            Some(Ok(frame)) => Some(frame),
+            _ => None,
         }
     }
 }
 
-impl OpenBinding for OpenSerialPortBinding {
-    type Closed = SerialPortBinding;
+struct SerialFrameCodec;
 
-    fn close(self) -> Result<Self::Closed> {
-        // Stop the thread and wait for it. We have to expect that the
-        // thread has already exited due to no listeners being active anymore,
-        // so ignore a potential Error
-        let _ = self.command_tx.send(ThreadCommand::Stop);
-        self.thread.join().unwrap();
+impl Decoder for SerialFrameCodec {
+    type Item = SerialFrame;
+    type Error = crate::error::Error;
 
-        Ok(SerialPortBinding {
-            builder: self.builder,
-        })
+    fn decode(
+        &mut self,
+        src: &mut BytesMut,
+    ) -> std::result::Result<Option<Self::Item>, Self::Error> {
+        match SerialFrame::parse(src) {
+            Ok((remaining, frame)) => {
+                let bytes_read = src.len() - remaining.len();
+                src.advance(bytes_read);
+                Ok(Some(frame))
+            }
+            Err(nom::Err::Incomplete(_)) => Ok(None),
+            e => e.into_result().map(|_| None),
+        }
     }
+}
 
-    fn writer(&self) -> Box<dyn crate::binding::SerialWriter> {
-        Box::new(SerialPortWriter {
-            sender: self.command_tx.clone(),
-        })
-    }
+impl Encoder<SerialFrame> for SerialFrameCodec {
+    type Error = crate::error::Error;
 
-    fn listener(&self) -> crate::binding::SerialListener {
-        self.frames_rx.clone()
+    fn encode(
+        &mut self,
+        item: SerialFrame,
+        dst: &mut BytesMut,
+    ) -> std::result::Result<(), Self::Error> {
+        let data: Vec<u8> = (&item).try_into()?;
+        dst.extend_from_slice(data.as_slice());
+        Ok(())
     }
 }

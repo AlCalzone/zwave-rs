@@ -1,12 +1,15 @@
 use std::thread;
 use std::time::Duration;
+use zwave_serial::frame::SerialFrame;
 
-fn main() {
-    let driver = zwave_driver::Driver::new("/dev/ttyUSB0");
+#[tokio::main]
+async fn main() {
+    let mut driver = zwave_driver::Driver::new("/dev/ttyUSB0");
     println!("driver started");
 
     driver
-        .write_raw(&hex::decode("01030008f4").unwrap())
+        .write(SerialFrame::Data(hex::decode("01030008f4").unwrap()))
+        .await
         .unwrap();
 
     thread::sleep(Duration::from_millis(10000));
@@ -14,8 +17,13 @@ fn main() {
     drop(driver);
     println!("driver stopped");
 
-    let driver = zwave_driver::Driver::new("/dev/ttyUSB0");
+    let mut driver = zwave_driver::Driver::new("/dev/ttyUSB0");
     println!("driver started again");
+
+    driver
+        .write(SerialFrame::Data(hex::decode("01030008f4").unwrap()))
+        .await
+        .unwrap();
 
     thread::sleep(Duration::from_millis(10000));
 
