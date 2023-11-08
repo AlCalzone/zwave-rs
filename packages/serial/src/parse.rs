@@ -252,32 +252,43 @@ macro_rules! impl_bit_parsable_for_ux {
 
 impl_bit_parsable_for_ux!(1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15);
 
-macro_rules! impl_vec_conversion_for_serializable {
+macro_rules! impl_vec_parsing_for {
     ($struct_name:ident) => {
         impl TryFrom<&[u8]> for $struct_name {
             type Error = crate::error::Error;
-        
+
             fn try_from(value: &[u8]) -> crate::error::Result<Self> {
                 use crate::error::IntoResult;
                 Self::parse(value).into_result()
             }
         }
-        
+    };
+}
+
+macro_rules! impl_vec_serializing_for {
+    ($struct_name:ident) => {
         impl TryInto<Vec<u8>> for &$struct_name {
             type Error = crate::error::Error;
-        
+
             fn try_into(self) -> Result<Vec<u8>, Self::Error> {
                 use crate::error::IntoResult;
                 cf::gen_simple(self.serialize(), Vec::new()).into_result()
             }
         }
-        
+
         impl TryInto<Vec<u8>> for $struct_name {
             type Error = crate::error::Error;
-        
+
             fn try_into(self) -> Result<Vec<u8>, Self::Error> {
                 (&self).try_into()
             }
         }
+    };
+}
+
+macro_rules! impl_vec_conversion_for {
+    ($struct_name:ident) => {
+        impl_vec_parsing_for!($struct_name);
+        impl_vec_serializing_for!($struct_name);
     };
 }

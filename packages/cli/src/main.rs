@@ -8,7 +8,7 @@ async fn main() {
     println!("driver started");
 
     driver
-        .write_serial(SerialFrame::Data(hex::decode("01030008f4").unwrap()))
+        .write_serial(SerialFrame::Raw(hex::decode("01030008f4").unwrap()))
         .await
         .unwrap();
 
@@ -21,7 +21,7 @@ async fn main() {
     println!("driver started again");
 
     driver
-        .write_serial(SerialFrame::Data(hex::decode("01030008f4").unwrap()))
+        .write_serial(SerialFrame::Raw(hex::decode("01030008f4").unwrap()))
         .await
         .unwrap();
 

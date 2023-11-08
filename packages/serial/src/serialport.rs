@@ -1,6 +1,6 @@
 use crate::binding::SerialBinding;
 use crate::error::{IntoResult, Result};
-use crate::frame::SerialFrame;
+use crate::frame::RawSerialFrame;
 use bytes::{Buf, BytesMut};
 use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
@@ -8,7 +8,7 @@ use tokio_serial::{SerialPortBuilderExt, SerialStream};
 use tokio_util::codec::{Decoder, Encoder, Framed};
 
 pub struct SerialPort {
-    writer: SplitSink<Framed<SerialStream, SerialFrameCodec>, SerialFrame>,
+    writer: SplitSink<Framed<SerialStream, SerialFrameCodec>, RawSerialFrame>,
     reader: SplitStream<Framed<SerialStream, SerialFrameCodec>>,
 }
 
@@ -24,13 +24,12 @@ impl SerialBinding for SerialPort {
         Ok(Self { writer, reader })
     }
 
-    async fn write(&mut self, frame: SerialFrame) -> Result<()> {
-        let data: Vec<u8> = (&frame).try_into()?;
+    async fn write(&mut self, frame: RawSerialFrame) -> Result<()> {
         match &frame {
-            SerialFrame::Data(_) => {
+            RawSerialFrame::Data(data) => {
                 println!(">> {}", hex::encode(&data));
             }
-            SerialFrame::ACK | SerialFrame::CAN | SerialFrame::NAK => {
+            RawSerialFrame::ACK | RawSerialFrame::CAN | RawSerialFrame::NAK => {
                 println!(">> {:?}", &frame);
             }
             _ => (),
@@ -39,7 +38,7 @@ impl SerialBinding for SerialPort {
         self.writer.send(frame).await
     }
 
-    async fn read(&mut self) -> Option<SerialFrame> {
+    async fn read(&mut self) -> Option<RawSerialFrame> {
         let ret = self.reader.next().await;
         match ret {
             Some(Ok(frame)) => Some(frame),
@@ -51,14 +50,14 @@ impl SerialBinding for SerialPort {
 struct SerialFrameCodec;
 
 impl Decoder for SerialFrameCodec {
-    type Item = SerialFrame;
+    type Item = RawSerialFrame;
     type Error = crate::error::Error;
 
     fn decode(
         &mut self,
         src: &mut BytesMut,
     ) -> std::result::Result<Option<Self::Item>, Self::Error> {
-        match SerialFrame::parse(src) {
+        match RawSerialFrame::parse(src) {
             Ok((remaining, frame)) => {
                 let bytes_read = src.len() - remaining.len();
                 src.advance(bytes_read);
@@ -70,12 +69,12 @@ impl Decoder for SerialFrameCodec {
     }
 }
 
-impl Encoder<SerialFrame> for SerialFrameCodec {
+impl Encoder<RawSerialFrame> for SerialFrameCodec {
     type Error = crate::error::Error;
 
     fn encode(
         &mut self,
-        item: SerialFrame,
+        item: RawSerialFrame,
         dst: &mut BytesMut,
     ) -> std::result::Result<(), Self::Error> {
         let data: Vec<u8> = (&item).try_into()?;

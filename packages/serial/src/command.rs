@@ -115,7 +115,7 @@ impl Command {
     }
 }
 
-impl_vec_conversion_for_serializable!(Command);
+impl_vec_conversion_for!(Command);
 
 #[test]
 fn test_parse_invalid_checksum() {

@@ -2,8 +2,9 @@ use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, oneshot, Notify};
 use tokio::task::JoinHandle;
 use zwave_serial::binding::*;
+use zwave_serial::command::definitions::FunctionType;
 use zwave_serial::error::Result;
-use zwave_serial::frame::SerialFrame;
+use zwave_serial::frame::{RawSerialFrame, SerialFrame};
 use zwave_serial::serialport::SerialPort;
 
 enum ThreadCommand {
@@ -91,43 +92,37 @@ async fn main_loop(
                 // Exit the task
                 break;
             }
-            Some((cmd, tx)) = cmd_rx.recv() => {
-                match cmd {
-                    _ => {}, // Ignore other commands
-                }
-            }
+            Some((cmd, done)) = cmd_rx.recv() => main_loop_handle_command(cmd, done, &serial_cmd).await,
 
             // The serial port emitted a frame
-            Ok(frame) = serial_listener.recv() => {
-                match &frame {
-                    SerialFrame::Data(data) => {
-                        println!("<< {}", hex::encode(&data));
-                    }
-                    SerialFrame::Garbage(data) => {
-                        println!("DISCARDED: {}", hex::encode(&data));
-                    }
-                    SerialFrame::ACK | SerialFrame::CAN | SerialFrame::NAK => {
-                        println!("<< {:?}", &frame);
-                    }
-                }
-
-                if let SerialFrame::Data(data) = &frame {
-                    match zwave_serial::command::Command::parse(data) {
-                        Ok((_, command)) => println!("received {:#?}", command),
-                        Err(e) => println!("error: {:?}", e),
-                    }
-                    // Send ACK
-                    send_thread_command(&serial_cmd, ThreadCommand::Send(SerialFrame::ACK)).await.unwrap();
-                    if data[1] == 0x0b {
-                        send_thread_command(&serial_cmd, ThreadCommand::Send(SerialFrame::Data(hex::decode("01030002fe").unwrap()))).await.unwrap();
-                    }
-                }
-
-            }
+            Ok(frame) = serial_listener.recv() => main_loop_handle_frame(frame, &serial_cmd).await
         }
     }
 
     println!("main task stopped")
+}
+
+async fn main_loop_handle_command(
+    cmd: ThreadCommand,
+    _done: oneshot::Sender<()>,
+    _serial_cmd: &ThreadCommandSender,
+) {
+    match cmd {
+        _ => {} // Ignore other commands
+    }
+}
+
+async fn main_loop_handle_frame(frame: SerialFrame, serial_cmd: &ThreadCommandSender) {
+    if let SerialFrame::Command(cmd) = &frame {
+        if cmd.function_type == FunctionType::SerialAPIStarted {
+            send_thread_command(
+                serial_cmd,
+                ThreadCommand::Send(SerialFrame::Raw(hex::decode("01030002fe").unwrap())),
+            )
+            .await
+            .unwrap();
+        }
+    }
 }
 
 async fn serial_loop(
@@ -144,26 +139,80 @@ async fn serial_loop(
                 // Exit the task
                 break;
             }
-            Some((cmd, tx)) = cmd_rx.recv() => {
-                match cmd {
-                    ThreadCommand::Send(frame) => {
-                        port.write(frame).await.unwrap();
-                        tx.send(()).unwrap();
-                    }
+            Some((cmd, done)) = cmd_rx.recv() => serial_loop_handle_command(&mut port, cmd, done).await,
 
-                    // Ignore other commands
-                    #[allow(unreachable_patterns)]
-                    _ => {},
-                }
-            }
             // We received a frame from the serial port
-            Some(frame) = port.read() => {
-                frame_emitter.send(frame).unwrap();
-            }
+            Some(frame) = port.read() => serial_loop_handle_frame(&mut port, frame, &frame_emitter).await
         }
     }
 
     println!("serial task stopped")
+}
+
+async fn serial_loop_handle_command(
+    port: &mut SerialPort,
+    cmd: ThreadCommand,
+    done: oneshot::Sender<()>,
+) {
+    match cmd {
+        ThreadCommand::Send(frame) => {
+            port.write(frame.into()).await.unwrap();
+            done.send(()).unwrap();
+        }
+
+        // Ignore other commands
+        #[allow(unreachable_patterns)]
+        _ => {}
+    }
+}
+
+async fn serial_loop_handle_frame(
+    port: &mut SerialPort,
+    frame: RawSerialFrame,
+    frame_emitter: &SerialFrameEmitter,
+) {
+    let emit = match &frame {
+        RawSerialFrame::Data(data) => {
+            println!("<< {}", hex::encode(&data));
+            // Try to parse the frame
+            match zwave_serial::command::Command::parse(data) {
+                Ok((_, command)) => {
+                    println!("received {:#?}", command);
+                    // Parsing was successful, ACK the frame
+                    port.write(RawSerialFrame::ACK).await.unwrap();
+                    Some(SerialFrame::Command(command))
+                }
+                Err(e) => {
+                    println!("error: {:?}", e);
+                    // Parsing failed, this means we've received garbage after all
+                    port.write(RawSerialFrame::NAK).await.unwrap();
+                    None
+                }
+            }
+        }
+        RawSerialFrame::Garbage(data) => {
+            println!("xx: {}", hex::encode(&data));
+            // After receiving garbage, try to re-sync by sending NAK
+            port.write(RawSerialFrame::NAK).await.unwrap();
+            None
+        }
+        RawSerialFrame::ACK => {
+            println!("<< {:?}", &frame);
+            Some(SerialFrame::ACK)
+        }
+        RawSerialFrame::CAN => {
+            println!("<< {:?}", &frame);
+            Some(SerialFrame::CAN)
+        }
+        RawSerialFrame::NAK => {
+            println!("<< {:?}", &frame);
+            Some(SerialFrame::NAK)
+        }
+    };
+
+    if let Some(frame) = emit {
+        frame_emitter.send(frame).unwrap();
+    }
 }
 
 async fn send_thread_command(
