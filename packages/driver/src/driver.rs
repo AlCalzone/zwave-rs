@@ -1,11 +1,12 @@
+use zwave_serial::prelude::*;
+
+use zwave_serial::binding::SerialBinding;
+use zwave_serial::frame::{RawSerialFrame, SerialFrame};
+use zwave_serial::serialport::SerialPort;
+
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, oneshot, Notify};
 use tokio::task::JoinHandle;
-use zwave_serial::binding::*;
-use zwave_serial::command::definitions::FunctionType;
-use zwave_serial::error::Result;
-use zwave_serial::frame::{RawSerialFrame, SerialFrame};
-use zwave_serial::serialport::SerialPort;
 
 enum ThreadCommand {
     Send(SerialFrame),
@@ -175,7 +176,7 @@ async fn serial_loop_handle_frame(
         RawSerialFrame::Data(data) => {
             println!("<< {}", hex::encode(&data));
             // Try to parse the frame
-            match zwave_serial::command::Command::parse(data) {
+            match zwave_serial::command_raw::CommandRaw::parse(data) {
                 Ok((_, command)) => {
                     println!("received {:#?}", command);
                     // Parsing was successful, ACK the frame

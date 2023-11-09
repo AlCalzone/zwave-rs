@@ -1,5 +1,6 @@
 use std::thread;
 use std::time::Duration;
+use zwave_serial::command::GetSerialApiInitDataRequest;
 use zwave_serial::frame::SerialFrame;
 
 #[tokio::main]
@@ -8,7 +9,7 @@ async fn main() {
     println!("driver started");
 
     driver
-        .write_serial(SerialFrame::Raw(hex::decode("01030008f4").unwrap()))
+        .write_serial(GetSerialApiInitDataRequest::new().try_into().unwrap())
         .await
         .unwrap();
 

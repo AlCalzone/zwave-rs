@@ -1,135 +1,119 @@
-pub mod definitions;
-use custom_debug_derive::Debug;
+use crate::{frame::SerialFrame, prelude::*};
+use enum_dispatch::enum_dispatch;
 
-use nom::{
-    bytes::complete::{tag, take},
-    combinator::peek,
-    number::complete::be_u8,
-    sequence::tuple,
-};
+mod capability;
+pub use capability::*;
 
-use cookie_factory as cf;
-
-use crate::{
-    command::definitions::{CommandType, FunctionType},
-    frame::SerialControlByte,
-    parse::{self, validate},
-};
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Command {
-    pub command_type: CommandType,
-    pub function_type: FunctionType,
-    #[debug(with = "hex_fmt")]
-    pub payload: Vec<u8>,
-    #[debug(format = "{:#04x}")]
-    pub checksum: u8,
+#[enum_dispatch(Command)]
+pub trait CommandBase {
+    fn command_type(&self) -> CommandType;
+    fn function_type(&self) -> FunctionType;
 }
 
-fn hex_fmt<T: std::fmt::Debug + AsRef<[u8]>>(
-    n: &T,
-    f: &mut std::fmt::Formatter,
-) -> std::fmt::Result {
-    write!(f, "0x{}", hex::encode(n))
-}
-
-fn compute_checksum(data: &[u8]) -> u8 {
-    data[1..data.len() - 1].iter().fold(0xff, |acc, x| acc ^ x)
-}
-
-#[test]
-fn test_checksum() {
-    // This is an actual message with a correct checksum
-    let input = hex::decode("01030002fe").unwrap();
-    let expected = 0xfe;
-    assert_eq!(compute_checksum(&input), expected);
-}
-
-impl Command {
-    pub fn parse(i: parse::Input) -> parse::Result<Self> {
-        // Ensure that the buffer contains at least 5 bytes
-        peek(take(5usize))(i)?;
-
-        // Ensure that it starts with a SOF byte and extract the length of the rest of the command
-        let (_, (_, len)) = peek(tuple((tag([SerialControlByte::SOF as u8]), be_u8)))(i)?;
-        let (rem, raw_data) = peek(take(len + 2))(i)?;
-
-        // Skip the SOF and length bytes
-        let (i, _) = take(2usize)(i)?;
-
-        let (i, command_type) = CommandType::parse(i)?;
-        let (i, function_type) = FunctionType::parse(i)?;
-        let (i, payload) = take(len - 3)(i)?;
-        let (i, checksum) = be_u8(i)?;
-
-        let expected_checksum = compute_checksum(raw_data);
-        validate(
-            rem,
-            checksum == expected_checksum,
-            format!(
-                "checksum mismatch: expected {:#04x}, got {:#04x}",
-                expected_checksum, checksum
-            ),
-        )?;
-
-        Ok((
-            i,
-            Self {
-                command_type,
-                function_type,
-                payload: payload.to_vec(),
-                checksum,
-            },
-        ))
+define_commands!(
+    GetSerialApiInitDataRequest {
+        command_type: CommandType::Request,
+        function_type: FunctionType::GetSerialApiInitData,
+    },
+    GetSerialApiInitDataResponse {
+        command_type: CommandType::Response,
+        function_type: FunctionType::GetSerialApiInitData,
     }
+);
 
-    fn serialize_no_checksum<'a, W: std::io::Write + 'a>(
-        &'a self,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, combinator::slice, sequence::tuple};
+pub trait CommandRequest {
+    fn expects_response(&self) -> bool;
+    fn test_response(&self, response: &Command) -> bool;
+    fn expects_callback(&self) -> bool;
+    fn test_callback(&self, callback: &Command) -> bool;
 
-        let sof = be_u8(SerialControlByte::SOF as u8);
-        let len = be_u8(self.payload.len() as u8 + 3);
-        let command_type = self.command_type.serialize();
-        let function_type = self.function_type.serialize();
-        let payload = slice(&self.payload);
-        let checksum = be_u8(0); // placeholder
-
-        tuple((sof, len, command_type, function_type, payload, checksum))
+    fn callback_id(&self) -> Option<u8>;
+    fn set_callback_id(&mut self, callback_id: Option<u8>);
+    fn needs_callback_id(&self) -> bool {
+        true
     }
+}
 
-    pub fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, combinator::slice};
-
-        // First serialize the command without checksum,
-        move |out| {
-            let mut buf = cf::gen_simple(self.serialize_no_checksum(), Vec::new())?;
-            let checksum = compute_checksum(&buf);
-            // then write the checksum into the last byte
-            let len = buf.len();
-            cf::gen_simple(be_u8(checksum), &mut buf[len - 1..])?;
-            slice(buf)(out)
+macro_rules! define_commands {
+    (
+        $( $cmd_name:ident {
+            command_type: CommandType::$cmd_type:ident,
+            function_type: FunctionType::$fn_type:ident,
+        } ),+
+    ) => {
+        // Define the command enum with all possible variants.
+        // Calls to the command enum will be dispatched to the corresponding variant.
+        #[enum_dispatch]
+        pub enum Command {
+            $( $cmd_name($cmd_name) ),+
         }
-    }
+
+        // Define command type and function type for each variant
+        $( impl CommandBase for $cmd_name {
+            fn command_type(&self) -> CommandType {
+                CommandType::$cmd_type
+            }
+
+            fn function_type(&self) -> FunctionType {
+                FunctionType::$fn_type
+            }
+        } )+
+
+        // Delegate Serialization to the corresponding variant
+        impl Serializable for Command {
+            fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+                move |out| match self {
+                    $( Self::$cmd_name(c) => c.serialize()(out), )+
+                }
+            }
+        }
+
+
+        // Implement the default TryFrom<&[u8]>/TryInto<Vec<u8>> conversions for each variant
+        $(
+            impl_vec_conversion_for!($cmd_name);
+        )+
+
+        // Implement shortcuts from each variant to CommandRaw / SerialFrame
+        $(
+            impl TryInto<CommandRaw> for $cmd_name {
+                type Error = crate::error::Error;
+
+                fn try_into(self) -> std::result::Result<CommandRaw, Self::Error> {
+                    let cmd: Command = self.into();
+                    cmd.try_into()
+                }
+            }
+
+            impl TryInto<SerialFrame> for $cmd_name {
+                type Error = crate::error::Error;
+
+                fn try_into(self) -> std::result::Result<SerialFrame, Self::Error> {
+                    let raw: CommandRaw = self.try_into()?;
+                    Ok(raw.into())
+                }
+            }
+        )+
+
+        // Implement conversion from a raw command to the correct variant
+        impl TryFrom<CommandRaw> for Command {
+            type Error = crate::error::Error;
+
+            fn try_from(raw: CommandRaw) -> std::result::Result<Self, Self::Error> {
+                let command_type = raw.command_type;
+                let function_type = raw.function_type;
+                let raw_payload = raw.payload.as_slice();
+
+                match (command_type, function_type) {
+                    $( (CommandType::$cmd_type, FunctionType::$fn_type) => {
+                        Ok(Command::$cmd_name($cmd_name::try_from(raw_payload)?))
+                    } )+
+                    _ => todo!("Implement Command variant for NotImplemented"),
+                }
+            }
+        }
+
+    };
 }
 
-impl_vec_conversion_for!(Command);
-
-#[test]
-fn test_parse_invalid_checksum() {
-    // This is an actual message with a correct checksum
-    let input = hex::decode("01030002fe").unwrap();
-    let result = Command::try_from(input.as_ref());
-    assert!(result.is_ok());
-
-    // Now it is wrong
-    let input = hex::decode("01030002ff").unwrap();
-    let result = Command::try_from(input.as_ref());
-    match result {
-        Ok(_) => panic!("Expected an error"),
-        Err(crate::error::Error::Parser(_)) => (),
-        Err(_) => panic!("Expected a parser error"),
-    }
-}
+pub(crate) use define_commands;

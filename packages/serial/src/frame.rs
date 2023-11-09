@@ -1,4 +1,4 @@
-use crate::{command::Command, parse};
+use crate::{command_raw::CommandRaw, parse::{self, Serializable}};
 
 use cookie_factory as cf;
 use derive_try_from_primitive::*;
@@ -40,7 +40,7 @@ pub enum SerialFrame {
     ACK,
     NAK,
     CAN,
-    Command(Command),
+    Command(CommandRaw),
     Raw(Vec<u8>),
 }
 

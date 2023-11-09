@@ -174,11 +174,30 @@ pub type Result<'a, T> = nom::IResult<Input<'a>, T, Error<Input<'a>>>;
 pub type BitInput<'a> = (&'a [u8], usize);
 pub type BitResult<'a, T> = nom::IResult<BitInput<'a>, T, Error<BitInput<'a>>>;
 
+pub trait Parsable
+where
+    Self: Sized,
+{
+    fn parse(i: Input) -> Result<Self>;
+}
+
 pub trait BitParsable
 where
     Self: Sized,
 {
     fn parse(i: BitInput) -> BitResult<Self>;
+}
+
+pub trait Serializable
+where
+    Self: Sized,
+{
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a;
+}
+
+/// A SerializeFn that does nothing
+pub fn empty<W: std::io::Write>() -> impl cookie_factory::SerializeFn<W> {
+    move |out: cookie_factory::WriteContext<W>| Ok(out)
 }
 
 // Convert all errors into a ParseError, while preserving validation errors
@@ -270,16 +289,16 @@ macro_rules! impl_vec_serializing_for {
         impl TryInto<Vec<u8>> for &$struct_name {
             type Error = crate::error::Error;
 
-            fn try_into(self) -> Result<Vec<u8>, Self::Error> {
+            fn try_into(self) -> std::result::Result<Vec<u8>, Self::Error> {
                 use crate::error::IntoResult;
-                cf::gen_simple(self.serialize(), Vec::new()).into_result()
+                cookie_factory::gen_simple(self.serialize(), Vec::new()).into_result()
             }
         }
 
         impl TryInto<Vec<u8>> for $struct_name {
             type Error = crate::error::Error;
 
-            fn try_into(self) -> Result<Vec<u8>, Self::Error> {
+            fn try_into(self) -> std::result::Result<Vec<u8>, Self::Error> {
                 (&self).try_into()
             }
         }
