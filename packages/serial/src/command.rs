@@ -3,6 +3,8 @@ use enum_dispatch::enum_dispatch;
 
 mod capability;
 pub use capability::*;
+mod misc;
+pub use misc::*;
 
 #[enum_dispatch(Command)]
 pub trait CommandBase {
@@ -18,7 +20,11 @@ define_commands!(
     GetSerialApiInitDataResponse {
         command_type: CommandType::Response,
         function_type: FunctionType::GetSerialApiInitData,
-    }
+    },
+    SoftResetRequest {
+        command_type: CommandType::Request,
+        function_type: FunctionType::SoftReset,
+    },
 );
 
 pub trait CommandRequest {
@@ -39,7 +45,7 @@ macro_rules! define_commands {
         $( $cmd_name:ident {
             command_type: CommandType::$cmd_type:ident,
             function_type: FunctionType::$fn_type:ident,
-        } ),+
+        } ),+ $(,)? // trailing comma
     ) => {
         // Define the command enum with all possible variants.
         // Calls to the command enum will be dispatched to the corresponding variant.

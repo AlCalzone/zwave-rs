@@ -17,6 +17,7 @@ impl Parsable for GetSerialApiInitDataRequest {
 
 impl Serializable for GetSerialApiInitDataRequest {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+		// No payload
         empty()
     }
 }
