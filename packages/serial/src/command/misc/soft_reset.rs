@@ -1,4 +1,8 @@
-use crate::{parse::empty, prelude::*};
+use crate::prelude::*;
+use zwave_core::prelude::*;
+
+use zwave_core::encoding::{self, empty};
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SoftResetRequest {}
@@ -10,7 +14,7 @@ impl SoftResetRequest {
 }
 
 impl Parsable for SoftResetRequest {
-	fn parse(i: parse::Input) -> parse::Result<Self> {
+	fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
 		// No payload
 		Ok((i, Self {}))
 	}

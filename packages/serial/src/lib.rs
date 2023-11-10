@@ -1,8 +1,5 @@
 #![feature(more_qualified_paths)]
 
-mod definitions;
-pub use crate::definitions::*;
-
 #[macro_use]
 pub mod parse;
 mod util;

@@ -1,9 +1,10 @@
-use crate::parse;
+use crate::encoding::{self, Parsable, Serializable};
+
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
 use derive_try_from_primitive::*;
 use nom::{combinator::map, error::context, number::complete::be_u8};
-use parse::{Parsable, Serializable};
+use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
@@ -13,7 +14,7 @@ pub enum CommandType {
 }
 
 impl CommandType {
-    pub fn parse(i: parse::Input) -> parse::Result<Self> {
+    pub fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         context(
             "CommandType",
             map(be_u8, |x| CommandType::try_from(x).unwrap()),
@@ -210,7 +211,7 @@ pub enum FunctionType {
 }
 
 impl FunctionType {
-    pub fn parse(i: parse::Input) -> parse::Result<Self> {
+    pub fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         context(
             "FunctionType",
             map(be_u8, |x| FunctionType::try_from(x).unwrap()),
@@ -258,7 +259,7 @@ pub enum ZWaveLibraryType {
 }
 
 impl Parsable for ZWaveLibraryType {
-    fn parse(i: parse::Input) -> parse::Result<Self> {
+    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         context(
             "ZWaveLibraryType",
             map(be_u8, |x| ZWaveLibraryType::try_from(x).unwrap()),
@@ -269,5 +270,36 @@ impl Parsable for ZWaveLibraryType {
 impl Serializable for ZWaveLibraryType {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
         cookie_factory::bytes::be_u8(*self as u8)
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum ZWaveApiVersion {
+    Official(u8),
+    Legacy(u8),
+}
+
+impl fmt::Debug for ZWaveApiVersion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Official(v) => write!(f, "{} (official)", v),
+            Self::Legacy(v) => write!(f, "{} (legacy)", v),
+        }
+    }
+}
+
+impl From<u8> for ZWaveApiVersion {
+    fn from(version: u8) -> Self {
+        if version < 10 {
+            Self::Legacy(version)
+        } else {
+            Self::Official(version - 9)
+        }
+    }
+}
+
+impl Parsable for ZWaveApiVersion {
+    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
+        context("ZWaveApiVersion", map(be_u8, |x| ZWaveApiVersion::from(x)))(i)
     }
 }

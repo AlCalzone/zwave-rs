@@ -1,5 +1,8 @@
+use zwave_core::encoding;
+use zwave_core::prelude::*;
+
 use crate::binding::SerialBinding;
-use crate::error::{IntoResult, Result};
+use crate::error::*;
 use crate::frame::RawSerialFrame;
 use bytes::{Buf, BytesMut};
 use futures::stream::{SplitSink, SplitStream};
@@ -35,7 +38,15 @@ impl SerialBinding for SerialPort {
             _ => (),
         }
 
-        self.writer.send(frame).await
+        // Not sure why, but doing this exects EncodingError to implement From<io::Error>,
+        // although we'd actually want our local error type to be used.
+        // TODO: Fix this at some point
+        self.writer.send(frame).await.map_err(|e| match e {
+            EncodingError::Parse(_) => {
+                todo!("A parse error should not occur when sending data to the serial port")
+            }
+            EncodingError::Serialize(reason) => std::io::Error::other(reason).into(),
+        })
     }
 
     async fn read(&mut self) -> Option<RawSerialFrame> {
@@ -51,7 +62,7 @@ struct SerialFrameCodec;
 
 impl Decoder for SerialFrameCodec {
     type Item = RawSerialFrame;
-    type Error = crate::error::Error;
+    type Error = encoding::EncodingError;
 
     fn decode(
         &mut self,
@@ -64,13 +75,13 @@ impl Decoder for SerialFrameCodec {
                 Ok(Some(frame))
             }
             Err(nom::Err::Incomplete(_)) => Ok(None),
-            e => e.into_result().map(|_| None),
+            e => e.into_encoding_result().map(|_| None),
         }
     }
 }
 
 impl Encoder<RawSerialFrame> for SerialFrameCodec {
-    type Error = crate::error::Error;
+    type Error = encoding::EncodingError;
 
     fn encode(
         &mut self,

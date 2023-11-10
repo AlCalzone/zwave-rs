@@ -1,8 +1,6 @@
-use crate::{
-    command_raw::CommandRaw,
-    parse,
-    prelude::Command,
-};
+use zwave_core::prelude::*;
+
+use crate::{command_raw::CommandRaw, prelude::Command};
 
 use cookie_factory as cf;
 use derive_try_from_primitive::*;
@@ -14,10 +12,9 @@ use nom::{
     number::streaming::be_u8,
     sequence::tuple,
 };
-
-pub const ACK_BUFFER: [u8; 1] = [SerialControlByte::ACK as u8];
-pub const NAK_BUFFER: [u8; 1] = [SerialControlByte::NAK as u8];
-pub const CAN_BUFFER: [u8; 1] = [SerialControlByte::CAN as u8];
+use zwave_core::{
+    encoding, impl_vec_conversion_for, impl_vec_parsing_for, impl_vec_serializing_for,
+};
 
 #[derive(Debug, TryFromPrimitive)]
 #[repr(u8)]
@@ -27,6 +24,10 @@ pub enum SerialControlByte {
     NAK = 0x15,
     CAN = 0x18,
 }
+
+pub const ACK_BUFFER: [u8; 1] = [SerialControlByte::ACK as u8];
+pub const NAK_BUFFER: [u8; 1] = [SerialControlByte::NAK as u8];
+pub const CAN_BUFFER: [u8; 1] = [SerialControlByte::CAN as u8];
 
 /// A raw serial frame, as received from the serial port
 #[derive(Clone, Debug, PartialEq)]
@@ -48,14 +49,14 @@ pub enum SerialFrame {
     Raw(Vec<u8>),
 }
 
-fn consume_garbage(i: parse::Input) -> parse::Result<RawSerialFrame> {
+fn consume_garbage(i: encoding::Input) -> encoding::ParseResult<RawSerialFrame> {
     map(
         take_till1(|b| SerialControlByte::try_from(b).is_ok()),
         |g: &[u8]| RawSerialFrame::Garbage(g.to_vec()),
     )(i)
 }
 
-fn parse_control(i: parse::Input) -> parse::Result<RawSerialFrame> {
+fn parse_control(i: encoding::Input) -> encoding::ParseResult<RawSerialFrame> {
     alt((
         value(RawSerialFrame::ACK, tag(&ACK_BUFFER)),
         value(RawSerialFrame::NAK, tag(&NAK_BUFFER)),
@@ -63,7 +64,7 @@ fn parse_control(i: parse::Input) -> parse::Result<RawSerialFrame> {
     ))(i)
 }
 
-fn parse_data(i: parse::Input) -> parse::Result<RawSerialFrame> {
+fn parse_data(i: encoding::Input) -> encoding::ParseResult<RawSerialFrame> {
     // Ensure that the buffer contains at least 5 bytes
     peek(take(5usize))(i)?;
 
@@ -78,7 +79,7 @@ fn parse_data(i: parse::Input) -> parse::Result<RawSerialFrame> {
 }
 
 impl RawSerialFrame {
-    pub fn parse(i: parse::Input) -> parse::Result<Self> {
+    pub fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         // A serial frame is either a control byte, data starting with SOF, or skipped garbage
         context(
             "Serial Frame",
@@ -103,26 +104,10 @@ impl RawSerialFrame {
 
 impl_vec_conversion_for!(RawSerialFrame);
 
-// impl SerialFrame {
-//     pub fn serialize<'a, W: std::io::Write + 'a>(
-//         &'a self,
-//     ) -> impl cookie_factory::SerializeFn<W> + 'a {
-//         use cf::{bytes::be_u8, combinator::slice};
-
-//         move |out| match self {
-//             SerialFrame::ACK => be_u8(SerialControlByte::ACK as u8)(out),
-//             SerialFrame::NAK => be_u8(SerialControlByte::NAK as u8)(out),
-//             SerialFrame::CAN => be_u8(SerialControlByte::CAN as u8)(out),
-//             SerialFrame::Command(cmd) => cmd.serialize()(out),
-//             SerialFrame::Raw(data) => slice(data)(out),
-//         }
-//     }
-// }
-
 impl TryInto<RawSerialFrame> for SerialFrame {
-    type Error = crate::error::Error;
+    type Error = EncodingError;
 
-    fn try_into(self) -> Result<RawSerialFrame, Self::Error> {
+    fn try_into(self) -> std::result::Result<RawSerialFrame, Self::Error> {
         match self {
             SerialFrame::ACK => Ok(RawSerialFrame::ACK),
             SerialFrame::NAK => Ok(RawSerialFrame::NAK),
@@ -134,8 +119,6 @@ impl TryInto<RawSerialFrame> for SerialFrame {
         }
     }
 }
-
-// impl_vec_serializing_for!(RawSerialFrame);
 
 #[cfg(test)]
 mod test {

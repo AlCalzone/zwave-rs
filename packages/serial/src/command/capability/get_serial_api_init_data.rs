@@ -1,4 +1,7 @@
-use crate::{parse::empty, prelude::*};
+use crate::prelude::*;
+use zwave_core::prelude::*;
+
+use zwave_core::encoding::{self, empty};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetSerialApiInitDataRequest {}
@@ -10,7 +13,7 @@ impl GetSerialApiInitDataRequest {
 }
 
 impl Parsable for GetSerialApiInitDataRequest {
-    fn parse(i: parse::Input) -> parse::Result<Self> {
+    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         // No payload
         Ok((i, Self {}))
     }
@@ -18,7 +21,7 @@ impl Parsable for GetSerialApiInitDataRequest {
 
 impl Serializable for GetSerialApiInitDataRequest {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-		// No payload
+        // No payload
         empty()
     }
 }
@@ -54,15 +57,14 @@ impl CommandRequest for GetSerialApiInitDataRequest {
 pub struct GetSerialApiInitDataResponse {}
 
 impl Parsable for GetSerialApiInitDataResponse {
-    fn parse(i: parse::Input) -> parse::Result<Self> {
-        // todo!()
-        eprintln!("GetSerialApiInitDataResponse::parse() not implemented");
+    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
+        eprintln!("ERROR: GetSerialApiInitDataResponse::parse() not implemented");
         Ok((i, Self {}))
     }
 }
 
 impl Serializable for GetSerialApiInitDataResponse {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |out| todo!()
+        move |_out| todo!()
     }
 }

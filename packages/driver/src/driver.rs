@@ -1,8 +1,11 @@
+use zwave_core::prelude::*;
 use zwave_serial::prelude::*;
 
 use zwave_serial::binding::SerialBinding;
 use zwave_serial::frame::{RawSerialFrame, SerialFrame};
 use zwave_serial::serialport::SerialPort;
+
+use crate::error::{Error, Result};
 
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, oneshot, Notify};
@@ -232,8 +235,11 @@ async fn send_thread_command(
     cmd: ThreadCommand,
 ) -> Result<()> {
     let (tx, rx) = oneshot::channel();
-    command_sender.send((cmd, tx)).await.unwrap();
-    rx.await.unwrap();
+    command_sender
+        .send((cmd, tx))
+        .await
+        .map_err(|_| Error::Internal)?;
+    rx.await.map_err(|_| Error::Internal)?;
     Ok(())
 }
 

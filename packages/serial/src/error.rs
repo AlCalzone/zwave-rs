@@ -1,4 +1,3 @@
-use cookie_factory::GenError;
 use custom_debug_derive::Debug;
 use thiserror::Error;
 
@@ -8,16 +7,6 @@ pub enum Error {
     Serialport(#[from] serialport::Error),
     #[error(transparent)]
     IO(#[from] tokio::io::Error),
-    #[error("Parser error: {0:?}")]
-    Parser(Option<String>),
-    #[error("Serialization error: {0:?}")]
-    Serialization(String),
-}
-
-impl From<GenError> for Error {
-    fn from(e: GenError) -> Self {
-        Error::Serialization(format!("{:?}", e))
-    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

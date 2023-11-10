@@ -16,7 +16,7 @@
     "prefix": "impltryfrom",
     "body": [
       "impl TryFrom<&[u8]> for ${1:StructName} {",
-      "    type Error = crate::error::Error;",
+      "    type Error = EncodingError;",
       "",
       "    fn try_from(value: &[u8]) -> crate::error::Result<Self> {",
       "        Self::parse(value).into_result()",
@@ -40,7 +40,7 @@
     "prefix": "impltryinto",
     "body": [
       "impl TryInto<Vec<u8>> for &${0:StructName} {",
-      "    type Error = crate::error::Error;",
+      "    type Error = EncodingError;",
       "",
       "    fn try_into(self) -> Result<Vec<u8>, Self::Error> {",
       "        cf::gen_simple(self.serialize(), Vec::new()).into_result()",
@@ -165,7 +165,8 @@
       "",
       "impl Parsable for ${1}Response {",
       "    fn parse(i: parse::Input) -> parse::Result<Self> {",
-      "        todo!()",
+      "    eprintln!(\"ERROR: ${1}Response::parse() not implemented\");",
+      "    Ok((i, Self {}))",
       "    }",
       "}",
       "",

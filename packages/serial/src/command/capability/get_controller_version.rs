@@ -1,7 +1,9 @@
+use crate::prelude::*;
+use zwave_core::prelude::*;
+
 use cookie_factory as cf;
 use nom::{bytes::complete::tag, character::complete::none_of, combinator::map, multi::many1};
-
-use crate::{parse::empty, prelude::*, ZWaveLibraryType};
+use zwave_core::encoding::{self, empty};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetControllerVersionRequest {}
@@ -13,7 +15,7 @@ impl GetControllerVersionRequest {
 }
 
 impl Parsable for GetControllerVersionRequest {
-    fn parse(i: parse::Input) -> parse::Result<Self> {
+    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         // No payload
         Ok((i, Self {}))
     }
@@ -60,7 +62,7 @@ pub struct GetControllerVersionResponse {
 }
 
 impl Parsable for GetControllerVersionResponse {
-    fn parse(i: parse::Input) -> parse::Result<Self> {
+    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         let (i, version) = map(many1(none_of("\0")), |v| v.into_iter().collect::<String>())(i)?;
         let (i, _) = tag("\0")(i)?;
         let (i, library_type) = ZWaveLibraryType::parse(i)?;

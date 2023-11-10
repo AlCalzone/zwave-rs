@@ -1,9 +1,12 @@
-use crate::{
-    definitions::{CommandType, FunctionType},
-    frame::SerialControlByte,
-    parse::{self, validate, Parsable, Serializable},
-    prelude::{Command, CommandBase}, util::hex_fmt,
+use crate::prelude::*;
+use zwave_core::prelude::*;
+
+use zwave_core::{
+    encoding::{self, validate},
+    impl_vec_conversion_for, impl_vec_parsing_for, impl_vec_serializing_for,
 };
+
+use crate::{frame::SerialControlByte, util::hex_fmt};
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
 use nom::{
@@ -53,7 +56,7 @@ impl CommandRaw {
 }
 
 impl Parsable for CommandRaw {
-    fn parse(i: parse::Input) -> parse::Result<Self> {
+    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         // Ensure that the buffer contains at least 5 bytes
         peek(take(5usize))(i)?;
 
@@ -108,7 +111,7 @@ impl Serializable for CommandRaw {
 }
 
 impl TryFrom<Command> for CommandRaw {
-    type Error = crate::error::Error;
+    type Error = EncodingError;
 
     fn try_from(value: Command) -> std::result::Result<Self, Self::Error> {
         let payload = cf::gen_simple(value.serialize(), Vec::new())?;
@@ -136,7 +139,7 @@ fn test_parse_invalid_checksum() {
     let result = CommandRaw::try_from(input.as_ref());
     match result {
         Ok(_) => panic!("Expected an error"),
-        Err(crate::error::Error::Parser(_)) => (),
+        Err(EncodingError::Parse(_)) => (),
         Err(_) => panic!("Expected a parser error"),
     }
 }

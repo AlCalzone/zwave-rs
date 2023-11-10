@@ -1,5 +1,5 @@
 [workspace]
-members = ["packages/serial", "packages/cli", "packages/driver"]
+members = ["packages/serial", "packages/cli", "packages/driver", "packages/core"]
 resolver = "2"
 
 [profile.release]

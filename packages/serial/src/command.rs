@@ -1,6 +1,10 @@
-use crate::{frame::SerialFrame, prelude::*, util::hex_fmt};
-use enum_dispatch::enum_dispatch;
+use crate::prelude::*;
+use zwave_core::prelude::*;
+
+use crate::{frame::SerialFrame, util::hex_fmt};
 use custom_debug_derive::Debug;
+use enum_dispatch::enum_dispatch;
+use zwave_core::{impl_vec_conversion_for, impl_vec_parsing_for, impl_vec_serializing_for};
 
 mod capability;
 pub use capability::*;
@@ -95,7 +99,7 @@ macro_rules! define_commands {
         // Implement shortcuts from each variant to CommandRaw / SerialFrame
         $(
             impl TryInto<CommandRaw> for $cmd_name {
-                type Error = crate::error::Error;
+                type Error = EncodingError;
 
                 fn try_into(self) -> std::result::Result<CommandRaw, Self::Error> {
                     let cmd: Command = self.into();
@@ -112,7 +116,7 @@ macro_rules! define_commands {
 
         // Implement conversion from a raw command to the correct variant
         impl TryFrom<CommandRaw> for Command {
-            type Error = crate::error::Error;
+            type Error = EncodingError;
 
             fn try_from(raw: CommandRaw) -> std::result::Result<Self, Self::Error> {
                 let command_type = raw.command_type;
