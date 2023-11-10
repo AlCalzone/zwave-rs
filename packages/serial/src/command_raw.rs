@@ -1,8 +1,8 @@
 use crate::{
     definitions::{CommandType, FunctionType},
-    frame::{SerialControlByte, SerialFrame},
+    frame::SerialControlByte,
     parse::{self, validate, Parsable, Serializable},
-    prelude::{Command, CommandBase},
+    prelude::{Command, CommandBase}, util::hex_fmt,
 };
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
@@ -21,13 +21,6 @@ pub struct CommandRaw {
     pub payload: Vec<u8>,
     #[debug(format = "{:#04x}")]
     pub checksum: u8,
-}
-
-fn hex_fmt<T: std::fmt::Debug + AsRef<[u8]>>(
-    n: &T,
-    f: &mut std::fmt::Formatter,
-) -> std::fmt::Result {
-    write!(f, "0x{}", hex::encode(n))
 }
 
 fn compute_checksum(data: &[u8]) -> u8 {
@@ -126,12 +119,6 @@ impl TryFrom<Command> for CommandRaw {
             checksum: 0, // placeholder
         };
         Ok(raw)
-    }
-}
-
-impl Into<SerialFrame> for CommandRaw {
-    fn into(self) -> SerialFrame {
-        SerialFrame::Command(self)
     }
 }
 

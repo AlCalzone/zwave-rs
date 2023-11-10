@@ -115,7 +115,7 @@ async fn main_loop_handle_command(
 
 async fn main_loop_handle_frame(frame: SerialFrame, serial_cmd: &ThreadCommandSender) {
     if let SerialFrame::Command(cmd) = &frame {
-        if cmd.function_type == FunctionType::SerialAPIStarted {
+        if cmd.function_type() == FunctionType::SerialAPIStarted {
             send_thread_command(
                 serial_cmd,
                 ThreadCommand::Send(SerialFrame::Raw(hex::decode("01030002fe").unwrap())),
@@ -157,7 +157,7 @@ async fn serial_loop_handle_command(
 ) {
     match cmd {
         ThreadCommand::Send(frame) => {
-            port.write(frame.into()).await.unwrap();
+            port.write(frame.try_into().unwrap()).await.unwrap();
             done.send(()).unwrap();
         }
 
@@ -177,11 +177,22 @@ async fn serial_loop_handle_frame(
             println!("<< {}", hex::encode(&data));
             // Try to parse the frame
             match zwave_serial::command_raw::CommandRaw::parse(data) {
-                Ok((_, command)) => {
-                    println!("received {:#?}", command);
-                    // Parsing was successful, ACK the frame
+                Ok((_, raw)) => {
+                    // The first step of parsing was successful, ACK the frame
                     port.write(RawSerialFrame::ACK).await.unwrap();
-                    Some(SerialFrame::Command(command))
+
+                    // Now try to convert it into an actual command
+                    match zwave_serial::command::Command::try_from(raw) {
+                        Ok(cmd) => {
+                            println!("received {:#?}", cmd);
+                            Some(SerialFrame::Command(cmd))
+                        }
+                        Err(e) => {
+                            println!("error: {:?}", e);
+                            // TODO: Handle misformatted frames
+                            None
+                        }
+                    }
                 }
                 Err(e) => {
                     println!("error: {:?}", e);

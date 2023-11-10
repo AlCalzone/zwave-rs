@@ -1,4 +1,8 @@
-use crate::{command_raw::CommandRaw, parse::{self, Serializable}};
+use crate::{
+    command_raw::CommandRaw,
+    parse,
+    prelude::Command,
+};
 
 use cookie_factory as cf;
 use derive_try_from_primitive::*;
@@ -40,7 +44,7 @@ pub enum SerialFrame {
     ACK,
     NAK,
     CAN,
-    Command(CommandRaw),
+    Command(Command),
     Raw(Vec<u8>),
 }
 
@@ -99,35 +103,39 @@ impl RawSerialFrame {
 
 impl_vec_conversion_for!(RawSerialFrame);
 
-impl SerialFrame {
-    pub fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, combinator::slice};
+// impl SerialFrame {
+//     pub fn serialize<'a, W: std::io::Write + 'a>(
+//         &'a self,
+//     ) -> impl cookie_factory::SerializeFn<W> + 'a {
+//         use cf::{bytes::be_u8, combinator::slice};
 
-        move |out| match self {
-            SerialFrame::ACK => be_u8(SerialControlByte::ACK as u8)(out),
-            SerialFrame::NAK => be_u8(SerialControlByte::NAK as u8)(out),
-            SerialFrame::CAN => be_u8(SerialControlByte::CAN as u8)(out),
-            SerialFrame::Command(cmd) => cmd.serialize()(out),
-            SerialFrame::Raw(data) => slice(data)(out),
-        }
-    }
-}
+//         move |out| match self {
+//             SerialFrame::ACK => be_u8(SerialControlByte::ACK as u8)(out),
+//             SerialFrame::NAK => be_u8(SerialControlByte::NAK as u8)(out),
+//             SerialFrame::CAN => be_u8(SerialControlByte::CAN as u8)(out),
+//             SerialFrame::Command(cmd) => cmd.serialize()(out),
+//             SerialFrame::Raw(data) => slice(data)(out),
+//         }
+//     }
+// }
 
-impl Into<RawSerialFrame> for SerialFrame {
-    fn into(self) -> RawSerialFrame {
+impl TryInto<RawSerialFrame> for SerialFrame {
+    type Error = crate::error::Error;
+
+    fn try_into(self) -> Result<RawSerialFrame, Self::Error> {
         match self {
-            SerialFrame::ACK => RawSerialFrame::ACK,
-            SerialFrame::NAK => RawSerialFrame::NAK,
-            SerialFrame::CAN => RawSerialFrame::CAN,
-            SerialFrame::Command(cmd) => RawSerialFrame::Data((&cmd).try_into().unwrap()),
-            SerialFrame::Raw(data) => RawSerialFrame::Data(data),
+            SerialFrame::ACK => Ok(RawSerialFrame::ACK),
+            SerialFrame::NAK => Ok(RawSerialFrame::NAK),
+            SerialFrame::CAN => Ok(RawSerialFrame::CAN),
+            SerialFrame::Command(cmd) => CommandRaw::try_from(cmd)
+                .map(|raw| TryInto::<Vec<u8>>::try_into(raw))?
+                .map(|data| RawSerialFrame::Data(data)),
+            SerialFrame::Raw(data) => Ok(RawSerialFrame::Data(data)),
         }
     }
 }
 
-impl_vec_serializing_for!(SerialFrame);
+// impl_vec_serializing_for!(RawSerialFrame);
 
 #[cfg(test)]
 mod test {

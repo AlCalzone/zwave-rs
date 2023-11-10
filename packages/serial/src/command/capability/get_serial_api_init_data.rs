@@ -1,5 +1,6 @@
 use crate::{parse::empty, prelude::*};
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct GetSerialApiInitDataRequest {}
 
 impl GetSerialApiInitDataRequest {
@@ -49,11 +50,14 @@ impl CommandRequest for GetSerialApiInitDataRequest {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct GetSerialApiInitDataResponse {}
 
 impl Parsable for GetSerialApiInitDataResponse {
     fn parse(i: parse::Input) -> parse::Result<Self> {
-        todo!()
+        // todo!()
+        eprintln!("GetSerialApiInitDataResponse::parse() not implemented");
+        Ok((i, Self {}))
     }
 }
 

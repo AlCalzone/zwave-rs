@@ -1,5 +1,6 @@
 use crate::{parse::empty, prelude::*};
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct SoftResetRequest {}
 
 impl SoftResetRequest {

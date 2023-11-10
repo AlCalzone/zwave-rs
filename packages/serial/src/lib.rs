@@ -5,6 +5,7 @@ pub use crate::definitions::*;
 
 #[macro_use]
 pub mod parse;
+mod util;
 
 pub mod binding;
 pub mod command;

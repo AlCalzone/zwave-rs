@@ -1,5 +1,6 @@
-use crate::{frame::SerialFrame, prelude::*};
+use crate::{frame::SerialFrame, prelude::*, util::hex_fmt};
 use enum_dispatch::enum_dispatch;
+use custom_debug_derive::Debug;
 
 mod capability;
 pub use capability::*;
@@ -24,6 +25,14 @@ define_commands!(
     SoftResetRequest {
         command_type: CommandType::Request,
         function_type: FunctionType::SoftReset,
+    },
+    GetControllerVersionRequest {
+        command_type: CommandType::Request,
+        function_type: FunctionType::GetControllerVersion,
+    },
+    GetControllerVersionResponse {
+        command_type: CommandType::Response,
+        function_type: FunctionType::GetControllerVersion,
     },
 );
 
@@ -50,7 +59,9 @@ macro_rules! define_commands {
         // Define the command enum with all possible variants.
         // Calls to the command enum will be dispatched to the corresponding variant.
         #[enum_dispatch]
+        #[derive(Debug, Clone, PartialEq)]
         pub enum Command {
+            NotImplemented(NotImplemented),
             $( $cmd_name($cmd_name) ),+
         }
 
@@ -69,6 +80,7 @@ macro_rules! define_commands {
         impl Serializable for Command {
             fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
                 move |out| match self {
+                    Self::NotImplemented(c) => cookie_factory::combinator::slice(&c.payload)(out),
                     $( Self::$cmd_name(c) => c.serialize()(out), )+
                 }
             }
@@ -91,12 +103,9 @@ macro_rules! define_commands {
                 }
             }
 
-            impl TryInto<SerialFrame> for $cmd_name {
-                type Error = crate::error::Error;
-
-                fn try_into(self) -> std::result::Result<SerialFrame, Self::Error> {
-                    let raw: CommandRaw = self.try_into()?;
-                    Ok(raw.into())
+            impl Into<SerialFrame> for $cmd_name {
+                fn into(self) -> SerialFrame {
+                    SerialFrame::Command(self.into())
                 }
             }
         )+
@@ -108,13 +117,16 @@ macro_rules! define_commands {
             fn try_from(raw: CommandRaw) -> std::result::Result<Self, Self::Error> {
                 let command_type = raw.command_type;
                 let function_type = raw.function_type;
-                let raw_payload = raw.payload.as_slice();
 
                 match (command_type, function_type) {
                     $( (CommandType::$cmd_type, FunctionType::$fn_type) => {
-                        Ok(Command::$cmd_name($cmd_name::try_from(raw_payload)?))
+                        Ok(Self::$cmd_name($cmd_name::try_from(raw.payload.as_slice())?))
                     } )+
-                    _ => todo!("Implement Command variant for NotImplemented"),
+                    _ => Ok(Self::NotImplemented(NotImplemented {
+                        command_type,
+                        function_type,
+                        payload: raw.payload,
+                    })),
                 }
             }
         }
@@ -122,4 +134,28 @@ macro_rules! define_commands {
     };
 }
 
+impl Into<SerialFrame> for Command {
+    fn into(self) -> SerialFrame {
+        SerialFrame::Command(self)
+    }
+}
+
 pub(crate) use define_commands;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NotImplemented {
+    pub command_type: CommandType,
+    pub function_type: FunctionType,
+    #[debug(with = "hex_fmt")]
+    pub payload: Vec<u8>,
+}
+
+impl CommandBase for NotImplemented {
+    fn command_type(&self) -> CommandType {
+        self.command_type
+    }
+
+    fn function_type(&self) -> FunctionType {
+        self.function_type
+    }
+}

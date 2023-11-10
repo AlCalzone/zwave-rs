@@ -54,6 +54,7 @@
     "body": [
       "use crate::{parse::empty, prelude::*};",
       "",
+      "#[derive(Debug, Clone, PartialEq)]",
       "pub struct ${1:${TM_FILENAME_BASE/(.*)$/${1:/pascalcase}/}}Request {}",
       "",
       "impl ${1}Request {",
@@ -109,6 +110,7 @@
     "body": [
       "use crate::{parse::empty, prelude::*};",
       "",
+      "#[derive(Debug, Clone, PartialEq)]",
       "pub struct ${1:${TM_FILENAME_BASE/(.*)$/${1:/pascalcase}/}}Request {}",
       "",
       "impl ${1}Request {",
@@ -158,6 +160,7 @@
       "    }",
       "}",
       "",
+      "#[derive(Debug, Clone, PartialEq)]",
       "pub struct ${1}Response {}",
       "",
       "impl Parsable for ${1}Response {",
