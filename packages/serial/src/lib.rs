@@ -1,7 +1,5 @@
 #![feature(more_qualified_paths)]
 
-#[macro_use]
-pub mod parse;
 mod util;
 
 pub mod binding;

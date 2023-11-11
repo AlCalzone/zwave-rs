@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use zwave_core::prelude::*;
 
-use zwave_core::encoding::{self, empty};
+use zwave_core::encoding::{self, encoders::empty};
 
 
 #[derive(Debug, Clone, PartialEq)]

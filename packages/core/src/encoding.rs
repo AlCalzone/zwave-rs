@@ -1,14 +1,14 @@
 // Heavily inspired from https://fasterthanli.me/series/making-our-own-ping/
 
-use std::fmt;
-use std::ops::RangeFrom;
-
+use bitvec::prelude::*;
 use cookie_factory::GenError;
 use custom_debug_derive::Debug;
 use nom::error::{
     ContextError as NomContextError, ErrorKind as NomErrorKind, ParseError as NomParseError,
 };
 use nom::{ErrorConvert, Slice};
+use std::fmt;
+use std::ops::RangeFrom;
 use thiserror::Error;
 
 #[derive(Debug, PartialEq)]
@@ -177,6 +177,7 @@ pub type ParseResult<'a, T> = nom::IResult<Input<'a>, T, NomError<Input<'a>>>;
 
 pub type BitInput<'a> = (&'a [u8], usize);
 pub type BitParseResult<'a, T> = nom::IResult<BitInput<'a>, T, NomError<BitInput<'a>>>;
+pub type BitOutput = BitVec<u8, Msb0>;
 
 pub trait Parsable
 where
@@ -199,9 +200,116 @@ where
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a;
 }
 
-/// A SerializeFn that does nothing
-pub fn empty<W: std::io::Write>() -> impl cookie_factory::SerializeFn<W> {
-    move |out: cookie_factory::WriteContext<W>| Ok(out)
+pub trait BitSerializable {
+    fn write(&self, b: &mut BitOutput);
+}
+
+pub trait WriteLastNBits {
+    fn write_last_n_bits<B: BitStore>(&mut self, b: B, num_bits: usize);
+}
+
+impl WriteLastNBits for BitOutput {
+    fn write_last_n_bits<B: BitStore>(&mut self, b: B, num_bits: usize) {
+        let bitslice = b.view_bits::<Lsb0>();
+        let start = bitslice.len() - num_bits;
+        self.extend_from_bitslice(&bitslice[start..])
+    }
+}
+
+use nom::bits::streaming::take as take_bits;
+use nom::combinator::map;
+
+macro_rules! impl_bit_parsable_for_ux {
+    ($($width: expr),*) => {
+        $(
+            paste::item! {
+                use ux::[<u $width>];
+                impl BitParsable for [<u $width>] {
+                    fn parse(i: BitInput) -> BitParseResult<Self> {
+                        map(take_bits($width as usize), Self::new)(i)
+                    }
+                }
+            }
+        )*
+    };
+}
+
+macro_rules! impl_bit_serializable_for_ux {
+    ($($width: expr),*) => {
+        $(
+            paste::item! {
+                impl BitSerializable for [<u $width>] {
+                    fn write(&self, b: &mut BitOutput) {
+                        b.write_last_n_bits(u16::from(*self), $width);
+                    }
+                }
+            }
+        )*
+    };
+}
+
+impl_bit_parsable_for_ux!(1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15);
+impl_bit_serializable_for_ux!(1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15);
+
+impl BitSerializable for bool {
+    fn write(&self, b: &mut BitOutput) {
+        b.push(*self);
+    }
+}
+
+#[macro_export]
+macro_rules! impl_vec_parsing_for {
+    ($struct_name:ident) => {
+        impl TryFrom<&[u8]> for $struct_name {
+            type Error = EncodingError;
+
+            fn try_from(value: &[u8]) -> EncodingResult<Self> {
+                Self::parse(value).into_encoding_result()
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! impl_vec_serializing_for {
+    ($struct_name:ident) => {
+        impl TryInto<Vec<u8>> for &$struct_name {
+            type Error = EncodingError;
+
+            fn try_into(self) -> std::result::Result<Vec<u8>, Self::Error> {
+                use crate::error::IntoResult;
+                cookie_factory::gen_simple(self.serialize(), Vec::new()).into_encoding_result()
+            }
+        }
+
+        impl TryInto<Vec<u8>> for $struct_name {
+            type Error = EncodingError;
+
+            fn try_into(self) -> std::result::Result<Vec<u8>, Self::Error> {
+                (&self).try_into()
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! impl_vec_conversion_for {
+    ($struct_name:ident) => {
+        impl_vec_parsing_for!($struct_name);
+        impl_vec_serializing_for!($struct_name);
+    };
+}
+
+impl<T> Serializable for Option<T>
+where
+    T: Serializable,
+{
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+        move |out| match self {
+            Some(v) => v.serialize()(out),
+            None => crate::encoding::encoders::empty()(out),
+        }
+    }
 }
 
 /// A simple result type concerning conversion from/to binary data
@@ -285,65 +393,73 @@ impl From<std::io::Error> for EncodingError {
     }
 }
 
-use nom::bits::streaming::take as take_bits;
-use nom::combinator::map;
+pub mod encoders {
+    use super::BitOutput;
+    use bitvec::prelude::*;
+    use cookie_factory as cf;
+    use std::io;
 
-macro_rules! impl_bit_parsable_for_ux {
-    ($($width: expr),*) => {
-        $(
-            paste::item! {
-                use ux::[<u $width>];
-                impl BitParsable for [<u $width>] {
-                    fn parse(i: BitInput) -> BitParseResult<Self> {
-                        map(take_bits($width as usize), Self::new)(i)
-                    }
-                }
-            }
-        )*
-    };
-}
+    pub fn bits<W, F>(f: F) -> impl cf::SerializeFn<W>
+    where
+        W: io::Write,
+        F: Fn(&mut BitOutput),
+    {
+        move |mut out: cf::WriteContext<W>| {
+            let mut bo = BitOutput::new();
+            f(&mut bo);
 
-impl_bit_parsable_for_ux!(1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15);
+            io::Write::write(&mut out, bo.as_raw_slice())?;
+            Ok(out)
+        }
+    }
+    /// A SerializeFn that does nothing
+    pub fn empty<W: std::io::Write>() -> impl cookie_factory::SerializeFn<W> {
+        move |out: cookie_factory::WriteContext<W>| Ok(out)
+    }
 
-#[macro_export]
-macro_rules! impl_vec_parsing_for {
-    ($struct_name:ident) => {
-        impl TryFrom<&[u8]> for $struct_name {
-            type Error = EncodingError;
+    /// Encodes a `Vec<u8>` as bitmask_length + bitmask where the least significant bit is mapped to `bit0_value`.
+    pub fn bitmask_u8<'a, W: std::io::Write + 'a>(
+        values: &'a [u8],
+        bit0_value: u8,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+        move |out| match values.len() {
+            0 => cf::bytes::be_u8(0u8)(out),
+            _ => {
+                let indizes = values
+                    .iter()
+                    .map(|v| (v - bit0_value) as usize)
+                    .collect::<Vec<_>>();
 
-            fn try_from(value: &[u8]) -> EncodingResult<Self> {
-                Self::parse(value).into_encoding_result()
+                let bit_len = indizes.iter().max().unwrap_or(&0) + 1;
+
+                let mut bitvec = BitVec::<_, Lsb0>::new();
+                bitvec.resize_with(bit_len, |idx| indizes.contains(&idx));
+                let raw = bitvec.as_raw_slice().to_owned();
+
+                cf::sequence::tuple((
+                    cf::bytes::be_u8(raw.len() as u8),
+                    cf::combinator::slice(raw),
+                ))(out)
             }
         }
-    };
+    }
 }
 
-#[macro_export]
-macro_rules! impl_vec_serializing_for {
-    ($struct_name:ident) => {
-        impl TryInto<Vec<u8>> for &$struct_name {
-            type Error = EncodingError;
+pub mod parsers {
+    use bitvec::prelude::*;
+    use nom::bytes::complete::take as take_bytes;
+    use nom::number::complete::be_u8;
 
-            fn try_into(self) -> std::result::Result<Vec<u8>, Self::Error> {
-                use crate::error::IntoResult;
-                cookie_factory::gen_simple(self.serialize(), Vec::new()).into_encoding_result()
-            }
-        }
+    /// Parses a bitmask into a `Vec<u8>`. The least significant bit is mapped to `bit0_value`.
+    pub fn bitmask_u8(i: super::Input, bit0_value: u8) -> super::ParseResult<Vec<u8>> {
+        let (i, len_bitmask) = be_u8(i)?;
+        let (i, bitmask) = take_bytes(len_bitmask)(i)?;
 
-        impl TryInto<Vec<u8>> for $struct_name {
-            type Error = EncodingError;
-
-            fn try_into(self) -> std::result::Result<Vec<u8>, Self::Error> {
-                (&self).try_into()
-            }
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! impl_vec_conversion_for {
-    ($struct_name:ident) => {
-        impl_vec_parsing_for!($struct_name);
-        impl_vec_serializing_for!($struct_name);
-    };
+        let view = bitmask.view_bits::<Lsb0>();
+        let ret = view
+            .iter_ones()
+            .map(|index| (index as u8) + bit0_value)
+            .collect::<Vec<_>>();
+        Ok((i, ret))
+    }
 }

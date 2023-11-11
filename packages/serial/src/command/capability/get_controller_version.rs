@@ -3,7 +3,7 @@ use zwave_core::prelude::*;
 
 use cookie_factory as cf;
 use nom::{bytes::complete::tag, character::complete::none_of, combinator::map, multi::many1};
-use zwave_core::encoding::{self, empty};
+use zwave_core::encoding::{self, encoders::empty};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetControllerVersionRequest {}
