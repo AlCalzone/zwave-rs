@@ -405,3 +405,42 @@ impl Into<u16> for ChipType {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[repr(u8)]
+pub enum ProtocolType {
+    #[debug(format = "Z-Wave")]
+    ZWave,
+    #[debug(format = "Z-Wave AV")]
+    ZWaveAV,
+    #[debug(format = "Z-Wave for IP")]
+    ZWaveIP,
+}
+
+impl Parsable for ProtocolType {
+    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
+        context(
+            "ProtocolType",
+            map(be_u8, |x| ProtocolType::try_from(x).unwrap()),
+        )(i)
+    }
+}
+
+impl Serializable for ProtocolType {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
+        cf::bytes::be_u8(*self as u8)
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct Version {
+    pub major: u8,
+    pub minor: u8,
+    pub patch: u8,
+}
+
+impl std::fmt::Debug for Version {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
+    }
+}

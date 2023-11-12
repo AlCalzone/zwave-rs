@@ -15,28 +15,44 @@ pub use misc::*;
 pub trait CommandBase {
     fn command_type(&self) -> CommandType;
     fn function_type(&self) -> FunctionType;
+    fn origin(&self) -> MessageOrigin;
 }
 
 define_commands!(
     GetSerialApiInitDataRequest {
         command_type: CommandType::Request,
         function_type: FunctionType::GetSerialApiInitData,
+        origin: MessageOrigin::Host,
     },
     GetSerialApiInitDataResponse {
         command_type: CommandType::Response,
         function_type: FunctionType::GetSerialApiInitData,
+        origin: MessageOrigin::Controller,
     },
     SoftResetRequest {
         command_type: CommandType::Request,
         function_type: FunctionType::SoftReset,
+        origin: MessageOrigin::Host,
     },
     GetControllerVersionRequest {
         command_type: CommandType::Request,
         function_type: FunctionType::GetControllerVersion,
+        origin: MessageOrigin::Host,
     },
     GetControllerVersionResponse {
         command_type: CommandType::Response,
         function_type: FunctionType::GetControllerVersion,
+        origin: MessageOrigin::Controller,
+    },
+    GetProtocolVersionRequest {
+        command_type: CommandType::Request,
+        function_type: FunctionType::GetProtocolVersion,
+        origin: MessageOrigin::Host,
+    },
+    GetProtocolVersionResponse {
+        command_type: CommandType::Response,
+        function_type: FunctionType::GetProtocolVersion,
+        origin: MessageOrigin::Controller,
     },
 );
 
@@ -58,6 +74,7 @@ macro_rules! define_commands {
         $( $cmd_name:ident {
             command_type: CommandType::$cmd_type:ident,
             function_type: FunctionType::$fn_type:ident,
+            origin: MessageOrigin::$origin:ident,
         } ),+ $(,)? // trailing comma
     ) => {
         // Define the command enum with all possible variants.
@@ -77,6 +94,10 @@ macro_rules! define_commands {
 
             fn function_type(&self) -> FunctionType {
                 FunctionType::$fn_type
+            }
+
+            fn origin(&self) -> MessageOrigin {
+                MessageOrigin::$origin
             }
         } )+
 
@@ -121,9 +142,12 @@ macro_rules! define_commands {
             fn try_from(raw: CommandRaw) -> std::result::Result<Self, Self::Error> {
                 let command_type = raw.command_type;
                 let function_type = raw.function_type;
+                // We parse commands that are sent by the controller
+                let expected_origin = MessageOrigin::Controller;
 
-                match (command_type, function_type) {
-                    $( (CommandType::$cmd_type, FunctionType::$fn_type) => {
+                // ...and hope that Rust optimizes the match arms with origin Host away
+                match (command_type, function_type, expected_origin) {
+                    $( (CommandType::$cmd_type, FunctionType::$fn_type, MessageOrigin::$origin) => {
                         Ok(Self::$cmd_name($cmd_name::try_from(raw.payload.as_slice())?))
                     } )+
                     _ => Ok(Self::NotImplemented(NotImplemented {
@@ -137,14 +161,13 @@ macro_rules! define_commands {
 
     };
 }
+use define_commands;
 
 impl Into<SerialFrame> for Command {
     fn into(self) -> SerialFrame {
         SerialFrame::Command(self)
     }
 }
-
-pub(crate) use define_commands;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NotImplemented {
@@ -161,5 +184,9 @@ impl CommandBase for NotImplemented {
 
     fn function_type(&self) -> FunctionType {
         self.function_type
+    }
+
+    fn origin(&self) -> MessageOrigin {
+        MessageOrigin::Controller
     }
 }
