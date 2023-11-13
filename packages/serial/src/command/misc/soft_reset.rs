@@ -1,3 +1,5 @@
+#![allow(clippy::new_without_default)]
+
 use crate::prelude::*;
 use zwave_core::prelude::*;
 
@@ -45,7 +47,7 @@ impl CommandRequest for SoftResetRequest {
 	}
 
 	fn callback_id(&self) -> Option<u8> {
-		return None;
+		None
 	}
 
 	fn set_callback_id(&mut self, _callback_id: Option<u8>) {

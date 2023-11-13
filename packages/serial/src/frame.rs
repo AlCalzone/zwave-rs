@@ -113,8 +113,8 @@ impl TryInto<RawSerialFrame> for SerialFrame {
             SerialFrame::NAK => Ok(RawSerialFrame::NAK),
             SerialFrame::CAN => Ok(RawSerialFrame::CAN),
             SerialFrame::Command(cmd) => CommandRaw::try_from(cmd)
-                .map(|raw| TryInto::<Vec<u8>>::try_into(raw))?
-                .map(|data| RawSerialFrame::Data(data)),
+                .map(TryInto::<Vec<u8>>::try_into)?
+                .map(RawSerialFrame::Data),
             SerialFrame::Raw(data) => Ok(RawSerialFrame::Data(data)),
         }
     }

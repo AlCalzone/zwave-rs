@@ -1,5 +1,6 @@
+#![allow(clippy::new_without_default)]
+
 use crate::prelude::*;
-use bitvec::vec;
 use zwave_core::{
     encoding::{encoders, BitSerializable},
     prelude::*,
@@ -55,7 +56,7 @@ impl CommandRequest for GetSerialApiInitDataRequest {
     }
 
     fn callback_id(&self) -> Option<u8> {
-        return None;
+        None
     }
 
     fn set_callback_id(&mut self, _callback_id: Option<u8>) {

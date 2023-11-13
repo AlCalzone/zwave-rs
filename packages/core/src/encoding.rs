@@ -89,7 +89,7 @@ where
 
 impl<'a> fmt::Debug for NomError<&'a [u8]> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "parsing error\n")?;
+        writeln!(f, "parsing error")?;
 
         let mut shown_input = None;
         let margin_left = 4;
@@ -126,7 +126,7 @@ impl<'a> fmt::Debug for NomError<&'a [u8]> {
                 for b in s {
                     write!(f, "{:02X} ", b)?;
                 }
-                write!(f, "\n")?;
+                writeln!(f)?;
 
                 write!(f, "{}", margin_str)?;
                 for i in 0..s.len() {
@@ -140,7 +140,7 @@ impl<'a> fmt::Debug for NomError<&'a [u8]> {
                         write!(f, "   ")?;
                     };
                 }
-                write!(f, "\n")?;
+                writeln!(f)?;
 
                 Ok(())
             };
@@ -152,7 +152,7 @@ impl<'a> fmt::Debug for NomError<&'a [u8]> {
                 ErrorKind::Validation(reason) => format!("validation error: {}", reason),
             };
 
-            write!(f, "{}\n", prefix)?;
+            writeln!(f, "{}", prefix)?;
             match shown_input {
                 None => {
                     shown_input.replace(input);
@@ -277,7 +277,6 @@ macro_rules! impl_vec_serializing_for {
             type Error = EncodingError;
 
             fn try_into(self) -> std::result::Result<Vec<u8>, Self::Error> {
-                use crate::error::IntoResult;
                 cookie_factory::gen_simple(self.serialize(), Vec::new()).into_encoding_result()
             }
         }
@@ -382,7 +381,7 @@ impl<T> IntoEncodingResult for std::result::Result<T, GenError> {
     type Output = T;
 
     fn into_encoding_result(self) -> EncodingResult<Self::Output> {
-        self.map_err(|e| EncodingError::from(e))
+        self.map_err(EncodingError::from)
     }
 }
 

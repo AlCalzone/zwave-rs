@@ -128,9 +128,9 @@ macro_rules! define_commands {
                 }
             }
 
-            impl Into<SerialFrame> for $cmd_name {
-                fn into(self) -> SerialFrame {
-                    SerialFrame::Command(self.into())
+            impl From<$cmd_name> for SerialFrame {
+                fn from(val: $cmd_name) -> Self {
+                    SerialFrame::Command(val.into())
                 }
             }
         )+
@@ -163,9 +163,9 @@ macro_rules! define_commands {
 }
 use define_commands;
 
-impl Into<SerialFrame> for Command {
-    fn into(self) -> SerialFrame {
-        SerialFrame::Command(self)
+impl From<Command> for SerialFrame {
+    fn from(val: Command) -> Self {
+        SerialFrame::Command(val)
     }
 }
 

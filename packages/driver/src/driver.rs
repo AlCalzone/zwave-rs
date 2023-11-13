@@ -158,15 +158,10 @@ async fn serial_loop_handle_command(
     cmd: ThreadCommand,
     done: oneshot::Sender<()>,
 ) {
-    match cmd {
-        ThreadCommand::Send(frame) => {
-            port.write(frame.try_into().unwrap()).await.unwrap();
-            done.send(()).unwrap();
-        }
-
-        // Ignore other commands
-        #[allow(unreachable_patterns)]
-        _ => {}
+    #[allow(irrefutable_let_patterns)]
+    if let ThreadCommand::Send(frame) = cmd {
+        port.write(frame.try_into().unwrap()).await.unwrap();
+        done.send(()).unwrap();
     }
 }
 
@@ -177,7 +172,7 @@ async fn serial_loop_handle_frame(
 ) {
     let emit = match &frame {
         RawSerialFrame::Data(data) => {
-            println!("<< {}", hex::encode(&data));
+            println!("<< {}", hex::encode(data));
             // Try to parse the frame
             match zwave_serial::command_raw::CommandRaw::parse(data) {
                 Ok((_, raw)) => {
@@ -206,7 +201,7 @@ async fn serial_loop_handle_frame(
             }
         }
         RawSerialFrame::Garbage(data) => {
-            println!("xx: {}", hex::encode(&data));
+            println!("xx: {}", hex::encode(data));
             // After receiving garbage, try to re-sync by sending NAK
             port.write(RawSerialFrame::NAK).await.unwrap();
             None

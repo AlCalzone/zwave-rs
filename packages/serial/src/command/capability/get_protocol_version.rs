@@ -1,3 +1,5 @@
+#![allow(clippy::new_without_default)]
+
 use crate::prelude::*;
 use hex::ToHex;
 use nom::bytes::complete::take;
@@ -7,8 +9,7 @@ use nom::sequence::tuple;
 use zwave_core::encoding::encoders::empty;
 use zwave_core::{encoding, prelude::*};
 
-use cookie_factory as cf;
-use nom::{bytes::complete::tag, character::complete::none_of, combinator::map, multi::many1};
+use nom::combinator::map;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetProtocolVersionRequest {}
@@ -52,7 +53,7 @@ impl CommandRequest for GetProtocolVersionRequest {
     }
 
     fn callback_id(&self) -> Option<u8> {
-        return None;
+        None
     }
 
     fn set_callback_id(&mut self, _callback_id: Option<u8>) {

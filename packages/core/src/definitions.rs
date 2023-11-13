@@ -303,24 +303,24 @@ impl From<u8> for ZWaveApiVersion {
     }
 }
 
-impl Into<u8> for ZWaveApiVersion {
-    fn into(self) -> u8 {
-        match self {
-            Self::Official(v) => v + 9,
-            Self::Legacy(v) => v,
+impl From<ZWaveApiVersion> for u8 {
+    fn from(val: ZWaveApiVersion) -> Self {
+        match val {
+            ZWaveApiVersion::Official(v) => v + 9,
+            ZWaveApiVersion::Legacy(v) => v,
         }
     }
 }
 
 impl Parsable for ZWaveApiVersion {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context("ZWaveApiVersion", map(be_u8, |x| ZWaveApiVersion::from(x)))(i)
+        context("ZWaveApiVersion", map(be_u8, ZWaveApiVersion::from))(i)
     }
 }
 
 impl Serializable for ZWaveApiVersion {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        cf::bytes::be_u8(self.clone().into())
+        cf::bytes::be_u8((*self).into())
     }
 }
 
@@ -381,7 +381,7 @@ impl From<u16> for ChipType {
 
 impl Parsable for ChipType {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context("ChipType", map(be_u16, |x| ChipType::from(x)))(i)
+        context("ChipType", map(be_u16, ChipType::from))(i)
     }
 }
 
@@ -391,17 +391,17 @@ impl Serializable for ChipType {
     }
 }
 
-impl Into<u16> for ChipType {
-    fn into(self) -> u16 {
-        match self {
-            Self::ZW0102 => 0x0102,
-            Self::ZW0201 => 0x0201,
-            Self::ZW0301 => 0x0301,
-            Self::ZM040x => 0x0401,
-            Self::ZW050x => 0x0501,
-            Self::EFR32xG1x => 0x0700,
-            Self::EFR32xG2x => 0x0800,
-            Self::Unknown(v) => v,
+impl From<ChipType> for u16 {
+    fn from(val: ChipType) -> Self {
+        match val {
+            ChipType::ZW0102 => 0x0102,
+            ChipType::ZW0201 => 0x0201,
+            ChipType::ZW0301 => 0x0301,
+            ChipType::ZM040x => 0x0401,
+            ChipType::ZW050x => 0x0501,
+            ChipType::EFR32xG1x => 0x0700,
+            ChipType::EFR32xG2x => 0x0800,
+            ChipType::Unknown(v) => v,
         }
     }
 }

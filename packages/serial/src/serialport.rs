@@ -30,7 +30,7 @@ impl SerialBinding for SerialPort {
     async fn write(&mut self, frame: RawSerialFrame) -> Result<()> {
         match &frame {
             RawSerialFrame::Data(data) => {
-                println!(">> {}", hex::encode(&data));
+                println!(">> {}", hex::encode(data));
             }
             RawSerialFrame::ACK | RawSerialFrame::CAN | RawSerialFrame::NAK => {
                 println!(">> {:?}", &frame);
