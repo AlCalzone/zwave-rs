@@ -2,9 +2,15 @@ use std::thread;
 use std::time::Duration;
 use zwave_serial::command::GetProtocolVersionRequest;
 
+#[cfg(target_os = "linux")]
+const PORT: &str = "/dev/ttyUSB0";
+
+#[cfg(target_os = "windows")]
+const PORT: &str = "COM5";
+
 #[tokio::main]
 async fn main() {
-    let mut driver = zwave_driver::Driver::new("/dev/ttyUSB0");
+    let mut driver = zwave_driver::Driver::new(PORT);
     println!("driver started");
 
     #[allow(clippy::unnecessary_fallible_conversions)]

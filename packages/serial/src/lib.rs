@@ -1,5 +1,3 @@
-#![feature(more_qualified_paths)]
-
 mod util;
 
 pub mod binding;
