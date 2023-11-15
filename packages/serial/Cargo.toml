@@ -7,20 +7,20 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytes = "1.5.0"
-cookie-factory = "0.3.2"
-custom_debug_derive = "0.5.1"
-derive-try-from-primitive = "1.0.0"
-hex = "0.4.3"
-nom = "7.1.3"
-paste = "1.0.14"
-serialport = "4.2.2"
-thiserror = "1.0.50"
-ux = "0.1.5"
-tokio = { version = "1.33.0", features = ["rt"] }
-tokio-serial = "5.4.4"
-tokio-util = { version = "0.7.10", features = ["codec"] }
-futures = "0.3.29"
-enum_dispatch = "0.3.12"
-zwave-core = { path = "../core" }
-bitvec = "1.0.1"
+bitvec.workspace = true
+bytes.workspace = true
+cookie-factory.workspace = true
+custom_debug_derive.workspace = true
+derive-try-from-primitive.workspace = true
+enum_dispatch.workspace = true
+futures.workspace = true
+hex.workspace = true
+nom.workspace = true
+paste.workspace = true
+serialport.workspace = true
+thiserror.workspace = true
+tokio-serial.workspace = true
+tokio-util.workspace = true
+tokio.workspace = true
+ux.workspace = true
+zwave-core.workspace = true

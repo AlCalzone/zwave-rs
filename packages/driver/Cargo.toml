@@ -7,9 +7,9 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-zwave-serial = { path = "../serial" }
-zwave-core = { path = "../core" }
-hex = "0.4.3"
-tokio = { version = "1.33.0", features = ["rt"] }
-thiserror = "1.0.50"
-custom_debug_derive = "0.5.1"
+custom_debug_derive.workspace = true
+hex.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+zwave-core.workspace = true
+zwave-serial.workspace = true

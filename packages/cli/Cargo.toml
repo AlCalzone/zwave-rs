@@ -6,7 +6,7 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hex = "0.4.3"
-zwave-serial = { path = "../serial" }
-zwave-driver = { path = "../driver" }
-tokio = { version = "1.33.0", features = ["rt-multi-thread", "macros"] }
+hex.workspace = true
+tokio.workspace = true
+zwave-driver.workspace = true
+zwave-serial.workspace = true
