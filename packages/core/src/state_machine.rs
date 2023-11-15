@@ -10,7 +10,7 @@ pub trait StateMachineTransition: Sized {
 }
 
 /// Describes an automatic transition to be taken after a delay, with an optional effect to be executed before entering the new state.
-pub trait StateMachineDelay: Sized {
+pub trait StateMachineDelayedTransition: Sized {
     type S: Sized;
     type E: Sized + Copy;
 
@@ -19,6 +19,7 @@ pub trait StateMachineDelay: Sized {
     fn new_state(&self) -> &Self::S;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Delay {
     Static(Duration),
     Named(&'static str),
@@ -29,7 +30,7 @@ pub trait StateMachine: Sized {
     type E: Sized + Copy;
     type I: Sized + Copy;
     type T: StateMachineTransition + Sized;
-    type D: StateMachineDelay + Sized;
+    type DT: StateMachineDelayedTransition + Sized;
 
     fn new() -> Self;
 
@@ -41,7 +42,7 @@ pub trait StateMachine: Sized {
     fn transition(self, state: Self::S) -> Self;
 
     /// Returns which delays should be scheduled for the current state
-    fn delays(&self) -> Option<Vec<Self::D>>;
+    fn delays(&self) -> Option<Vec<Self::DT>>;
 
     /// The current state of the state machine
     fn state(&self) -> &Self::S;
@@ -73,16 +74,16 @@ pub trait StateMachine: Sized {
 ///     },
 ///     Transitions = [
 ///         [Initial => [
-///             StartWorking => ! Work => Working,
+///             [StartWorking => ! Work => Working],
 ///         ]],
 ///         [Working => [
-///             Finished => Done(true),
+///             [Finished => Done(true)],
 ///         ]],
 ///     ],
 ///     Delays = [
 ///         [Working => [
-///             Duration::from_millis(1000) => Done(false),
-///             @my_named_delay => ! Sleep(500) => Done(false),
+///             [Duration::from_millis(1000) => Done(false)],
+///             [@my_named_delay => ! Sleep(500) => Done(false)],
 ///         ]]
 ///     ],
 ///     Initial = Initial,
@@ -95,17 +96,17 @@ pub trait StateMachine: Sized {
 /// `Transitions` are a list of
 /// ```ignore
 /// [Pattern (current state) => [
-///     Pattern (input) => Expression (new state)
-///     Pattern (input) => ! Expression (effect) => Expression (new state)
+///     [Pattern (input) => Expression (new state)]
+///     [Pattern (input) => ! Expression (effect) => Expression (new state)]
 /// ]]
 /// ```
 /// `Delays` are a list of
 /// ```ignore
 /// [Pattern (current state) => [
-///     Expression (delay) => Expression (new state),
-///     @Literal (delay name) => Expression (new state),
-///     Expression (delay) => ! Expression (effect) => Expression (new state),
-///     @Literal (delay name) => ! Expression (effect) => Expression (new state),
+///     [Expression (delay) => Expression (new state)],
+///     [@Literal (delay name) => Expression (new state)],
+///     [Expression (delay) => ! Expression (effect) => Expression (new state)],
+///     [@Literal (delay name) => ! Expression (effect) => Expression (new state)],
 /// ]]
 /// ```
 /// Both specify a condition (input or delay) under which a specific transition to a new state is taken.
@@ -157,13 +158,14 @@ macro_rules! state_machine {
 				}
 			}
 
-			struct [<$fsm_name Delay>] {
+			#[derive(Debug, Clone, PartialEq)]
+			struct [<$fsm_name DelayedTransition>] {
 				delay: crate::state_machine::Delay,
 				effect: Option<[<$fsm_name Effect>]>,
 				new_state: [<$fsm_name State>],
 			}
 
-			impl crate::state_machine::StateMachineDelay for [<$fsm_name Delay>] {
+			impl crate::state_machine::StateMachineDelayedTransition for [<$fsm_name DelayedTransition>] {
 				type S = [<$fsm_name State>];
 				type E = [<$fsm_name Effect>];
 
@@ -195,7 +197,7 @@ macro_rules! state_machine {
 				type E = [<$fsm_name Effect>];
 				type I = [<$fsm_name Input>];
 				type T = [<$fsm_name Transition>];
-				type D = [<$fsm_name Delay>];
+				type DT = [<$fsm_name DelayedTransition>];
 
 				fn new() -> Self {
 					use [<$fsm_name State>]::*;
@@ -211,7 +213,7 @@ macro_rules! state_machine {
 					state_machine!(@transition_match (self; input; $($transition)*))
 				}
 
-				fn delays(&self) -> Option<Vec<Self::D>> {
+				fn delays(&self) -> Option<Vec<Self::DT>> {
 					use [<$fsm_name State>]::*;
 					// use [<$fsm_name Input>]::*;
 					use [<$fsm_name Effect>]::*;
@@ -244,19 +246,21 @@ macro_rules! state_machine {
 	(@transition_match (
 		$self:ident; $input:ident;
 		[$from:pat => [
-			$($expected_input:pat => ! $effect:expr => $to:expr),*$(,)?
+			[$expected_input:pat => ! $effect:expr => $to:expr]
+			$($others:tt)*
 		]]
 		$($rest:tt)*
 	) $($arms:tt)*) => {
 		state_machine!(
-			@transition_match ($self; $input; $($rest)*)
+			@transition_match (
+				$self; $input; [$from => [ $($others)* ]]
+				$($rest)*
+			)
 			$($arms)*
-			$(
-				($from, $expected_input) => Some(Self::T {
-					effect: Some($effect),
-					new_state: $to,
-				}),
-			),*
+			($from, $expected_input) => Some(Self::T {
+				effect: Some($effect),
+				new_state: $to,
+			}),
 		)
 	};
 
@@ -264,22 +268,39 @@ macro_rules! state_machine {
 	(@transition_match (
 		$self:ident; $input:ident;
 		[$from:pat => [
-			$($expected_input:pat => $to:expr),*$(,)?
+			[$expected_input:pat => $to:expr]
+			$($others:tt)*
 		]]
 		$($rest:tt)*
 	) $($arms:tt)*) => {
 		state_machine!(
-			@transition_match ($self; $input; $($rest)*)
+			@transition_match (
+				$self; $input; [$from => [ $($others)* ]]
+				$($rest)*
+			)
 			$($arms)*
-			$(
-				($from, $expected_input) => Some(Self::T {
-					effect: None,
-					new_state: $to,
-				}),
-			),*
+			($from, $expected_input) => Some(Self::T {
+				effect: None,
+				new_state: $to,
+			}),
 		)
 	};
-	
+
+	// Matches when one state has been fully taken care of
+	(@transition_match (
+		$self:ident; $input:ident;
+		[$from:pat => [ $(,)? ]]
+		$($rest:tt)*
+	) $($arms:tt)*) => {
+		state_machine!(
+			@transition_match (
+				$self; $input;
+				$($rest)*
+			)
+			$($arms)*
+		)
+	};
+
 	// Matches when there is an unrecognized transition
 	(@transition_match (
 		$self:ident; $input:ident;
@@ -292,6 +313,8 @@ macro_rules! state_machine {
 			_ => compile_error!(concat!("Invalid transition ", stringify!($unknown))),
 		)
 	};
+
+
 	// Matches when all transitions have been taken care of
 	(@transition_match (
 		$self:ident; $input:ident;
@@ -304,11 +327,10 @@ macro_rules! state_machine {
 	};
 
 	// Generate the match arms for delays in delays()
-	// Static delay specified inline, WITH Effect
 	(@delay_match (
 		$self:ident;
 		[$from:pat => [
-			$($delay:expr => ! $effect:expr => $to:expr),* $(,)?
+			$($delay:tt),* $(,)?
 		]]
 		$($rest:tt)*
 	) $($arms:tt)*) => {
@@ -317,80 +339,51 @@ macro_rules! state_machine {
 			$($arms)*
 			$from => Some(
 				vec![
-					$(Self::D {
-						delay: crate::state_machine::Delay::Static($delay),
-						effect: Some($effect),
-						new_state: $to,
-					}),*
+					$(state_machine!( @delay_match_one($delay) )),*
 				]
 			),
 		)
 	};
-	// Static delay specified inline, NO Effect
-	(@delay_match (
-		$self:ident;
-		[$from:pat => [
-			$($delay:expr => $to:expr),* $(,)?
-		]]
-		$($rest:tt)*
-	) $($arms:tt)*) => {
-		state_machine!(
-			@delay_match ($self; $($rest)*)
-			$($arms)*
-			$from => Some(
-				vec![
-					$(Self::D {
-						delay: crate::state_machine::Delay::Static($delay),
-						effect: None,
-						new_state: $to,
-					}),*
-				]
-			),
-		)
-	};
+
 	// @Named delay, WITH Effect
-	(@delay_match (
-		$self:ident;
-		[$from:pat => [
-			$(@$delay:expr => ! $effect:expr => $to:expr),* $(,)?
-		]]
-		$($rest:tt)*
-	) $($arms:tt)*) => {
-		state_machine!(
-			@delay_match ($self; $($rest)*)
-			$($arms)*
-			$from => Some(
-				vec![
-					$(Self::D {
-						delay: crate::state_machine::Delay::Named(stringify!($delay)),
-						effect: Some($effect),
-						new_state: $to,
-					}),*
-				]
-			),
-		)
+	(@delay_match_one (
+		@$delay:expr => ! $effect:expr => $to:expr
+	)) => {
+		Self::DT {
+			delay: crate::state_machine::Delay::Named(stringify!($delay)),
+			effect: Some($effect),
+			new_state: $to,
+		}
 	};
 	// @Named delay, NO Effect
-	(@delay_match (
-		$self:ident;
-		[$from:pat => [
-			$(@$delay:expr => $to:expr),* $(,)?
-		]]
-		$($rest:tt)*
-	) $($arms:tt)*) => {
-		state_machine!(
-			@delay_match ($self; $($rest)*)
-			$($arms)*
-			$from => Some(
-				vec![
-					$(Self::D {
-						delay: crate::state_machine::Delay::Named(stringify!($delay)),
-						effect: None,
-						new_state: $to,
-					}),*
-				]
-			),
-		)
+	(@delay_match_one (
+		[@$delay:expr => $to:expr]
+	)) => {
+		Self::DT {
+			delay: crate::state_machine::Delay::Named(stringify!($delay)),
+			effect: None,
+			new_state: $to,
+		}
+	};
+	// Static delay specified inline, WITH Effect
+	(@delay_match_one (
+		[$delay:expr => ! $effect:expr => $to:expr]
+	)) => {
+		Self::DT {
+			delay: crate::state_machine::Delay::Static($delay),
+			effect: Some($effect),
+			new_state: $to,
+		}
+	};
+	// Static delay specified inline, NO Effect
+	(@delay_match_one (
+		[$delay:expr => $to:expr]
+	)) => {
+		Self::DT {
+			delay: crate::state_machine::Delay::Static($delay),
+			effect: None,
+			new_state: $to,
+		}
 	};
 
 	// Matches when there is no recognized delay
@@ -419,9 +412,10 @@ macro_rules! state_machine {
 
 // #[cfg(test)]
 mod test {
-    use std::time::Duration;
+    use bitvec::vec;
 
-    use super::StateMachine;
+    use super::{Delay, StateMachine};
+    use std::time::Duration;
 
     state_machine! { FSM {
         State = {
@@ -440,18 +434,22 @@ mod test {
         },
         Transitions = [
             [Initial => [
-                Sent => ! Send => WaitingForResponse,
+                [Sent => ! Send => WaitingForResponse]
             ]],
             [WaitingForResponse => [
-                Response => WaitingForCallback,
+                [Response => WaitingForCallback],
             ]],
             [WaitingForCallback => [
-                Callback => Done(1),
+                [Callback => Done(1)],
             ]],
         ],
         Delays = [
+            [WaitingForResponse => [
+                [@Custom => Done(1)],
+                [Duration::from_millis(1000) => ! Send => Done(2)]
+            ]],
             [WaitingForCallback => [
-                Duration::from_millis(1000) => !Send => Done(2),
+                [Duration::from_millis(1000) => ! Send => Done(2)]
             ]]
         ],
         Initial = Initial,
@@ -459,15 +457,31 @@ mod test {
     } }
 
     #[test]
-    fn test_fsm_nodelay() {
+    fn test_fsm() {
         let mut fsm = FSM::default();
 
         // Start the state machine
         let transition = fsm.next(FSMInput::Sent);
         assert!(transition.is_some());
         let transition = transition.unwrap();
+        assert_eq!(transition.effect, Some(FSMEffect::Send));
         fsm = fsm.transition(transition.new_state);
         assert_eq!(fsm.state(), &(FSMState::WaitingForResponse));
+        assert_eq!(
+            fsm.delays(),
+            Some(vec![
+                FSMDelayedTransition {
+                    delay: Delay::Named("Custom"),
+                    effect: None,
+                    new_state: FSMState::Done(1),
+                },
+                FSMDelayedTransition {
+                    delay: Delay::Static(Duration::from_millis(1000)),
+                    effect: Some(FSMEffect::Send),
+                    new_state: FSMState::Done(2),
+                },
+            ])
+        );
 
         // Send an unexpected input
         let transition = fsm.next(FSMInput::Callback);
