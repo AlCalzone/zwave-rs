@@ -49,10 +49,15 @@ impl Ord for Delay {
     }
 }
 
+pub trait StateMachineConfig {
+    fn evaluate_condition(condition: &'static str) -> bool;
+}
+
 pub trait StateMachine: Sized + Send + 'static {
     type S: Sized + Clone;
     type E: Sized + Copy + std::fmt::Debug + std::marker::Send + 'static;
     type I: Sized + Copy;
+    type C: Sized + Copy;
     type T: StateMachineTransition<S = Self::S, E = Self::E> + std::marker::Send + 'static;
     type DT: StateMachineTransition<S = Self::S, E = Self::E>
         + StateMachineDelay
@@ -64,7 +69,11 @@ pub trait StateMachine: Sized + Send + 'static {
 
     /// Determines the next transition to be executed given the current state and the input.
     /// Returns the transition if a valid one exists, otherwise returns None.
-    fn next(&self, input: Self::I) -> Option<Self::T>;
+    fn next(
+        &self,
+        input: Self::I,
+        evaluate_condition: impl Fn(Self::C) -> bool,
+    ) -> Option<Self::T>;
 
     /// Transitions the state machine into the new state
     fn transition(&mut self, state: Self::S);

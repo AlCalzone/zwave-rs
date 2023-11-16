@@ -5,7 +5,6 @@ use thiserror::Error;
 
 use std::future;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, Notify};
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
@@ -45,15 +44,17 @@ where
     // T: StateMachineTransition<S = S, E = E>,
     // DT: StateMachineDelayedTransition<S = S, E = E> + Sized,
 {
-    pub fn new<FSM>(
+    pub fn new<FSM, C>(
         machine: FSM,
         resolve_named: (impl Fn(&str) -> std::time::Duration
              + std::marker::Sync
              + std::marker::Send
              + 'static),
+        evaluate_condition: (impl Fn(C) -> bool + std::marker::Sync + std::marker::Send + 'static),
     ) -> Self
     where
-        FSM: StateMachine<S = S, E = E, I = I> + std::marker::Send + 'static,
+        C: Sized + Copy + std::marker::Send + 'static,
+        FSM: StateMachine<S = S, E = E, I = I, C = C> + std::marker::Send + 'static,
     {
         // We send inputs to the task using a channel
         let (input_tx, input_rx) = mpsc::channel::<I>(100);
@@ -69,6 +70,7 @@ where
         let task = Some(tokio::spawn(main_loop(
             machine,
             resolve_named,
+            evaluate_condition,
             input_rx,
             task_shutdown2,
             effect_tx,
@@ -125,17 +127,19 @@ where
     }
 }
 
-async fn main_loop<FSM, S, E, I>(
+async fn main_loop<FSM, S, E, I, C>(
     mut machine: FSM,
     resolve_named: impl Fn(&str) -> std::time::Duration,
+    evaluate_condition: impl Fn(C) -> bool,
     mut input_rx: StateMachineInputReceiver<I>,
     shutdown: Arc<Notify>,
     effect_tx: StateMachineEffectSender<E>,
 ) -> S
 where
-    FSM: StateMachine<S = S, E = E, I = I>,
+    FSM: StateMachine<S = S, E = E, I = I, C = C>,
     S: Sized + Copy,
     E: Sized + Copy + std::fmt::Debug,
+    C: Sized + Copy,
 {
     while !machine.done() {
         // If the current state has delays, find the shortest one
@@ -180,7 +184,8 @@ where
 
             // An input was received
             Some(input) = input_rx.recv() => {
-                if let Some(transition) = machine.next(input) {
+
+                if let Some(transition) = machine.next(input, &evaluate_condition) {
                     let new_state = transition.new_state();
                     if let Some(effect) = transition.effect() {
                         effect_tx.send(effect).unwrap();
@@ -226,6 +231,7 @@ pub(crate) mod test {
             DoingStuff,
             FinishedStuff,
         },
+        Condition = {},
         Transitions = [
             [Initial => [
                 [DoStuff => ! DoingStuff => Working]
@@ -253,7 +259,9 @@ pub(crate) mod test {
             _ => Duration::from_millis(0),
         };
 
-        let interpreter = StateMachineInterpreter::new(fsm, resolve_named);
+        let evaluate_condition = |_| false;
+
+        let interpreter = StateMachineInterpreter::new(fsm, resolve_named, evaluate_condition);
         let sender = interpreter.input_sender();
         let mut listener = interpreter.effect_listener();
 
@@ -298,8 +306,9 @@ pub(crate) mod test {
             "Lazy" => Duration::from_millis(1000),
             _ => Duration::from_millis(0),
         };
+        let evaluate_condition = |_| false;
 
-        let interpreter = StateMachineInterpreter::new(fsm, resolve_named);
+        let interpreter = StateMachineInterpreter::new(fsm, resolve_named, evaluate_condition);
         let sender = interpreter.input_sender();
         let mut listener = interpreter.effect_listener();
 

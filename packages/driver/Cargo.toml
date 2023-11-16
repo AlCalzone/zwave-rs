@@ -13,3 +13,4 @@ thiserror.workspace = true
 tokio.workspace = true
 zwave-core.workspace = true
 zwave-serial.workspace = true
+paste.workspace = true

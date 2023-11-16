@@ -68,6 +68,7 @@ macro_rules! state_machine {
             State = $state_enum:tt,
             Input = $input_enum:tt,
             Effect = $effect_enum:tt,
+            Condition = $cond_enum:tt,
             Transitions = [
                 $( $transition:tt ),* $(,)?
             ],
@@ -87,6 +88,9 @@ macro_rules! state_machine {
 
             #[derive(Debug, Clone, Copy, PartialEq)]
             enum [<$fsm_name Effect>] $effect_enum
+
+            #[derive(Debug, Clone, Copy, PartialEq)]
+            enum [<$fsm_name Condition>] $cond_enum
 
             struct [<$fsm_name Transition>] {
                 effect: Option<[<$fsm_name Effect>]>,
@@ -155,6 +159,7 @@ macro_rules! state_machine {
                 type S = [<$fsm_name State>];
                 type E = [<$fsm_name Effect>];
                 type I = [<$fsm_name Input>];
+                type C = [<$fsm_name Condition>];
                 type T = [<$fsm_name Transition>];
                 type DT = [<$fsm_name DelayedTransition>];
 
@@ -165,11 +170,16 @@ macro_rules! state_machine {
                     }
                 }
 
-                fn next(&self, input: Self::I) -> Option<Self::T> {
+                fn next(
+                    &self,
+                    input: Self::I,
+                    evaluate_condition: impl Fn(Self::C) -> bool
+                ) -> Option<Self::T> {
                     use [<$fsm_name State>]::*;
                     use [<$fsm_name Input>]::*;
                     use [<$fsm_name Effect>]::*;
-                    state_machine!(@transition_match (self; input; $($transition)*))
+                    use [<$fsm_name Condition>]::*;
+                    state_machine!(@transition_match (self; input; evaluate_condition; $($transition)*))
                 }
 
                 fn delays(&self) -> Option<Vec<Self::DT>> {
@@ -203,8 +213,9 @@ macro_rules! state_machine {
 
     // From(val) => [ Input(val) => ! Effect(val) => To(val) ]
     (@transition_match (
-        $self:ident; $input:ident;
+        $self:ident; $input:ident; $eval:ident;
         [$from:pat => [
+            $(,)?
             [$expected_input:pat => ! $effect:expr => $to:expr]
             $($others:tt)*
         ]]
@@ -212,7 +223,7 @@ macro_rules! state_machine {
     ) $($arms:tt)*) => {
         state_machine!(
             @transition_match (
-                $self; $input; [$from => [ $($others)* ]]
+                $self; $input; $eval; [$from => [ $($others)* ]]
                 $($rest)*
             )
             $($arms)*
@@ -224,21 +235,23 @@ macro_rules! state_machine {
     };
 
     // From(val) => [ Input(val) => To(val) ]
+    // From(val) => [ Input(val) if foo => To(val) ]
     (@transition_match (
-        $self:ident; $input:ident;
+        $self:ident; $input:ident; $eval:ident;
         [$from:pat => [
-            [$expected_input:pat => $to:expr]
+            $(,)?
+            [$expected_input:pat $(if $cond:expr)? => $to:expr]
             $($others:tt)*
         ]]
         $($rest:tt)*
     ) $($arms:tt)*) => {
         state_machine!(
             @transition_match (
-                $self; $input; [$from => [ $($others)* ]]
+                $self; $input; $eval; [$from => [ $($others)* ]]
                 $($rest)*
             )
             $($arms)*
-            ($from, $expected_input) => Some(Self::T {
+            ($from, $expected_input) $(if $eval($cond))? => Some(Self::T {
                 effect: None,
                 new_state: $to,
             }),
@@ -247,13 +260,13 @@ macro_rules! state_machine {
 
     // Matches when one state has been fully taken care of
     (@transition_match (
-        $self:ident; $input:ident;
+        $self:ident; $input:ident; $eval:ident;
         [$from:pat => [ $(,)? ]]
-        $($rest:tt)*
+        $($rest:tt)* $(,)?
     ) $($arms:tt)*) => {
         state_machine!(
             @transition_match (
-                $self; $input;
+                $self; $input; $eval;
                 $($rest)*
             )
             $($arms)*
@@ -262,12 +275,12 @@ macro_rules! state_machine {
 
     // Matches when there is an unrecognized transition
     (@transition_match (
-        $self:ident; $input:ident;
+        $self:ident; $input:ident; $eval:ident;
         $unknown:tt
         $($rest:tt)*
     ) $($arms:tt)*) => {
         state_machine!(
-            @transition_match ($self; $input; $($rest)*)
+            @transition_match ($self; $input; $eval; $($rest)*)
             $($arms)*
             _ => compile_error!(concat!("Invalid transition ", stringify!($unknown))),
         )
@@ -276,7 +289,7 @@ macro_rules! state_machine {
 
     // Matches when all transitions have been taken care of
     (@transition_match (
-        $self:ident; $input:ident;
+        $self:ident; $input:ident; $eval:ident;
         $(,)?
     ) $($arms:tt)*) => {
         match (&$self.state, $input) {

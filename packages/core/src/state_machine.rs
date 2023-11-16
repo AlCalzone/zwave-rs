@@ -27,6 +27,7 @@ mod test {
         Effect = {
             Send,
         },
+        Condition = {},
         Transitions = [
             [Initial => [
                 [Sent => ! Send => WaitingForResponse]
@@ -54,9 +55,10 @@ mod test {
     #[test]
     fn test_fsm() {
         let mut fsm = FSM::default();
+        let eval = |_| true;
 
         // Start the state machine
-        let transition = fsm.next(FSMInput::Sent);
+        let transition = fsm.next(FSMInput::Sent, eval);
         assert!(transition.is_some());
         let transition = transition.unwrap();
         assert_eq!(transition.effect, Some(FSMEffect::Send));
@@ -79,24 +81,24 @@ mod test {
         );
 
         // Send an unexpected input
-        let transition = fsm.next(FSMInput::Callback);
+        let transition = fsm.next(FSMInput::Callback, eval);
         assert!(transition.is_none());
         assert_eq!(fsm.state(), &(FSMState::WaitingForResponse));
 
         // Send the expected input
-        let transition = fsm.next(FSMInput::Response);
+        let transition = fsm.next(FSMInput::Response, eval);
         assert!(transition.is_some());
         let transition = transition.unwrap();
         fsm.transition(transition.new_state);
         assert_eq!(fsm.state(), &(FSMState::WaitingForCallback));
 
         // Send an unexpected input
-        let transition = fsm.next(FSMInput::Sent);
+        let transition = fsm.next(FSMInput::Sent, eval);
         assert!(transition.is_none());
         assert_eq!(fsm.state(), &(FSMState::WaitingForCallback));
 
         // Send the expected input
-        let transition = fsm.next(FSMInput::Callback);
+        let transition = fsm.next(FSMInput::Callback, eval);
         assert!(transition.is_some());
         let transition = transition.unwrap();
         fsm.transition(transition.new_state);

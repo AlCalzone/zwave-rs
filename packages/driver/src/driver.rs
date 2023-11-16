@@ -11,6 +11,8 @@ use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, oneshot, Notify};
 use tokio::task::JoinHandle;
 
+mod serial_api_machine;
+
 enum ThreadCommand {
     Send(SerialFrame),
 }
