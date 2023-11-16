@@ -16,3 +16,4 @@ nom.workspace = true
 paste.workspace = true
 thiserror.workspace = true
 ux.workspace = true
+tokio.workspace = true
