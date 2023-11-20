@@ -8,5 +8,6 @@ edition.workspace = true
 [dependencies]
 hex.workspace = true
 tokio.workspace = true
+zwave-core.workspace = true
 zwave-driver.workspace = true
 zwave-serial.workspace = true

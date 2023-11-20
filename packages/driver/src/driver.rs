@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::sync::{Arc, Weak};
+
 use zwave_core::prelude::*;
 use zwave_serial::prelude::*;
 
@@ -7,8 +10,7 @@ use zwave_serial::serialport::SerialPort;
 
 use crate::error::{Error, Result};
 
-use std::sync::Arc;
-use tokio::sync::{broadcast, mpsc, oneshot, Notify};
+use tokio::sync::{broadcast, mpsc, oneshot, Mutex, Notify};
 use tokio::task::JoinHandle;
 
 mod serial_api_machine;
@@ -22,8 +24,36 @@ type ThreadCommandReceiver = mpsc::Receiver<(ThreadCommand, oneshot::Sender<()>)
 type SerialFrameEmitter = broadcast::Sender<SerialFrame>;
 type SerialListener = broadcast::Receiver<SerialFrame>;
 
+// // This pair of types is used to dynamically register command handlers which receive a command and send back whether they handled it or not.
+// type SerialCommandHandlerSender = mpsc::Sender<(Command, oneshot::Sender<bool>)>;
+// type SerialCommandHandlerReceiver = mpsc::Receiver<(Command, oneshot::Sender<bool>)>;
+
+// struct SerialCommandHandlerSender {
+//     pub id: u32,
+//     pub channel: mpsc::Sender<(Command, oneshot::Sender<bool>)>,
+// }
+
+// struct SerialCommandHandlerReceiver {
+//     pub id: u32,
+//     pub channel: mpsc::Receiver<(Command, oneshot::Sender<bool>)>,
+// }
+
+// impl SerialCommandHandlerReceiver {
+//     pub fn new(id: u32, channel: mpsc::Receiver<(Command, oneshot::Sender<bool>)>) -> Self {
+//         Self { id, channel }
+//     }
+// }
+
+type CommandHandler = Box<dyn Fn(Command) -> bool + Send + Sync>;
+
+struct DriverState {
+    command_handlers: Arc<Mutex<Vec<CommandHandler>>>,
+}
+
 #[allow(dead_code)]
 pub struct Driver {
+    this: Arc<DriverState>,
+
     serial_task: JoinHandle<()>,
     main_task: JoinHandle<()>,
     main_cmd: ThreadCommandSender,
@@ -31,6 +61,8 @@ pub struct Driver {
     serial_cmd: ThreadCommandSender,
     serial_listener: SerialListener,
     serial_task_shutdown: Arc<Notify>,
+    // command_handlers: Arc<Mutex<Vec<SerialCommandHandlerSender>>>,
+    // command_handlers: Arc<Mutex<Vec<CommandHandler>>>,
 }
 
 impl Driver {
@@ -53,8 +85,17 @@ impl Driver {
         let main_task_shutdown = Arc::new(Notify::new());
         let main_task_shutdown2 = main_task_shutdown.clone();
 
+        // let command_handlers: Vec<SerialCommandHandlerSender> = Vec::new();
+        // let command_handlers = Arc::new(Mutex::new(command_handlers));
+        let command_handlers: Vec<CommandHandler> = Vec::new();
+        let command_handlers = Arc::new(Mutex::new(command_handlers));
+
+        let this = DriverState { command_handlers };
+        let this = Arc::new(this);
+
         // Start the background task for the main logic
         let main_task = tokio::spawn(main_loop(
+            this.clone(),
             main_cmd_rx,
             main_task_shutdown2,
             main_serial_cmd,
@@ -77,31 +118,57 @@ impl Driver {
             serial_cmd: serial_cmd_tx,
             serial_task_shutdown,
             serial_listener: serial_listener_rx,
+            this,
         }
     }
 
     pub async fn write_serial(&mut self, frame: SerialFrame) -> Result<()> {
         send_thread_command(&self.serial_cmd, ThreadCommand::Send(frame)).await
     }
+
+    pub async fn register_command_handler(&mut self, handler: CommandHandler) {
+        let mut handlers = self.this.command_handlers.lock().await;
+        handlers.push(handler);
+        println!("registered command handler, count: {}", handlers.len());
+    }
+
+    // pub async fn unregister_command_handler(&mut self, handler: CommandHandler) {
+    //     self.command_handlers.retain(|h| h != &handler);
+    // }
+
+    // pub async fn register_command_handler(&mut self) -> SerialCommandHandlerReceiver {
+    //     let id = 1;
+    //     let (tx, rx) = mpsc::channel::<(Command, oneshot::Sender<bool>)>(100);
+    //     let sender = SerialCommandHandlerSender { id, channel: tx };
+    //     let receiver = SerialCommandHandlerReceiver::new(id, rx);
+    //     self.command_handlers.lock().await.push(sender);
+    //     receiver
+    // }
+
+    // pub async fn unregister_command_handler(&mut self, id: u32) {
+    //     let mut handlers = self.command_handlers.lock().await;
+    //     handlers.retain(|handler| handler.id != id);
+    // }
 }
 
 async fn main_loop(
+    this: Arc<DriverState>,
     mut cmd_rx: ThreadCommandReceiver,
     shutdown: Arc<Notify>,
     serial_cmd: ThreadCommandSender,
     mut serial_listener: SerialListener,
+    // command_handlers: Arc<Mutex<Vec<CommandHandler>>>,
 ) {
     loop {
         tokio::select! {
+            // We received a shutdown signal
+            _ = shutdown.notified() => break,
+
             // We received a command from the outside
-            _ = shutdown.notified() => {
-                // Exit the task
-                break;
-            }
-            Some((cmd, done)) = cmd_rx.recv() => main_loop_handle_command(cmd, done, &serial_cmd).await,
+            Some((cmd, done)) = cmd_rx.recv() => main_loop_handle_command(this.clone(), cmd, done, &serial_cmd).await,
 
             // The serial port emitted a frame
-            Ok(frame) = serial_listener.recv() => main_loop_handle_frame(frame, &serial_cmd).await
+            Ok(frame) = serial_listener.recv() => main_loop_handle_frame(&this,frame, &serial_cmd).await
         }
     }
 
@@ -109,6 +176,7 @@ async fn main_loop(
 }
 
 async fn main_loop_handle_command(
+    this: Arc<DriverState>,
     cmd: ThreadCommand,
     _done: oneshot::Sender<()>,
     _serial_cmd: &ThreadCommandSender,
@@ -118,15 +186,20 @@ async fn main_loop_handle_command(
     }
 }
 
-async fn main_loop_handle_frame(frame: SerialFrame, serial_cmd: &ThreadCommandSender) {
+async fn main_loop_handle_frame(
+    this: &Arc<DriverState>,
+    frame: SerialFrame,
+    _serial_cmd: &ThreadCommandSender,
+) {
+    // TODO: Consider if we need to always handle something here
     if let SerialFrame::Command(cmd) = &frame {
-        if cmd.function_type() == FunctionType::SerialAPIStarted {
-            send_thread_command(
-                serial_cmd,
-                ThreadCommand::Send(SerialFrame::Raw(hex::decode("01030002fe").unwrap())),
-            )
-            .await
-            .unwrap();
+        let handlers = this.command_handlers.lock().await;
+
+        // Invoke each handler and stop if one of them handled the command
+        for handler in handlers.iter() {
+            if handler(cmd.clone()) {
+                break;
+            }
         }
     }
 }
@@ -140,11 +213,10 @@ async fn serial_loop(
     loop {
         // Whatever happens first gets handled first.
         tokio::select! {
+            // We received a shutdown signal
+            _ = shutdown.notified() => break,
+
             // We received a command from the outside
-            _ = shutdown.notified() => {
-                // Exit the task
-                break;
-            }
             Some((cmd, done)) = cmd_rx.recv() => serial_loop_handle_command(&mut port, cmd, done).await,
 
             // We received a frame from the serial port
@@ -239,16 +311,6 @@ async fn send_thread_command(
     rx.await.map_err(|_| Error::Internal)?;
     Ok(())
 }
-
-// fn send_blocking_thread_command(
-//     command_sender: &ThreadCommandSender,
-//     cmd: ThreadCommand,
-// ) -> Result<()> {
-//     let (tx, rx) = oneshot::channel();
-//     command_sender.blocking_send((cmd, tx)).unwrap();
-//     rx.blocking_recv().unwrap();
-//     Ok(())
-// }
 
 impl Drop for Driver {
     fn drop(&mut self) {

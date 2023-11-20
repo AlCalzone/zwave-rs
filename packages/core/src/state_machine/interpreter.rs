@@ -64,8 +64,6 @@ where
         let task_shutdown = Arc::new(Notify::new());
         let task_shutdown2 = task_shutdown.clone();
 
-        // let machine = Arc::new(Mutex::new(machine));
-
         // Start the background task for the machine logic
         let task = Some(tokio::spawn(main_loop(
             machine,
@@ -212,10 +210,7 @@ pub(crate) mod test {
     use crate::state_machine::StateMachine;
 
     use super::StateMachineInterpreter;
-    use std::{
-        sync::{Arc, Mutex},
-        time::Duration,
-    };
+    use std::{sync::Mutex, time::Duration};
 
     state_machine! { FSM {
         State = {
