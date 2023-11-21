@@ -108,6 +108,6 @@ impl Parsable for GetProtocolVersionResponse {
 
 impl Serializable for GetProtocolVersionResponse {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |out| todo!()
+        move |_out| todo!()
     }
 }

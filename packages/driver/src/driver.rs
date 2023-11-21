@@ -1,7 +1,10 @@
-use std::cell::RefCell;
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
+use std::time::Duration;
 
+use unique_id::sequence::SequenceGenerator;
+use unique_id::Generator;
 use zwave_core::prelude::*;
+use zwave_core::util::MaybeSleep;
 use zwave_serial::prelude::*;
 
 use zwave_serial::binding::SerialBinding;
@@ -13,6 +16,9 @@ use crate::error::{Error, Result};
 use tokio::sync::{broadcast, mpsc, oneshot, Mutex, Notify};
 use tokio::task::JoinHandle;
 
+use self::awaited_command::{AwaitedCommand, AwaitedCommandRef};
+
+mod awaited_command;
 mod serial_api_machine;
 
 enum ThreadCommand {
@@ -47,7 +53,9 @@ type SerialListener = broadcast::Receiver<SerialFrame>;
 type CommandHandler = Box<dyn Fn(Command) -> bool + Send + Sync>;
 
 struct DriverState {
-    command_handlers: Arc<Mutex<Vec<CommandHandler>>>,
+    sequence_gen: SequenceGenerator,
+    command_handlers: Mutex<Vec<CommandHandler>>,
+    awaited_commands: std::sync::Mutex<Vec<AwaitedCommand>>,
 }
 
 #[allow(dead_code)]
@@ -88,9 +96,16 @@ impl Driver {
         // let command_handlers: Vec<SerialCommandHandlerSender> = Vec::new();
         // let command_handlers = Arc::new(Mutex::new(command_handlers));
         let command_handlers: Vec<CommandHandler> = Vec::new();
-        let command_handlers = Arc::new(Mutex::new(command_handlers));
+        let command_handlers = Mutex::new(command_handlers);
 
-        let this = DriverState { command_handlers };
+        let awaited_commands: Vec<AwaitedCommand> = Vec::new();
+        let awaited_commands = std::sync::Mutex::new(awaited_commands);
+
+        let this = DriverState {
+            sequence_gen: SequenceGenerator,
+            command_handlers,
+            awaited_commands,
+        };
         let this = Arc::new(this);
 
         // Start the background task for the main logic
@@ -122,7 +137,7 @@ impl Driver {
         }
     }
 
-    pub async fn write_serial(&mut self, frame: SerialFrame) -> Result<()> {
+    pub async fn write_serial(&self, frame: SerialFrame) -> Result<()> {
         send_thread_command(&self.serial_cmd, ThreadCommand::Send(frame)).await
     }
 
@@ -130,6 +145,37 @@ impl Driver {
         let mut handlers = self.this.command_handlers.lock().await;
         handlers.push(handler);
         println!("registered command handler, count: {}", handlers.len());
+    }
+
+    fn register_command_awaiter(&self, predicate: fn(&Command) -> bool) -> AwaitedCommandRef {
+        let (tx, rx) = oneshot::channel::<Command>();
+        let id = self.this.sequence_gen.next_id();
+        let awaited = AwaitedCommand {
+            id,
+            predicate,
+            channel: tx,
+        };
+        {
+            let mut vec = self.this.awaited_commands.lock().unwrap();
+            vec.push(awaited);
+        }
+        AwaitedCommandRef::new(id, &self.this.awaited_commands, rx)
+    }
+
+    pub async fn await_command(
+        &self,
+        predicate: fn(&Command) -> bool,
+        timeout: Option<Duration>,
+    ) -> Option<Command> {
+        // To await a command, we first register an awaiter
+        let mut awaiter = self.register_command_awaiter(predicate);
+
+        // ...wait for it to be fulfilled or time out
+        let sleep = MaybeSleep::new(timeout);
+        tokio::select! {
+            cmd = awaiter.take_channel() => Some(cmd.unwrap()),
+            _ = sleep => None,
+        }
     }
 
     // pub async fn unregister_command_handler(&mut self, handler: CommandHandler) {
@@ -165,7 +211,7 @@ async fn main_loop(
             _ = shutdown.notified() => break,
 
             // We received a command from the outside
-            Some((cmd, done)) = cmd_rx.recv() => main_loop_handle_command(this.clone(), cmd, done, &serial_cmd).await,
+            Some((cmd, done)) = cmd_rx.recv() => main_loop_handle_command(&this, cmd, done, &serial_cmd).await,
 
             // The serial port emitted a frame
             Ok(frame) = serial_listener.recv() => main_loop_handle_frame(&this,frame, &serial_cmd).await
@@ -176,7 +222,7 @@ async fn main_loop(
 }
 
 async fn main_loop_handle_command(
-    this: Arc<DriverState>,
+    _this: &Arc<DriverState>,
     cmd: ThreadCommand,
     _done: oneshot::Sender<()>,
     _serial_cmd: &ThreadCommandSender,
@@ -193,14 +239,30 @@ async fn main_loop_handle_frame(
 ) {
     // TODO: Consider if we need to always handle something here
     if let SerialFrame::Command(cmd) = &frame {
-        let handlers = this.command_handlers.lock().await;
+        println!("main_loop_handle_frame, handling CMD {:#?}", cmd);
+        let mut awaited = this.awaited_commands.lock().unwrap();
 
-        // Invoke each handler and stop if one of them handled the command
-        for handler in handlers.iter() {
-            if handler(cmd.clone()) {
-                break;
-            }
+        println!("main_loop_handle_frame, got LOCK");
+
+        // Remove the first awaiter where the predicate matches
+        let pos = awaited.iter().position(|a| (a.predicate)(cmd));
+        if let Some(pos) = pos {
+            println!("main_loop_handle_frame, found awaiter at pos {}", pos);
+            let awaiter = awaited.remove(pos);
+            // and set its command
+            awaiter.channel.send(cmd.clone()).unwrap();
+        } else {
+            println!("main_loop_handle_frame, no awaiter found");
         }
+
+        // let handlers = this.command_handlers.lock().await;
+
+        // // Invoke each handler and stop if one of them handled the command
+        // for handler in handlers.iter() {
+        //     if handler(cmd.clone()) {
+        //         break;
+        //     }
+        // }
     }
 }
 

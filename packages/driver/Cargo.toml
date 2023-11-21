@@ -14,3 +14,5 @@ tokio.workspace = true
 zwave-core.workspace = true
 zwave-serial.workspace = true
 paste.workspace = true
+pin-project.workspace = true
+unique_id.workspace = true
