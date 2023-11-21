@@ -1,8 +1,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use unique_id::sequence::SequenceGenerator;
-use unique_id::Generator;
 use zwave_core::prelude::*;
 use zwave_core::util::MaybeSleep;
 use zwave_serial::prelude::*;
@@ -16,9 +14,9 @@ use crate::error::{Error, Result};
 use tokio::sync::{broadcast, mpsc, oneshot, Mutex, Notify};
 use tokio::task::JoinHandle;
 
-use self::awaited_command::{AwaitedCommand, AwaitedCommandRef};
+use self::awaited::{AwaitedRegistry, Predicate};
 
-mod awaited_command;
+mod awaited;
 mod serial_api_machine;
 
 enum ThreadCommand {
@@ -30,32 +28,11 @@ type ThreadCommandReceiver = mpsc::Receiver<(ThreadCommand, oneshot::Sender<()>)
 type SerialFrameEmitter = broadcast::Sender<SerialFrame>;
 type SerialListener = broadcast::Receiver<SerialFrame>;
 
-// // This pair of types is used to dynamically register command handlers which receive a command and send back whether they handled it or not.
-// type SerialCommandHandlerSender = mpsc::Sender<(Command, oneshot::Sender<bool>)>;
-// type SerialCommandHandlerReceiver = mpsc::Receiver<(Command, oneshot::Sender<bool>)>;
-
-// struct SerialCommandHandlerSender {
-//     pub id: u32,
-//     pub channel: mpsc::Sender<(Command, oneshot::Sender<bool>)>,
-// }
-
-// struct SerialCommandHandlerReceiver {
-//     pub id: u32,
-//     pub channel: mpsc::Receiver<(Command, oneshot::Sender<bool>)>,
-// }
-
-// impl SerialCommandHandlerReceiver {
-//     pub fn new(id: u32, channel: mpsc::Receiver<(Command, oneshot::Sender<bool>)>) -> Self {
-//         Self { id, channel }
-//     }
-// }
-
 type CommandHandler = Box<dyn Fn(Command) -> bool + Send + Sync>;
 
 struct DriverState {
-    sequence_gen: SequenceGenerator,
     command_handlers: Mutex<Vec<CommandHandler>>,
-    awaited_commands: std::sync::Mutex<Vec<AwaitedCommand>>,
+    awaited_commands: AwaitedRegistry<Command>,
 }
 
 #[allow(dead_code)]
@@ -98,11 +75,9 @@ impl Driver {
         let command_handlers: Vec<CommandHandler> = Vec::new();
         let command_handlers = Mutex::new(command_handlers);
 
-        let awaited_commands: Vec<AwaitedCommand> = Vec::new();
-        let awaited_commands = std::sync::Mutex::new(awaited_commands);
+        let awaited_commands = AwaitedRegistry::default();
 
         let this = DriverState {
-            sequence_gen: SequenceGenerator,
             command_handlers,
             awaited_commands,
         };
@@ -147,28 +122,13 @@ impl Driver {
         println!("registered command handler, count: {}", handlers.len());
     }
 
-    fn register_command_awaiter(&self, predicate: fn(&Command) -> bool) -> AwaitedCommandRef {
-        let (tx, rx) = oneshot::channel::<Command>();
-        let id = self.this.sequence_gen.next_id();
-        let awaited = AwaitedCommand {
-            id,
-            predicate,
-            channel: tx,
-        };
-        {
-            let mut vec = self.this.awaited_commands.lock().unwrap();
-            vec.push(awaited);
-        }
-        AwaitedCommandRef::new(id, &self.this.awaited_commands, rx)
-    }
-
     pub async fn await_command(
         &self,
-        predicate: fn(&Command) -> bool,
+        predicate: Predicate<Command>,
         timeout: Option<Duration>,
     ) -> Option<Command> {
         // To await a command, we first register an awaiter
-        let mut awaiter = self.register_command_awaiter(predicate);
+        let mut awaiter = self.this.awaited_commands.add(predicate); // self.register_command_awaiter(predicate);
 
         // ...wait for it to be fulfilled or time out
         let sleep = MaybeSleep::new(timeout);
@@ -239,20 +199,10 @@ async fn main_loop_handle_frame(
 ) {
     // TODO: Consider if we need to always handle something here
     if let SerialFrame::Command(cmd) = &frame {
-        println!("main_loop_handle_frame, handling CMD {:#?}", cmd);
-        let mut awaited = this.awaited_commands.lock().unwrap();
-
-        println!("main_loop_handle_frame, got LOCK");
-
-        // Remove the first awaiter where the predicate matches
-        let pos = awaited.iter().position(|a| (a.predicate)(cmd));
-        if let Some(pos) = pos {
-            println!("main_loop_handle_frame, found awaiter at pos {}", pos);
-            let awaiter = awaited.remove(pos);
-            // and set its command
-            awaiter.channel.send(cmd.clone()).unwrap();
-        } else {
-            println!("main_loop_handle_frame, no awaiter found");
+        // If the awaited command registry has a matching awaiter,
+        // remove it and send the command through its channel
+        if let Some(channel) = this.awaited_commands.take_matching(cmd) {
+            channel.send(cmd.clone()).unwrap();
         }
 
         // let handlers = this.command_handlers.lock().await;

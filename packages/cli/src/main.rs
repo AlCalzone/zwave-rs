@@ -46,10 +46,7 @@ async fn main() {
 
     match driver
         .await_command(
-            |cmd| {
-                println!("predicate called, ft: {:?}", cmd.function_type());
-                cmd.function_type() == FunctionType::GetProtocolVersion
-            },
+            Box::new(|cmd| cmd.function_type() == FunctionType::GetProtocolVersion),
             Some(Duration::from_secs(2)),
         )
         .await
