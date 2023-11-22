@@ -1,7 +1,6 @@
 use std::thread;
 use std::time::Duration;
-use zwave_core::definitions::FunctionType;
-use zwave_serial::command::{CommandBase, GetProtocolVersionRequest};
+use zwave_serial::command::GetProtocolVersionRequest;
 
 #[cfg(target_os = "linux")]
 const PORT: &str = "/dev/ttyUSB0";
@@ -36,24 +35,32 @@ async fn main() {
     //     }))
     //     .await;
 
-    #[allow(clippy::unnecessary_fallible_conversions)]
-    driver
-        .write_serial(GetProtocolVersionRequest::new().try_into().unwrap())
+    // #[allow(clippy::unnecessary_fallible_conversions)]
+    // driver
+    //     .write_serial(GetProtocolVersionRequest::new().try_into().unwrap())
+    //     .await
+    //     .unwrap();
+
+    // println!("sent protocol version request, waiting for response");
+
+    // match driver
+    //     .await_command(
+    //         Box::new(|cmd| cmd.function_type() == FunctionType::GetProtocolVersion),
+    //         Some(Duration::from_secs(2)),
+    //     )
+    //     .await
+    // {
+    //     Some(cmd) => println!("AWAITING received protocol version: {:?}", cmd),
+    //     None => println!("timed out waiting for protocol version"),
+    // }
+
+    println!("sending protocol version request");
+    let result = driver
+        .execute_serial_api_command(GetProtocolVersionRequest::new())
         .await
         .unwrap();
 
-    println!("sent protocol version request, waiting for response");
-
-    match driver
-        .await_command(
-            Box::new(|cmd| cmd.function_type() == FunctionType::GetProtocolVersion),
-            Some(Duration::from_secs(2)),
-        )
-        .await
-    {
-        Some(cmd) => println!("AWAITING received protocol version: {:?}", cmd),
-        None => println!("timed out waiting for protocol version"),
-    }
+    println!("execute result: {:?}", result);
 
     thread::sleep(Duration::from_millis(2000));
 

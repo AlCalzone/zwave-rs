@@ -32,8 +32,8 @@ impl SerialBinding for SerialPort {
             RawSerialFrame::Data(data) => {
                 println!(">> {}", hex::encode(data));
             }
-            RawSerialFrame::ACK | RawSerialFrame::CAN | RawSerialFrame::NAK => {
-                println!(">> {:?}", &frame);
+            RawSerialFrame::ControlFlow(byte) => {
+                println!(">> {:?}", byte);
             }
             _ => (),
         }

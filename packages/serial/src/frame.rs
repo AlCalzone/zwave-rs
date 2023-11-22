@@ -29,12 +29,19 @@ pub const ACK_BUFFER: [u8; 1] = [SerialControlByte::ACK as u8];
 pub const NAK_BUFFER: [u8; 1] = [SerialControlByte::NAK as u8];
 pub const CAN_BUFFER: [u8; 1] = [SerialControlByte::CAN as u8];
 
+/// Control-flow commands
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[repr(u8)]
+pub enum ControlFlow {
+    ACK = SerialControlByte::ACK as u8,
+    NAK = SerialControlByte::NAK as u8,
+    CAN = SerialControlByte::CAN as u8,
+}
+
 /// A raw serial frame, as received from the serial port
 #[derive(Clone, Debug, PartialEq)]
 pub enum RawSerialFrame {
-    ACK,
-    NAK,
-    CAN,
+    ControlFlow(ControlFlow),
     Data(Vec<u8>),
     Garbage(Vec<u8>),
 }
@@ -42,9 +49,7 @@ pub enum RawSerialFrame {
 /// A parsed serial frame that contains a control-flow byte or a Serial API command
 #[derive(Clone, Debug, PartialEq)]
 pub enum SerialFrame {
-    ACK,
-    NAK,
-    CAN,
+    ControlFlow(ControlFlow),
     Command(Command),
     Raw(Vec<u8>),
 }
@@ -58,9 +63,18 @@ fn consume_garbage(i: encoding::Input) -> encoding::ParseResult<RawSerialFrame> 
 
 fn parse_control(i: encoding::Input) -> encoding::ParseResult<RawSerialFrame> {
     alt((
-        value(RawSerialFrame::ACK, tag(&ACK_BUFFER)),
-        value(RawSerialFrame::NAK, tag(&NAK_BUFFER)),
-        value(RawSerialFrame::CAN, tag(&CAN_BUFFER)),
+        value(
+            RawSerialFrame::ControlFlow(ControlFlow::ACK),
+            tag(&ACK_BUFFER),
+        ),
+        value(
+            RawSerialFrame::ControlFlow(ControlFlow::NAK),
+            tag(&NAK_BUFFER),
+        ),
+        value(
+            RawSerialFrame::ControlFlow(ControlFlow::CAN),
+            tag(&CAN_BUFFER),
+        ),
     ))(i)
 }
 
@@ -93,9 +107,7 @@ impl RawSerialFrame {
         use cf::{bytes::be_u8, combinator::slice};
 
         move |out| match self {
-            RawSerialFrame::ACK => be_u8(SerialControlByte::ACK as u8)(out),
-            RawSerialFrame::NAK => be_u8(SerialControlByte::NAK as u8)(out),
-            RawSerialFrame::CAN => be_u8(SerialControlByte::CAN as u8)(out),
+            RawSerialFrame::ControlFlow(byte) => be_u8(*byte as u8)(out),
             RawSerialFrame::Data(data) => slice(data)(out),
             RawSerialFrame::Garbage(_) => unimplemented!("Garbage is not serializable"),
         }
@@ -109,9 +121,7 @@ impl TryInto<RawSerialFrame> for SerialFrame {
 
     fn try_into(self) -> std::result::Result<RawSerialFrame, Self::Error> {
         match self {
-            SerialFrame::ACK => Ok(RawSerialFrame::ACK),
-            SerialFrame::NAK => Ok(RawSerialFrame::NAK),
-            SerialFrame::CAN => Ok(RawSerialFrame::CAN),
+            SerialFrame::ControlFlow(byte) => Ok(RawSerialFrame::ControlFlow(byte)),
             SerialFrame::Command(cmd) => CommandRaw::try_from(cmd)
                 .map(TryInto::<Vec<u8>>::try_into)?
                 .map(RawSerialFrame::Data),

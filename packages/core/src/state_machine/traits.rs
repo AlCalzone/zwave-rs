@@ -56,7 +56,7 @@ pub trait StateMachineConfig {
 pub trait StateMachine: Sized + Send + 'static {
     type S: Sized + Clone;
     type E: Sized + Copy + std::fmt::Debug + std::marker::Send + 'static;
-    type I: Sized + Copy;
+    type I: Sized + Copy + std::fmt::Debug;
     type C: Sized + Copy;
     type T: StateMachineTransition<S = Self::S, E = Self::E> + std::marker::Send + 'static;
     type DT: StateMachineTransition<S = Self::S, E = Self::E>

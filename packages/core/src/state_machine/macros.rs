@@ -81,18 +81,19 @@ macro_rules! state_machine {
     ) => {
         paste::paste! {
             #[derive(Debug, Clone, Copy, PartialEq)]
-            enum [<$fsm_name State>] $state_enum
+            pub enum [<$fsm_name State>] $state_enum
 
             #[derive(Debug, Clone, Copy, PartialEq)]
-            enum [<$fsm_name Input>] $input_enum
+            pub enum [<$fsm_name Input>] $input_enum
 
             #[derive(Debug, Clone, Copy, PartialEq)]
-            enum [<$fsm_name Effect>] $effect_enum
+            pub enum [<$fsm_name Effect>] $effect_enum
 
             #[derive(Debug, Clone, Copy, PartialEq)]
-            enum [<$fsm_name Condition>] $cond_enum
+            pub enum [<$fsm_name Condition>] $cond_enum
 
-            struct [<$fsm_name Transition>] {
+            #[derive(Debug, Clone, Copy, PartialEq)]
+            pub struct [<$fsm_name Transition>] {
                 effect: Option<[<$fsm_name Effect>]>,
                 new_state: [<$fsm_name State>],
             }
@@ -110,8 +111,8 @@ macro_rules! state_machine {
                 }
             }
 
-            #[derive(Debug, Clone, PartialEq)]
-            struct [<$fsm_name DelayedTransition>] {
+            #[derive(Debug, Clone, Copy, PartialEq)]
+            pub struct [<$fsm_name DelayedTransition>] {
                 delay: $crate::state_machine::Delay,
                 effect: Option<[<$fsm_name Effect>]>,
                 new_state: [<$fsm_name State>],
@@ -138,14 +139,15 @@ macro_rules! state_machine {
 
             impl From<[<$fsm_name DelayedTransition>]> for [<$fsm_name Transition>] {
                 fn from(t: [<$fsm_name DelayedTransition>]) -> Self {
+                    use $crate::state_machine::StateMachineTransition;
                     Self {
-                        effect: t.effect,
-                        new_state: t.new_state,
+                        effect: t.effect(),
+                        new_state: t.new_state(),
                     }
                 }
             }
 
-            struct $fsm_name {
+            pub struct $fsm_name {
                 state: [<$fsm_name State>],
             }
 
@@ -212,11 +214,12 @@ macro_rules! state_machine {
     // Generate the match arms for transitions in next()
 
     // From(val) => [ Input(val) => ! Effect(val) => To(val) ]
+    // From(val) => [ Input(val) if Cond => ! Effect(val) => To(val) ]
     (@transition_match (
         $self:ident; $input:ident; $eval:ident;
         [$from:pat => [
             $(,)?
-            [$expected_input:pat => ! $effect:expr => $to:expr]
+            [$expected_input:pat $(if $cond:expr)?  => ! $effect:expr => $to:expr]
             $($others:tt)*
         ]]
         $($rest:tt)*
@@ -227,7 +230,7 @@ macro_rules! state_machine {
                 $($rest)*
             )
             $($arms)*
-            ($from, $expected_input) => Some(Self::T {
+            ($from, $expected_input) $(if $eval($cond))? => Some(Self::T {
                 effect: Some($effect),
                 new_state: $to,
             }),
@@ -235,7 +238,7 @@ macro_rules! state_machine {
     };
 
     // From(val) => [ Input(val) => To(val) ]
-    // From(val) => [ Input(val) if foo => To(val) ]
+    // From(val) => [ Input(val) if Cond => To(val) ]
     (@transition_match (
         $self:ident; $input:ident; $eval:ident;
         [$from:pat => [

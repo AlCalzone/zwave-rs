@@ -19,9 +19,9 @@ state_machine! { SerialApiMachine {
     State = {
         Initial,
         Sending,
-        WaitForACK,
-        WaitForResponse,
-        WaitForCallback,
+        WaitingForACK,
+        WaitingForResponse,
+        WaitingForCallback, // TODO: needs another state for callback aborted
         Done(SerialApiMachineResult),
     },
     Input = {
@@ -30,12 +30,16 @@ state_machine! { SerialApiMachine {
         ACK,
         NAK,
         CAN,
+        Timeout,
         Response(bool), // OK/NOK
         Callback(bool), // OK/NOK
     },
     Effect = {
         SendFrame,
-        AbortSendData,
+        AbortSending,
+        WaitForACK,
+        WaitForResponse,
+        WaitForCallback,
     },
     Condition = {
         ExpectsResponse,
@@ -46,40 +50,40 @@ state_machine! { SerialApiMachine {
             [Start => ! SendFrame => Sending],
         ]],
         [Sending => [
-            [FrameSent => WaitForACK],
+            [FrameSent => ! WaitForACK => WaitingForACK],
         ]],
-        [WaitForACK => [
-            [ACK if ExpectsResponse => WaitForResponse],
-            [ACK if ExpectsCallback => WaitForCallback],
+        [WaitingForACK => [
+            [ACK if ExpectsResponse => !WaitForResponse => WaitingForResponse],
+            [ACK if ExpectsCallback => !WaitForCallback => WaitingForCallback],
             [ACK => Done(SerialApiMachineResult::Success)],
-            // [ACK => WaitForResponse],
             [NAK => Done(SerialApiMachineResult::NAK)],
             [CAN => Done(SerialApiMachineResult::CAN)],
-            // TODO:
+            [Timeout => Done(SerialApiMachineResult::ACKTimeout)],
         ]],
-        [WaitForResponse => [
+        [WaitingForResponse => [
             // TODO: 
-            [Response(true) if ExpectsCallback => WaitForCallback],
+            [Response(true) if ExpectsCallback => !WaitForCallback => WaitingForCallback],
             [Response(true) => Done(SerialApiMachineResult::Success)],
             // [Response(true) => WaitForCallback],
             [Response(false)  => Done(SerialApiMachineResult::ResponseNOK)],
         ]],
-        [WaitForCallback => [
+        [WaitingForCallback => [
             [Callback(true) => Done(SerialApiMachineResult::Success)],
             [Callback(false) => Done(SerialApiMachineResult::CallbackNOK)],
         ]],
     ],
-    Delays = [
-        [WaitForACK => [
-            [@ACK_TIMEOUT => Done(SerialApiMachineResult::ACKTimeout)],
-        ]],
-        [WaitForResponse => [
-            [@RESPONSE_TIMEOUT => Done(SerialApiMachineResult::ResponseTimeout)],
-        ]],
-        [WaitForCallback => [
-            [@CALLBACK_TIMEOUT => Done(SerialApiMachineResult::CallbackTimeout)],
-        ]],
-    ],
+    Delays = [],
+    // Delays = [
+    //     [WaitForACK => [
+    //         [@ACK_TIMEOUT => Done(SerialApiMachineResult::ACKTimeout)],
+    //     ]],
+    //     [WaitForResponse => [
+    //         [@RESPONSE_TIMEOUT => Done(SerialApiMachineResult::ResponseTimeout)],
+    //     ]],
+    //     [WaitForCallback => [
+    //         [@CALLBACK_TIMEOUT => Done(SerialApiMachineResult::CallbackTimeout)],
+    //     ]],
+    // ],
     Initial = Initial,
     Final = Done(_)
 } }

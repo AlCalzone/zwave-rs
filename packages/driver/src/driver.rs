@@ -1,20 +1,29 @@
+use std::convert::{Infallible, TryFrom};
 use std::sync::Arc;
 use std::time::Duration;
+use std::vec::Vec;
 
+use tokio::sync::broadcast::error::RecvError;
 use zwave_core::prelude::*;
+use zwave_core::state_machine::{StateMachine, StateMachineInterpreter, StateMachineTransition};
 use zwave_core::util::MaybeSleep;
 use zwave_serial::prelude::*;
 
 use zwave_serial::binding::SerialBinding;
-use zwave_serial::frame::{RawSerialFrame, SerialFrame};
+use zwave_serial::frame::{ControlFlow, RawSerialFrame, SerialFrame};
 use zwave_serial::serialport::SerialPort;
 
+use crate::driver::serial_api_machine::SerialApiMachineState;
 use crate::error::{Error, Result};
 
 use tokio::sync::{broadcast, mpsc, oneshot, Mutex, Notify};
 use tokio::task::JoinHandle;
 
 use self::awaited::{AwaitedRegistry, Predicate};
+use self::serial_api_machine::{
+    SerialApiMachine, SerialApiMachineCondition, SerialApiMachineEffect, SerialApiMachineInput,
+    SerialApiMachineResult,
+};
 
 mod awaited;
 mod serial_api_machine;
@@ -30,14 +39,15 @@ type SerialListener = broadcast::Receiver<SerialFrame>;
 
 type CommandHandler = Box<dyn Fn(Command) -> bool + Send + Sync>;
 
-struct DriverState {
+struct DriverInner {
     command_handlers: Mutex<Vec<CommandHandler>>,
+    awaited_control_flow_frames: AwaitedRegistry<ControlFlow>,
     awaited_commands: AwaitedRegistry<Command>,
 }
 
 #[allow(dead_code)]
 pub struct Driver {
-    this: Arc<DriverState>,
+    inner: Arc<DriverInner>,
 
     serial_task: JoinHandle<()>,
     main_task: JoinHandle<()>,
@@ -75,17 +85,19 @@ impl Driver {
         let command_handlers: Vec<CommandHandler> = Vec::new();
         let command_handlers = Mutex::new(command_handlers);
 
+        let awaited_control_flow_frames = AwaitedRegistry::default();
         let awaited_commands = AwaitedRegistry::default();
 
-        let this = DriverState {
+        let inner = DriverInner {
             command_handlers,
+            awaited_control_flow_frames,
             awaited_commands,
         };
-        let this = Arc::new(this);
+        let inner = Arc::new(inner);
 
         // Start the background task for the main logic
         let main_task = tokio::spawn(main_loop(
-            this.clone(),
+            inner.clone(),
             main_cmd_rx,
             main_task_shutdown2,
             main_serial_cmd,
@@ -108,7 +120,7 @@ impl Driver {
             serial_cmd: serial_cmd_tx,
             serial_task_shutdown,
             serial_listener: serial_listener_rx,
-            this,
+            inner,
         }
     }
 
@@ -117,18 +129,18 @@ impl Driver {
     }
 
     pub async fn register_command_handler(&mut self, handler: CommandHandler) {
-        let mut handlers = self.this.command_handlers.lock().await;
+        let mut handlers = self.inner.command_handlers.lock().await;
         handlers.push(handler);
         println!("registered command handler, count: {}", handlers.len());
     }
 
-    pub async fn await_command(
+    async fn await_control_flow_frame(
         &self,
-        predicate: Predicate<Command>,
+        predicate: Predicate<ControlFlow>,
         timeout: Option<Duration>,
-    ) -> Option<Command> {
-        // To await a command, we first register an awaiter
-        let mut awaiter = self.this.awaited_commands.add(predicate); // self.register_command_awaiter(predicate);
+    ) -> Option<ControlFlow> {
+        // To await a control frame, we first register an awaiter
+        let mut awaiter = self.inner.awaited_control_flow_frames.add(predicate); // self.register_control_frame_awaiter(predicate);
 
         // ...wait for it to be fulfilled or time out
         let sleep = MaybeSleep::new(timeout);
@@ -138,27 +150,116 @@ impl Driver {
         }
     }
 
-    // pub async fn unregister_command_handler(&mut self, handler: CommandHandler) {
-    //     self.command_handlers.retain(|h| h != &handler);
-    // }
+    pub async fn await_command(
+        &self,
+        predicate: Predicate<Command>,
+        timeout: Option<Duration>,
+    ) -> Option<Command> {
+        // To await a command, we first register an awaiter
+        let mut awaiter = self.inner.awaited_commands.add(predicate); // self.register_command_awaiter(predicate);
 
-    // pub async fn register_command_handler(&mut self) -> SerialCommandHandlerReceiver {
-    //     let id = 1;
-    //     let (tx, rx) = mpsc::channel::<(Command, oneshot::Sender<bool>)>(100);
-    //     let sender = SerialCommandHandlerSender { id, channel: tx };
-    //     let receiver = SerialCommandHandlerReceiver::new(id, rx);
-    //     self.command_handlers.lock().await.push(sender);
-    //     receiver
-    // }
+        // ...wait for it to be fulfilled or time out
+        let sleep = MaybeSleep::new(timeout);
+        tokio::select! {
+            cmd = awaiter.take_channel() => Some(cmd.unwrap()),
+            _ = sleep => None,
+        }
+    }
 
-    // pub async fn unregister_command_handler(&mut self, id: u32) {
-    //     let mut handlers = self.command_handlers.lock().await;
-    //     handlers.retain(|handler| handler.id != id);
-    // }
+    pub async fn execute_serial_api_command<C>(&self, command: C) -> Result<SerialApiMachineResult>
+    where
+        C: CommandBase + CommandRequest + Clone,
+        SerialFrame: From<C>,
+    {
+        // Set up state machine and interpreter
+        let state_machine = SerialApiMachine::new();
+        let named_delays = Box::new(|name: &str| match name {
+            "ACK_TIMEOUT" => Duration::from_millis(1600),
+            "RESPONSE_TIMEOUT" => Duration::from_millis(10000),
+            "CALLBACK_TIMEOUT" => Duration::from_millis(30000),
+            _ => panic!("unknown delay {} for Serial API machine", name),
+        });
+
+        let expects_response = command.expects_response();
+        let expects_callback = command.expects_callback();
+        let evaluate_condition =
+            Box::new(
+                move |condition: SerialApiMachineCondition| match condition {
+                    SerialApiMachineCondition::ExpectsResponse => expects_response,
+                    SerialApiMachineCondition::ExpectsCallback => expects_callback,
+                },
+            );
+
+        let interpreter =
+            StateMachineInterpreter::new(state_machine, named_delays, evaluate_condition);
+        let sender = interpreter.input_sender();
+        let mut listener = interpreter.transition_listener();
+
+        // Start the machine
+        sender.send(SerialApiMachineInput::Start).await.unwrap();
+
+        // Handle all transitions/events from the state machine
+        while !interpreter.done() {
+            let transition = match listener.recv().await {
+                Ok(transition) => transition,
+                Err(RecvError::Closed) => break,
+                Err(RecvError::Lagged(_)) => continue,
+            };
+
+            if let Some(effect) = transition.effect() {
+                match effect {
+                    SerialApiMachineEffect::SendFrame => {
+                        // FIXME: We should take a reference here and use try_into()
+                        let frame = SerialFrame::from(command.clone());
+                        // Send the command to the controller
+                        self.write_serial(frame).await.unwrap();
+                        // and notify the state machine
+                        sender.send(SerialApiMachineInput::FrameSent).await.unwrap();
+                    }
+                    SerialApiMachineEffect::AbortSending => todo!("Handle effect {:?}", effect),
+                    SerialApiMachineEffect::WaitForACK => {
+                        // Wait for ACK, but also accept CAN and NAK
+                        let frame = self
+                            .await_control_flow_frame(
+                                Box::new(|_| true),
+                                Some(Duration::from_millis(1600)),
+                            )
+                            .await;
+                        // Notify the state machine about the result
+                        match frame {
+                            Some(ControlFlow::ACK) => {
+                                sender.send(SerialApiMachineInput::ACK).await.unwrap()
+                            }
+                            Some(ControlFlow::NAK) => {
+                                sender.send(SerialApiMachineInput::NAK).await.unwrap()
+                            }
+                            Some(ControlFlow::CAN) => {
+                                sender.send(SerialApiMachineInput::CAN).await.unwrap()
+                            }
+                            None => sender.send(SerialApiMachineInput::Timeout).await.unwrap(),
+                        }
+                    }
+                    SerialApiMachineEffect::WaitForResponse => todo!("Handle effect {:?}", effect),
+                    SerialApiMachineEffect::WaitForCallback => todo!("Handle effect {:?}", effect),
+                }
+            }
+        }
+
+        // Wait for the machine to finish
+        let final_state = interpreter.result().await.unwrap();
+
+        match final_state {
+            serial_api_machine::SerialApiMachineState::Done(s) => Ok(s),
+            _ => panic!(
+                "Serial API machine finished with invalid state {:?}",
+                final_state
+            ),
+        }
+    }
 }
 
 async fn main_loop(
-    this: Arc<DriverState>,
+    inner: Arc<DriverInner>,
     mut cmd_rx: ThreadCommandReceiver,
     shutdown: Arc<Notify>,
     serial_cmd: ThreadCommandSender,
@@ -171,10 +272,10 @@ async fn main_loop(
             _ = shutdown.notified() => break,
 
             // We received a command from the outside
-            Some((cmd, done)) = cmd_rx.recv() => main_loop_handle_command(&this, cmd, done, &serial_cmd).await,
+            Some((cmd, done)) = cmd_rx.recv() => main_loop_handle_command(&inner, cmd, done, &serial_cmd).await,
 
             // The serial port emitted a frame
-            Ok(frame) = serial_listener.recv() => main_loop_handle_frame(&this,frame, &serial_cmd).await
+            Ok(frame) = serial_listener.recv() => main_loop_handle_frame(&inner, frame, &serial_cmd).await
         }
     }
 
@@ -182,7 +283,7 @@ async fn main_loop(
 }
 
 async fn main_loop_handle_command(
-    _this: &Arc<DriverState>,
+    _inner: &Arc<DriverInner>,
     cmd: ThreadCommand,
     _done: oneshot::Sender<()>,
     _serial_cmd: &ThreadCommandSender,
@@ -193,26 +294,27 @@ async fn main_loop_handle_command(
 }
 
 async fn main_loop_handle_frame(
-    this: &Arc<DriverState>,
+    inner: &Arc<DriverInner>,
     frame: SerialFrame,
     _serial_cmd: &ThreadCommandSender,
 ) {
     // TODO: Consider if we need to always handle something here
-    if let SerialFrame::Command(cmd) = &frame {
-        // If the awaited command registry has a matching awaiter,
-        // remove it and send the command through its channel
-        if let Some(channel) = this.awaited_commands.take_matching(cmd) {
-            channel.send(cmd.clone()).unwrap();
+    match &frame {
+        SerialFrame::ControlFlow(cf) => {
+            // If the awaited control-flow-frame registry has a matching awaiter,
+            // remove it and send the frame through its channel
+            if let Some(channel) = inner.awaited_control_flow_frames.take_matching(cf) {
+                channel.send(*cf).unwrap();
+            }
         }
-
-        // let handlers = this.command_handlers.lock().await;
-
-        // // Invoke each handler and stop if one of them handled the command
-        // for handler in handlers.iter() {
-        //     if handler(cmd.clone()) {
-        //         break;
-        //     }
-        // }
+        SerialFrame::Command(cmd) => {
+            // If the awaited command registry has a matching awaiter,
+            // remove it and send the command through its channel
+            if let Some(channel) = inner.awaited_commands.take_matching(cmd) {
+                channel.send(cmd.clone()).unwrap();
+            }
+        }
+        _ => {}
     }
 }
 
@@ -263,7 +365,9 @@ async fn serial_loop_handle_frame(
             match zwave_serial::command_raw::CommandRaw::parse(data) {
                 Ok((_, raw)) => {
                     // The first step of parsing was successful, ACK the frame
-                    port.write(RawSerialFrame::ACK).await.unwrap();
+                    port.write(RawSerialFrame::ControlFlow(ControlFlow::ACK))
+                        .await
+                        .unwrap();
 
                     // Now try to convert it into an actual command
                     match zwave_serial::command::Command::try_from(raw) {
@@ -281,7 +385,9 @@ async fn serial_loop_handle_frame(
                 Err(e) => {
                     println!("error: {:?}", e);
                     // Parsing failed, this means we've received garbage after all
-                    port.write(RawSerialFrame::NAK).await.unwrap();
+                    port.write(RawSerialFrame::ControlFlow(ControlFlow::NAK))
+                        .await
+                        .unwrap();
                     None
                 }
             }
@@ -289,20 +395,14 @@ async fn serial_loop_handle_frame(
         RawSerialFrame::Garbage(data) => {
             println!("xx: {}", hex::encode(data));
             // After receiving garbage, try to re-sync by sending NAK
-            port.write(RawSerialFrame::NAK).await.unwrap();
+            port.write(RawSerialFrame::ControlFlow(ControlFlow::NAK))
+                .await
+                .unwrap();
             None
         }
-        RawSerialFrame::ACK => {
-            println!("<< {:?}", &frame);
-            Some(SerialFrame::ACK)
-        }
-        RawSerialFrame::CAN => {
-            println!("<< {:?}", &frame);
-            Some(SerialFrame::CAN)
-        }
-        RawSerialFrame::NAK => {
-            println!("<< {:?}", &frame);
-            Some(SerialFrame::NAK)
+        RawSerialFrame::ControlFlow(byte) => {
+            println!("<< {:?}", &byte);
+            Some(SerialFrame::ControlFlow(*byte))
         }
     };
 
