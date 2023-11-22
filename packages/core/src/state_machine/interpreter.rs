@@ -26,53 +26,40 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub struct StateMachineInterpreter<S, E, I, T>
+pub struct StateMachineInterpreter<FSM>
 where
-    I: Sized + Copy + std::fmt::Debug,
-    E: Sized + Copy + std::fmt::Debug,
-    S: Sized + Copy + std::fmt::Debug + Send,
-    T: Sized,
+    FSM: StateMachine,
 {
     // Putting the handles into an Option allows us to await it in the `result()` method
-    main_task: Option<JoinHandle<S>>,
+    main_task: Option<JoinHandle<FSM::S>>,
     main_task_shutdown: Arc<Notify>,
 
+    #[allow(dead_code)]
     state_task: Option<JoinHandle<()>>,
     state_task_shutdown: Arc<Notify>,
 
-    input_tx: StateMachineInputSender<I>,
-    effect_rx: StateMachineEffectListener<E>,
+    input_tx: StateMachineInputSender<FSM::I>,
+    effect_rx: StateMachineEffectListener<FSM::E>,
 
-    transition_rx: StateMachineTransitionListener<T>,
-    current_state: Arc<std::sync::RwLock<S>>,
+    transition_rx: StateMachineTransitionListener<FSM::T>,
+    current_state: Arc<std::sync::RwLock<FSM::S>>,
 }
 
-impl<S, E, I, T> StateMachineInterpreter<S, E, I, T>
+impl<FSM> StateMachineInterpreter<FSM>
 where
-    I: Sized + Copy + std::fmt::Debug + Send + 'static,
-    E: Sized + Copy + std::fmt::Debug + Send + 'static,
-    S: Sized + Copy + std::fmt::Debug + Send + Sync + 'static,
-    T: StateMachineTransition<S = S, E = E> + Copy + std::fmt::Debug + Send + 'static,
-    // E: Sized + Copy,
-    // T: StateMachineTransition<S = S, E = E>,
-    // DT: StateMachineDelayedTransition<S = S, E = E> + Sized,
+    FSM: StateMachine,
 {
-    pub fn new<FSM, C>(
+    pub fn new(
         machine: FSM,
         resolve_named: Box<dyn Fn(&str) -> Duration + Sync + Send>,
-        evaluate_condition: Box<dyn Fn(C) -> bool + Sync + Send>,
-    ) -> Self
-    where
-        C: Sized + Copy + Send + 'static,
-        FSM: StateMachine<S = S, E = E, I = I, C = C, T = T> + Send + 'static,
-        T: From<FSM::DT>,
-    {
+        evaluate_condition: Box<dyn Fn(FSM::C) -> bool + Sync + Send>,
+    ) -> Self {
         // We send inputs to the main task using a channel
-        let (input_tx, input_rx) = mpsc::channel::<I>(100);
+        let (input_tx, input_rx) = mpsc::channel::<FSM::I>(100);
         // We receive effects from the task using a broadcast channel
-        let (effect_tx, effect_rx) = broadcast::channel::<E>(100);
+        let (effect_tx, effect_rx) = broadcast::channel::<FSM::E>(100);
         // We receive updates of the current state using a broadcast channel
-        let (transition_tx, transition_rx) = broadcast::channel::<T>(100);
+        let (transition_tx, transition_rx) = broadcast::channel::<FSM::T>(100);
 
         // And we need a way to shut down the tasks when the Interpreter is dropped
         let main_task_shutdown = Arc::new(Notify::new());
@@ -124,7 +111,7 @@ where
         }
     }
 
-    pub async fn result(mut self) -> Result<S> {
+    pub async fn result(mut self) -> Result<FSM::S> {
         if let Some(task) = self.main_task.take() {
             task.await.map_err(|_| Error::Internal)
         } else {
@@ -143,32 +130,30 @@ where
         }
     }
 
-    pub fn state(&self) -> S {
+    pub fn state(&self) -> FSM::S {
         *self.current_state.read().unwrap()
     }
 
-    pub fn effect_listener(&self) -> StateMachineEffectListener<E> {
+    pub fn effect_listener(&self) -> StateMachineEffectListener<FSM::E> {
         self.effect_rx.resubscribe()
     }
 
-    pub fn transition_listener(&self) -> StateMachineTransitionListener<T> {
+    pub fn transition_listener(&self) -> StateMachineTransitionListener<FSM::T> {
         self.transition_rx.resubscribe()
     }
 
-    pub fn input_sender(&self) -> StateMachineInputSender<I> {
+    pub fn input_sender(&self) -> StateMachineInputSender<FSM::I> {
         self.input_tx.clone()
     }
 
-    pub async fn send(&self, input: I) -> Result<()> {
+    pub async fn send(&self, input: FSM::I) -> Result<()> {
         send_machine_input(&self.input_tx, input).await
     }
 }
 
-impl<S, E, I, T> Drop for StateMachineInterpreter<S, E, I, T>
+impl<FSM> Drop for StateMachineInterpreter<FSM>
 where
-    I: Sized + Copy + std::fmt::Debug,
-    E: Sized + Copy + std::fmt::Debug,
-    S: Sized + Copy + std::fmt::Debug + Send,
+    FSM: StateMachine,
 {
     fn drop(&mut self) {
         // We need to stop the background tasks, otherwise they will stick around until the process exits
@@ -177,22 +162,17 @@ where
     }
 }
 
-async fn main_loop<FSM, S, E, I, T, C>(
+async fn main_loop<FSM>(
     mut machine: FSM,
     resolve_named: impl Fn(&str) -> Duration,
-    evaluate_condition: impl Fn(C) -> bool,
-    mut input_rx: StateMachineInputReceiver<I>,
+    evaluate_condition: impl Fn(FSM::C) -> bool,
+    mut input_rx: StateMachineInputReceiver<FSM::I>,
     shutdown: Arc<Notify>,
-    effect_tx: StateMachineEffectSender<E>,
-    transition_tx: StateMachineTransitionSender<T>,
-) -> S
+    effect_tx: StateMachineEffectSender<FSM::E>,
+    transition_tx: StateMachineTransitionSender<FSM::T>,
+) -> FSM::S
 where
-    FSM: StateMachine<S = S, E = E, I = I, T = T, C = C>,
-    S: Sized + Copy + std::fmt::Debug + Send,
-    E: Sized + Copy + std::fmt::Debug,
-    C: Sized + Copy,
-    T: StateMachineTransition<S = S, E = E> + Copy + std::fmt::Debug + Send + From<FSM::DT>,
-    I: std::fmt::Debug,
+    FSM: StateMachine,
 {
     while !machine.done() {
         // If the current state has delays, find the shortest one
@@ -248,7 +228,7 @@ where
     *machine.state()
 }
 
-async fn send_machine_input<I: Sized + Copy>(
+async fn send_machine_input<I>(
     input_sender: &StateMachineInputSender<I>,
     input: I,
 ) -> Result<()> {
