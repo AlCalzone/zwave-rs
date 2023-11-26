@@ -12,10 +12,20 @@ mod misc;
 pub use misc::*;
 
 #[enum_dispatch(Command)]
-pub trait CommandBase {
+pub trait CommandBase: std::fmt::Debug + Sync + Send {
     fn command_type(&self) -> CommandType;
     fn function_type(&self) -> FunctionType;
     fn origin(&self) -> MessageOrigin;
+
+    // Used to test responses and callbacks whether they indicate an OK result
+    fn is_ok(&self) -> bool {
+        true
+    }
+
+    // Commands may or may not have a callback ID
+    fn callback_id(&self) -> Option<u8> {
+        None
+    }
 }
 
 define_commands!(
@@ -56,17 +66,41 @@ define_commands!(
     },
 );
 
-pub trait CommandRequest {
+pub trait CommandRequest: CommandBase {
     fn expects_response(&self) -> bool;
-    fn test_response(&self, response: &Command) -> bool;
-    fn expects_callback(&self) -> bool;
-    fn test_callback(&self, callback: &Command) -> bool;
-
-    fn callback_id(&self) -> Option<u8>;
-    fn set_callback_id(&mut self, callback_id: Option<u8>);
-    fn needs_callback_id(&self) -> bool {
-        true
+    fn test_response(&self, response: &Command) -> bool {
+        // By default, we expect a response with the same function type
+        self.expects_response()
+            && response.command_type() == CommandType::Response
+            && response.function_type() == self.function_type()
     }
+
+    fn expects_callback(&self) -> bool;
+    fn test_callback(&self, callback: &Command) -> bool {
+        // By default, we expect a callback with the same function type
+        if self.expects_callback()
+            && callback.command_type() == CommandType::Request
+            && callback.function_type() == self.function_type()
+        {
+            // We may have to check the callback ID
+            if self.needs_callback_id() {
+                let callback_id = self.callback_id().unwrap_or_else(|| {
+                    panic!("Command {:?} needs a callback ID, but none was set", self)
+                });
+                callback.callback_id() == Some(callback_id)
+            } else {
+                true
+            }
+        } else {
+            false
+        }
+    }
+
+    // By default: don't need a callback
+    fn needs_callback_id(&self) -> bool {
+        false
+    }
+    fn set_callback_id(&mut self, _callback_id: Option<u8>) {}
 }
 
 macro_rules! define_commands {

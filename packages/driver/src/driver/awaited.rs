@@ -7,7 +7,7 @@ pub type Predicate<T> = Box<dyn Fn(&T) -> bool + Sync + Send>;
 
 /// A registry of `Awaited` values, each of which is associated with a predicate that determines
 /// whether a given value matches the awaited value.
-/// 
+///
 /// Adding an entry hands out an `AwaitedRef`, which is used to receive the value when it is
 /// available. The `AwaitedRef` is automatically removed from the registry when it is dropped.
 pub struct AwaitedRegistry<T> {
@@ -29,7 +29,7 @@ impl<T> AwaitedRegistry<T> {
     /// Adds an entry to the registry with a given predicate, returning an `AwaitedRef` that can be
     /// used to receive the value when it is available.
     pub fn add(&self, predicate: Predicate<T>) -> AwaitedRef<T> {
-        let (tx, rx) = oneshot::channel::<T>();
+        let (tx, rx) = oneshot::channel::<(T, oneshot::Sender<()>)>();
         let id = self.sequence_gen.next_id();
         let awaited = Awaited {
             id,
@@ -46,7 +46,7 @@ impl<T> AwaitedRegistry<T> {
     /// Finds the first entry in the registry that matches the given value, returning the channel
     /// that can be used to receive the value when it is available.
     /// The entry is removed from the registry.
-    pub fn take_matching(&self, value: &T) -> Option<oneshot::Sender<T>> {
+    pub fn take_matching(&self, value: &T) -> Option<oneshot::Sender<(T, oneshot::Sender<()>)>> {
         let mut vec = self.store.lock().unwrap();
         let index = vec.iter().position(|a| (a.predicate)(value));
         index.map(|i| vec.remove(i).channel)
@@ -66,17 +66,17 @@ impl<T> AwaitedRegistry<T> {
 pub struct Awaited<T> {
     pub id: i64,
     pub predicate: Predicate<T>,
-    pub channel: oneshot::Sender<T>,
+    pub channel: oneshot::Sender<(T, oneshot::Sender<()>)>,
 }
 
 pub struct AwaitedRef<'a, T> {
     id: i64,
     registry: &'a AwaitedRegistry<T>,
-    channel: Option<oneshot::Receiver<T>>,
+    channel: Option<oneshot::Receiver<(T, oneshot::Sender<()>)>>,
 }
 
 impl<'a, T> AwaitedRef<'a, T> {
-    pub fn new(id: i64, registry: &'a AwaitedRegistry<T>, channel: oneshot::Receiver<T>) -> Self {
+    pub fn new(id: i64, registry: &'a AwaitedRegistry<T>, channel: oneshot::Receiver<(T, oneshot::Sender<()>)>) -> Self {
         Self {
             id,
             registry,
@@ -84,7 +84,7 @@ impl<'a, T> AwaitedRef<'a, T> {
         }
     }
 
-    pub fn take_channel(&mut self) -> oneshot::Receiver<T> {
+    pub fn take_channel(&mut self) -> oneshot::Receiver<(T, oneshot::Sender<()>)> {
         self.channel.take().unwrap()
     }
 }

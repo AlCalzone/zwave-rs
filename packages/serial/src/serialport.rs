@@ -1,5 +1,6 @@
 use zwave_core::encoding;
 use zwave_core::prelude::*;
+use zwave_core::util::now;
 
 use crate::binding::SerialBinding;
 use crate::error::*;
@@ -30,10 +31,10 @@ impl SerialBinding for SerialPort {
     async fn write(&mut self, frame: RawSerialFrame) -> Result<()> {
         match &frame {
             RawSerialFrame::Data(data) => {
-                println!(">> {}", hex::encode(data));
+                println!("{} >> {}", now(), hex::encode(data));
             }
             RawSerialFrame::ControlFlow(byte) => {
-                println!(">> {:?}", byte);
+                println!("{} >> {:?}", now(), byte);
             }
             _ => (),
         }

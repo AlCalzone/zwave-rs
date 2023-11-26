@@ -36,3 +36,10 @@ impl Future for MaybeSleep {
         }
     }
 }
+
+pub fn now() -> String {
+    use time::{macros::format_description, OffsetDateTime};
+    let format =
+        format_description!("[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:4]Z");
+    OffsetDateTime::now_utc().format(format).unwrap()
+}

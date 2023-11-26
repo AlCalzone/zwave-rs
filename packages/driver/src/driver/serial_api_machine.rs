@@ -1,18 +1,20 @@
 use zwave_core::prelude::*;
-use zwave_serial::prelude::*;
-use zwave_core::state_machine::StateMachine;
 use zwave_core::state_machine;
+use zwave_core::state_machine::StateMachine;
+use zwave_serial::prelude::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::upper_case_acronyms)]
+
+#[derive(Debug, Clone)]
 pub enum SerialApiMachineResult {
-    Success,
+    Success(Option<Command>),
     ACKTimeout,
     CAN,
     NAK,
     ResponseTimeout,
-    ResponseNOK,
+    ResponseNOK(Command),
     CallbackTimeout,
-    CallbackNOK,
+    CallbackNOK(Command),
 }
 
 state_machine! { SerialApiMachine {
@@ -31,8 +33,10 @@ state_machine! { SerialApiMachine {
         NAK,
         CAN,
         Timeout,
-        Response(bool), // OK/NOK
-        Callback(bool), // OK/NOK
+        Response(Command),
+        ResponseNOK(Command),
+        Callback(Command),
+        CallbackNOK(Command),
     },
     Effect = {
         SendFrame,
@@ -55,35 +59,25 @@ state_machine! { SerialApiMachine {
         [WaitingForACK => [
             [ACK if ExpectsResponse => !WaitForResponse => WaitingForResponse],
             [ACK if ExpectsCallback => !WaitForCallback => WaitingForCallback],
-            [ACK => Done(SerialApiMachineResult::Success)],
+            [ACK => Done(SerialApiMachineResult::Success(None))],
             [NAK => Done(SerialApiMachineResult::NAK)],
             [CAN => Done(SerialApiMachineResult::CAN)],
             [Timeout => Done(SerialApiMachineResult::ACKTimeout)],
         ]],
         [WaitingForResponse => [
-            // TODO: 
-            [Response(true) if ExpectsCallback => !WaitForCallback => WaitingForCallback],
-            [Response(true) => Done(SerialApiMachineResult::Success)],
-            // [Response(true) => WaitForCallback],
-            [Response(false)  => Done(SerialApiMachineResult::ResponseNOK)],
+            // TODO:
+            [Response(_) if ExpectsCallback => !WaitForCallback => WaitingForCallback],
+            [Response(cmd) => Done(SerialApiMachineResult::Success(Some(cmd)))],
+            [ResponseNOK(cmd)  => Done(SerialApiMachineResult::ResponseNOK(cmd))],
+            [Timeout => Done(SerialApiMachineResult::ResponseTimeout)]
         ]],
         [WaitingForCallback => [
-            [Callback(true) => Done(SerialApiMachineResult::Success)],
-            [Callback(false) => Done(SerialApiMachineResult::CallbackNOK)],
+            [Callback(cmd) => Done(SerialApiMachineResult::Success(Some(cmd)))],
+            [CallbackNOK(cmd) => Done(SerialApiMachineResult::CallbackNOK(cmd))],
+            [Timeout => Done(SerialApiMachineResult::CallbackTimeout)]
         ]],
     ],
     Delays = [],
-    // Delays = [
-    //     [WaitForACK => [
-    //         [@ACK_TIMEOUT => Done(SerialApiMachineResult::ACKTimeout)],
-    //     ]],
-    //     [WaitForResponse => [
-    //         [@RESPONSE_TIMEOUT => Done(SerialApiMachineResult::ResponseTimeout)],
-    //     ]],
-    //     [WaitForCallback => [
-    //         [@CALLBACK_TIMEOUT => Done(SerialApiMachineResult::CallbackTimeout)],
-    //     ]],
-    // ],
     Initial = Initial,
     Final = Done(_)
 } }

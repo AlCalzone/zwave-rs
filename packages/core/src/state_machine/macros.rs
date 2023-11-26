@@ -80,19 +80,19 @@ macro_rules! state_machine {
         }
     ) => {
         paste::paste! {
-            #[derive(Debug, Clone, Copy, PartialEq)]
+            #[derive(Debug, Clone)]
             pub enum [<$fsm_name State>] $state_enum
 
-            #[derive(Debug, Clone, Copy, PartialEq)]
+            #[derive(Debug, Clone, PartialEq)]
             pub enum [<$fsm_name Input>] $input_enum
 
-            #[derive(Debug, Clone, Copy, PartialEq)]
+            #[derive(Debug, Clone, PartialEq)]
             pub enum [<$fsm_name Effect>] $effect_enum
 
             #[derive(Debug, Clone, Copy, PartialEq)]
             pub enum [<$fsm_name Condition>] $cond_enum
 
-            #[derive(Debug, Clone, Copy, PartialEq)]
+            #[derive(Debug, Clone)]
             pub struct [<$fsm_name Transition>] {
                 effect: Option<[<$fsm_name Effect>]>,
                 new_state: [<$fsm_name State>],
@@ -103,15 +103,15 @@ macro_rules! state_machine {
                 type E = [<$fsm_name Effect>];
 
                 fn effect(&self) -> Option<Self::E> {
-                    self.effect
+                    self.effect.clone()
                 }
 
                 fn new_state(&self) -> Self::S {
-                    self.new_state
+                    self.new_state.clone()
                 }
             }
 
-            #[derive(Debug, Clone, Copy, PartialEq)]
+            #[derive(Debug, Clone)]
             pub struct [<$fsm_name DelayedTransition>] {
                 delay: $crate::state_machine::Delay,
                 effect: Option<[<$fsm_name Effect>]>,
@@ -123,11 +123,11 @@ macro_rules! state_machine {
                 type E = [<$fsm_name Effect>];
 
                 fn effect(&self) -> Option<Self::E> {
-                    self.effect
+                    self.effect.clone()
                 }
 
                 fn new_state(&self) -> Self::S {
-                    self.new_state
+                    self.new_state.clone()
                 }
             }
 
@@ -197,6 +197,14 @@ macro_rules! state_machine {
 
                 fn state(&self) -> &Self::S {
                     &self.state
+                }
+
+                fn started(&self) -> bool {
+                    use [<$fsm_name State>]::*;
+                    match self.state {
+                        $initial => false,
+                        _ => true,
+                    }
                 }
 
                 fn done(&self) -> bool {

@@ -1,10 +1,9 @@
 use crate::state_machine::traits::*;
-use crate::util::MaybeSleep;
+use crate::util::{MaybeSleep, now};
 
 use custom_debug_derive::Debug;
 use thiserror::Error;
 
-use std::convert::From;
 use std::marker::{Send, Sync};
 use std::sync::Arc;
 use std::time::Duration;
@@ -26,6 +25,7 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// An asynchronous interpreter for finite state machines. Supports automatic delayed transitions.
 pub struct StateMachineInterpreter<FSM>
 where
     FSM: StateMachine,
@@ -67,7 +67,7 @@ where
         let state_task_shutdown = Arc::new(Notify::new());
         let state_task_shutdown2 = state_task_shutdown.clone();
 
-        let current_state = *machine.state();
+        let current_state = (*machine.state()).clone();
         let current_state = Arc::new(std::sync::RwLock::new(current_state));
         let current_state2 = current_state.clone();
 
@@ -79,10 +79,8 @@ where
                     _ = state_task_shutdown2.notified() => {
                         break;
                     }
-                    rcv_result = transition_rx2.recv() => {
-                        if let Ok(transition) = rcv_result {
-                            *current_state2.write().unwrap() = transition.new_state();
-                        }
+                    Ok(transition) = transition_rx2.recv() => {
+                        *current_state2.write().unwrap() = transition.new_state();
                     }
                 }
             }
@@ -131,7 +129,7 @@ where
     }
 
     pub fn state(&self) -> FSM::S {
-        *self.current_state.read().unwrap()
+        (*self.current_state).read().unwrap().clone()
     }
 
     pub fn effect_listener(&self) -> StateMachineEffectListener<FSM::E> {
@@ -213,6 +211,7 @@ where
 
             // An input was received
             Some(input) = input_rx.recv() => {
+                println!("{} FSM received input: {:?}", now(), input);
                 if let Some(transition) = machine.next(input, &evaluate_condition) {
                     let new_state = transition.new_state();
                     if let Some(effect) = transition.effect() {
@@ -225,13 +224,10 @@ where
             }
         }
     }
-    *machine.state()
+    (*machine.state()).clone()
 }
 
-async fn send_machine_input<I>(
-    input_sender: &StateMachineInputSender<I>,
-    input: I,
-) -> Result<()> {
+async fn send_machine_input<I>(input_sender: &StateMachineInputSender<I>, input: I) -> Result<()> {
     input_sender.send(input).await.map_err(|_| Error::Internal)
 }
 

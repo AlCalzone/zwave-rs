@@ -24,3 +24,4 @@ tokio-util.workspace = true
 tokio.workspace = true
 ux.workspace = true
 zwave-core.workspace = true
+time.workspace = true

@@ -1,9 +1,9 @@
 use std::{fmt::Debug, marker::Send, time::Duration, cmp::Ordering};
 
 /// Describes a state machine transition to take, with an optional effect to be executed before entering the new state
-pub trait StateMachineTransition: Sized + Clone + Copy + Debug + Send {
-    type S: Sized + Copy + Debug + Send + Sync + 'static;
-    type E: Sized + Copy + Debug + Send + 'static;
+pub trait StateMachineTransition: Sized + Clone + Debug + Send {
+    type S: Sized + Clone + Debug + Send + Sync + 'static;
+    type E: Sized + Clone + Debug + Send + 'static;
 
     fn effect(&self) -> Option<Self::E>;
     fn new_state(&self) -> Self::S;
@@ -56,9 +56,9 @@ pub trait StateMachineConfig {
 }
 
 pub trait StateMachine: Sized + Send + 'static {
-    type S: Sized + Copy + Clone + Debug + Send + Sync;
-    type E: Sized + Copy + Debug + Send + 'static;
-    type I: Sized + Copy + Debug + Send;
+    type S: Sized + Clone + Debug + Send + Sync;
+    type E: Sized + Clone + Debug + Send + 'static;
+    type I: Sized + Clone + Debug + Send;
     type C: Sized + Copy + Debug;
     type DT: StateMachineTransition<S = Self::S, E = Self::E> + StateMachineDelay + 'static;
     type T: StateMachineTransition<S = Self::S, E = Self::E> + From<Self::DT> + 'static;
@@ -78,6 +78,9 @@ pub trait StateMachine: Sized + Send + 'static {
 
     /// The current state of the state machine
     fn state(&self) -> &Self::S;
+
+    /// Whether the state machine is still in the initial state
+    fn started(&self) -> bool;
 
     /// Whether the state machine has reached a final state
     fn done(&self) -> bool;

@@ -16,3 +16,4 @@ zwave-serial.workspace = true
 paste.workspace = true
 pin-project.workspace = true
 unique_id.workspace = true
+time.workspace = true
