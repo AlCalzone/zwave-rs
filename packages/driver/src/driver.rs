@@ -26,12 +26,9 @@ use self::serial_api_machine::{
 mod awaited;
 mod serial_api_machine;
 
-enum ThreadCommand {
-    Send(SerialFrame),
-}
+type TaskCommandSender<T> = mpsc::Sender<(T, oneshot::Sender<()>)>;
+type TaskCommandReceiver<T> = mpsc::Receiver<(T, oneshot::Sender<()>)>;
 
-type ThreadCommandSender = mpsc::Sender<(ThreadCommand, oneshot::Sender<()>)>;
-type ThreadCommandReceiver = mpsc::Receiver<(ThreadCommand, oneshot::Sender<()>)>;
 type SerialFrameEmitter = broadcast::Sender<SerialFrame>;
 type SerialListener = broadcast::Receiver<SerialFrame>;
 
@@ -49,9 +46,9 @@ pub struct Driver {
 
     serial_task: JoinHandle<()>,
     main_task: JoinHandle<()>,
-    main_cmd: ThreadCommandSender,
+    main_cmd: MainTaskCommandSender,
     main_task_shutdown: Arc<Notify>,
-    serial_cmd: ThreadCommandSender,
+    serial_cmd: SerialTaskCommandSender,
     serial_listener: SerialListener,
     serial_task_shutdown: Arc<Notify>,
     // command_handlers: Arc<Mutex<Vec<SerialCommandHandlerSender>>>,
@@ -64,7 +61,7 @@ impl Driver {
         let port = SerialPort::new(path).unwrap();
         // To control it, we send a thread command along with a "callback" oneshot channel to the task.
         let (serial_cmd_tx, serial_cmd_rx) =
-            mpsc::channel::<(ThreadCommand, oneshot::Sender<()>)>(100);
+            mpsc::channel::<(SerialTaskCommand, oneshot::Sender<()>)>(100);
         // The listener is used to receive frames from the serial port
         let (serial_listener_tx, serial_listener_rx) = broadcast::channel::<SerialFrame>(100);
         let serial_task_shutdown = Arc::new(Notify::new());
@@ -72,7 +69,8 @@ impl Driver {
 
         // The main logic happens in another task that owns the internal state.
         // To control it, we need another channel.
-        let (main_cmd_tx, main_cmd_rx) = mpsc::channel::<(ThreadCommand, oneshot::Sender<()>)>(100);
+        let (main_cmd_tx, main_cmd_rx) =
+            mpsc::channel::<(MainTaskCommand, oneshot::Sender<()>)>(100);
         let main_serial_cmd = serial_cmd_tx.clone();
         let main_serial_listener = serial_listener_tx.subscribe();
         let main_task_shutdown = Arc::new(Notify::new());
@@ -123,7 +121,7 @@ impl Driver {
     }
 
     pub async fn write_serial(&self, frame: SerialFrame) -> Result<()> {
-        send_thread_command(&self.serial_cmd, ThreadCommand::Send(frame)).await
+        exec_background_task(&self.serial_cmd, SerialTaskCommand::Send(frame)).await
     }
 
     pub async fn register_command_handler(&mut self, handler: CommandHandler) {
@@ -309,16 +307,24 @@ impl Driver {
     }
 }
 
+enum MainTaskCommand {}
+type MainTaskCommandSender = TaskCommandSender<MainTaskCommand>;
+type MainTaskCommandReceiver = TaskCommandReceiver<MainTaskCommand>;
+
 async fn main_loop(
     inner: Arc<DriverInner>,
-    mut cmd_rx: ThreadCommandReceiver,
+    mut cmd_rx: MainTaskCommandReceiver,
     shutdown: Arc<Notify>,
-    serial_cmd: ThreadCommandSender,
+    serial_cmd: SerialTaskCommandSender,
     mut serial_listener: SerialListener,
     // command_handlers: Arc<Mutex<Vec<CommandHandler>>>,
 ) {
     loop {
         tokio::select! {
+            // Make sure we don't read from the serial port if there is a potential command
+            // waiting to set up a frame handler
+            biased;
+
             // We received a shutdown signal
             _ = shutdown.notified() => break,
 
@@ -335,9 +341,9 @@ async fn main_loop(
 
 async fn main_loop_handle_command(
     _inner: &Arc<DriverInner>,
-    cmd: ThreadCommand,
+    cmd: MainTaskCommand,
     _done: oneshot::Sender<()>,
-    _serial_cmd: &ThreadCommandSender,
+    _serial_cmd: &SerialTaskCommandSender,
 ) {
     match cmd {
         _ => {} // Ignore other commands
@@ -347,7 +353,7 @@ async fn main_loop_handle_command(
 async fn main_loop_handle_frame(
     inner: &Arc<DriverInner>,
     frame: SerialFrame,
-    _serial_cmd: &ThreadCommandSender,
+    _serial_cmd: &SerialTaskCommandSender,
 ) {
     // TODO: Consider if we need to always handle something here
     match &frame {
@@ -376,9 +382,16 @@ async fn main_loop_handle_frame(
     // tokio::time::sleep(Duration::from_millis(10)).await;
 }
 
+enum SerialTaskCommand {
+    Send(SerialFrame),
+}
+
+type SerialTaskCommandSender = TaskCommandSender<SerialTaskCommand>;
+type SerialTaskCommandReceiver = TaskCommandReceiver<SerialTaskCommand>;
+
 async fn serial_loop(
     mut port: SerialPort,
-    mut cmd_rx: ThreadCommandReceiver,
+    mut cmd_rx: SerialTaskCommandReceiver,
     shutdown: Arc<Notify>,
     frame_emitter: SerialFrameEmitter,
 ) {
@@ -401,11 +414,11 @@ async fn serial_loop(
 
 async fn serial_loop_handle_command(
     port: &mut SerialPort,
-    cmd: ThreadCommand,
+    cmd: SerialTaskCommand,
     done: oneshot::Sender<()>,
 ) {
     #[allow(irrefutable_let_patterns)]
-    if let ThreadCommand::Send(frame) = cmd {
+    if let SerialTaskCommand::Send(frame) = cmd {
         port.write(frame.try_into().unwrap()).await.unwrap();
         done.send(()).unwrap();
     }
@@ -469,10 +482,7 @@ async fn serial_loop_handle_frame(
     }
 }
 
-async fn send_thread_command(
-    command_sender: &ThreadCommandSender,
-    cmd: ThreadCommand,
-) -> Result<()> {
+async fn exec_background_task<T>(command_sender: &TaskCommandSender<T>, cmd: T) -> Result<()> {
     let (tx, rx) = oneshot::channel();
     command_sender
         .send((cmd, tx))
