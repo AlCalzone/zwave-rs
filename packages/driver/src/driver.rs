@@ -17,33 +17,27 @@ use crate::error::{Error, Result};
 use tokio::sync::{broadcast, mpsc, oneshot, Mutex, Notify};
 use tokio::task::JoinHandle;
 
-use self::awaited::{AwaitedRegistry, Predicate};
+use self::awaited::{AwaitedRef, AwaitedRegistry, Predicate};
 use self::serial_api_machine::{
     SerialApiMachine, SerialApiMachineCondition, SerialApiMachineEffect, SerialApiMachineInput,
-    SerialApiMachineResult, SerialApiMachineState,
+    SerialApiMachineState,
 };
 
 mod awaited;
 mod serial_api_machine;
 
-type TaskCommandSender<T> = mpsc::Sender<(T, oneshot::Sender<()>)>;
-type TaskCommandReceiver<T> = mpsc::Receiver<(T, oneshot::Sender<()>)>;
+pub use serial_api_machine::SerialApiMachineResult;
+
+type TaskCommandSender<T> = mpsc::Sender<T>;
+type TaskCommandReceiver<T> = mpsc::Receiver<T>;
 
 type SerialFrameEmitter = broadcast::Sender<SerialFrame>;
 type SerialListener = broadcast::Receiver<SerialFrame>;
 
 type CommandHandler = Box<dyn Fn(Command) -> bool + Send + Sync>;
 
-struct DriverInner {
-    command_handlers: Mutex<Vec<CommandHandler>>,
-    awaited_control_flow_frames: AwaitedRegistry<ControlFlow>,
-    awaited_commands: AwaitedRegistry<Command>,
-}
-
 #[allow(dead_code)]
 pub struct Driver {
-    inner: Arc<DriverInner>,
-
     serial_task: JoinHandle<()>,
     main_task: JoinHandle<()>,
     main_cmd: MainTaskCommandSender,
@@ -60,8 +54,7 @@ impl Driver {
         // The serial task owns the serial port. All communication needs to go through that task.
         let port = SerialPort::new(path).unwrap();
         // To control it, we send a thread command along with a "callback" oneshot channel to the task.
-        let (serial_cmd_tx, serial_cmd_rx) =
-            mpsc::channel::<(SerialTaskCommand, oneshot::Sender<()>)>(100);
+        let (serial_cmd_tx, serial_cmd_rx) = mpsc::channel::<SerialTaskCommand>(100);
         // The listener is used to receive frames from the serial port
         let (serial_listener_tx, serial_listener_rx) = broadcast::channel::<SerialFrame>(100);
         let serial_task_shutdown = Arc::new(Notify::new());
@@ -69,8 +62,7 @@ impl Driver {
 
         // The main logic happens in another task that owns the internal state.
         // To control it, we need another channel.
-        let (main_cmd_tx, main_cmd_rx) =
-            mpsc::channel::<(MainTaskCommand, oneshot::Sender<()>)>(100);
+        let (main_cmd_tx, main_cmd_rx) = mpsc::channel::<MainTaskCommand>(100);
         let main_serial_cmd = serial_cmd_tx.clone();
         let main_serial_listener = serial_listener_tx.subscribe();
         let main_task_shutdown = Arc::new(Notify::new());
@@ -81,19 +73,8 @@ impl Driver {
         let command_handlers: Vec<CommandHandler> = Vec::new();
         let command_handlers = Mutex::new(command_handlers);
 
-        let awaited_control_flow_frames = AwaitedRegistry::default();
-        let awaited_commands = AwaitedRegistry::default();
-
-        let inner = DriverInner {
-            command_handlers,
-            awaited_control_flow_frames,
-            awaited_commands,
-        };
-        let inner = Arc::new(inner);
-
         // Start the background task for the main logic
         let main_task = tokio::spawn(main_loop(
-            inner.clone(),
             main_cmd_rx,
             main_task_shutdown2,
             main_serial_cmd,
@@ -116,59 +97,47 @@ impl Driver {
             serial_cmd: serial_cmd_tx,
             serial_task_shutdown,
             serial_listener: serial_listener_rx,
-            inner,
         }
     }
 
-    pub async fn write_serial(&self, frame: SerialFrame) -> Result<()> {
-        exec_background_task(&self.serial_cmd, SerialTaskCommand::Send(frame)).await
-    }
+    /// Write a frame to the serial port, returning a reference to the awaited ACK frame
+    pub async fn write_serial(&self, frame: SerialFrame) -> Result<AwaitedRef<ControlFlow>> {
+        // Register an awaiter for the ACK frame
+        let ret = self
+            .await_control_flow_frame(Box::new(|_| true), Some(Duration::from_millis(1600)))
+            .await;
+        // ...then send the frame
+        exec_background_task!(&self.serial_cmd, SerialTaskCommand::SendFrame, frame)?;
 
-    pub async fn register_command_handler(&mut self, handler: CommandHandler) {
-        let mut handlers = self.inner.command_handlers.lock().await;
-        handlers.push(handler);
-        println!("registered command handler, count: {}", handlers.len());
+        ret
     }
 
     async fn await_control_flow_frame(
         &self,
         predicate: Predicate<ControlFlow>,
         timeout: Option<Duration>,
-    ) -> Option<(ControlFlow, oneshot::Sender<()>)> {
+    ) -> Result<AwaitedRef<ControlFlow>> {
         // To await a control frame, we first register an awaiter
-        let mut awaiter = self.inner.awaited_control_flow_frames.add(predicate); // self.register_control_frame_awaiter(predicate);
-
-        // ...wait for it to be fulfilled or time out
-        let sleep = MaybeSleep::new(timeout);
-        tokio::select! {
-            // We pass the entire result including the oneshot channel to the caller,
-            // so that they can acknowledge the command when they handled it. This avoids
-            // race conditions where the driver may attempt to handle the next serial frame
-            // before it is expected.
-            // FIXME: This entire setup is a bit awkward to use - abstract it away into an Acknowledged trait?
-            result = awaiter.take_channel() => Some(result.unwrap()),
-            _ = sleep => None,
-        }
+        exec_background_task!(
+            self.main_cmd,
+            MainTaskCommand::RegisterAwaitedControlFlowFrame,
+            predicate,
+            timeout
+        )
     }
 
     pub async fn await_command(
         &self,
         predicate: Predicate<Command>,
         timeout: Option<Duration>,
-    ) -> Option<(Command, oneshot::Sender<()>)> {
+    ) -> Result<AwaitedRef<Command>> {
         // To await a command, we first register an awaiter
-        let mut awaiter = self.inner.awaited_commands.add(predicate); // self.register_command_awaiter(predicate);
-
-        // ...wait for it to be fulfilled or time out
-        let sleep = MaybeSleep::new(timeout);
-        tokio::select! {
-            // We pass the entire result including the oneshot channel to the caller,
-            // so that they can acknowledge the command when they handled it. This avoids
-            // race conditions where the driver may attempt to handle the next serial frame
-            // before it is expected.
-            result = awaiter.take_channel() => Some(result.unwrap()),
-            _ = sleep => None,
-        }
+        exec_background_task!(
+            self.main_cmd,
+            MainTaskCommand::RegisterAwaitedCommand,
+            predicate,
+            timeout
+        )
     }
 
     pub async fn execute_serial_api_command<C>(&self, command: C) -> Result<SerialApiMachineResult>
@@ -191,107 +160,124 @@ impl Driver {
 
         // Handle all transitions/events from the state machine
         let mut next_input: Option<SerialApiMachineInput> = Some(SerialApiMachineInput::Start);
-        let mut ack: Option<oneshot::Sender<()>> = None;
+
+        // With multiple tasks involved, setting up the awaiters is very timing-sensitive and
+        // prone to race conditions when set up just in time. Unless something is going horribly wrong,
+        // setting up all awaiters before sending the command should be safe.
+        let mut awaited_response: Option<AwaitedRef<Command>> = {
+            let command = command.clone();
+            Some(
+                self.await_command(
+                    Box::new(move |cmd| command.test_response(cmd)),
+                    Some(Duration::from_millis(10000)),
+                )
+                .await?,
+            )
+        };
+        let mut awaited_callback: Option<AwaitedRef<Command>> = {
+            let command = command.clone();
+            Some(
+                self.await_command(
+                    Box::new(move |cmd| command.test_callback(cmd)),
+                    Some(Duration::from_millis(30000)),
+                )
+                .await?
+            )
+        };
+        // The ACK awaiter is returned by the call to `write_serial()`
+        let mut awaited_ack: Option<AwaitedRef<ControlFlow>> = None;
+
         while !state_machine.done() {
             if let Some(input) = next_input.take() {
                 if let Some(transition) = state_machine.next(input, &evaluate_condition) {
                     let new_state = transition.new_state();
 
-                    if let Some(effect) = transition.effect() {
-                        println!("{} handling effect {:?}", now(), effect);
-                        if let Some(ack) = ack.take() {
-                            ack.send(()).unwrap();
-                        }
-                        match effect {
-                            SerialApiMachineEffect::SendFrame => {
-                                // FIXME: We should take a reference here and use try_into()
-                                let frame = SerialFrame::from(command.clone());
-                                // Send the command to the controller
-                                self.write_serial(frame).await.unwrap();
-                                // and notify the state machine
-                                next_input = Some(SerialApiMachineInput::FrameSent);
-                            }
-                            SerialApiMachineEffect::AbortSending => {
-                                todo!("Handle effect {:?}", effect)
-                            }
-                            SerialApiMachineEffect::WaitForACK => {
-                                // Wait for ACK, but also accept CAN and NAK
-                                let awaited = self
-                                    .await_control_flow_frame(
-                                        Box::new(|_| true),
-                                        Some(Duration::from_millis(1600)),
-                                    )
-                                    .await;
-                                let (frame, handled) = awaited
-                                    .map_or_else(|| (None, None), |(f, h)| (Some(f), Some(h)));
-                                // Notify the state machine about the result
-                                next_input = Some(match frame {
-                                    Some(ControlFlow::ACK) => SerialApiMachineInput::ACK,
-                                    Some(ControlFlow::NAK) => SerialApiMachineInput::NAK,
-                                    Some(ControlFlow::CAN) => SerialApiMachineInput::CAN,
-                                    None => SerialApiMachineInput::Timeout,
-                                });
-                                ack = handled;
-                            }
-                            SerialApiMachineEffect::WaitForResponse => {
-                                let command = command.clone();
-                                let awaited = self
-                                    .await_command(
-                                        Box::new(move |cmd: &Command| command.test_response(cmd)),
-                                        Some(Duration::from_millis(10000)),
-                                    )
-                                    .await;
-                                let (response, handled) = awaited
-                                    .map_or_else(|| (None, None), |(c, h)| (Some(c), Some(h)));
-                                next_input = Some(match response {
-                                    Some(response) if response.is_ok() => {
-                                        SerialApiMachineInput::Response(response)
-                                    }
-                                    Some(response) => SerialApiMachineInput::ResponseNOK(response),
-                                    None => SerialApiMachineInput::Timeout,
-                                });
-                                ack = handled;
-                            }
-                            SerialApiMachineEffect::WaitForCallback => {
-                                let command = command.clone();
-                                let awaited = self
-                                    .await_command(
-                                        Box::new(move |cmd: &Command| command.test_callback(cmd)),
-                                        Some(Duration::from_millis(30000)),
-                                    )
-                                    .await;
-                                let (callback, handled) = awaited
-                                    .map_or_else(|| (None, None), |(c, h)| (Some(c), Some(h)));
-
-                                next_input = Some(match callback {
-                                    Some(callback) if callback.is_ok() => {
-                                        SerialApiMachineInput::Callback(callback)
-                                    }
-                                    Some(callback) => SerialApiMachineInput::CallbackNOK(callback),
-                                    None => SerialApiMachineInput::Timeout,
-                                });
-                                ack = handled;
-                            }
-                        }
-                    } else {
-                        match new_state {
-                            SerialApiMachineState::Done(_) => (),
-                            _ => {
-                                println!("WARN: IDLE in Serial API machine - no effect");
-                                tokio::time::sleep(Duration::from_millis(10)).await;
-                            }
-                        };
-                    }
+                    // Transition to the new state
                     state_machine.transition(new_state);
+
+                    // Now check what needs to be done in the new state
+                    match state_machine.state() {
+                        SerialApiMachineState::Initial => (),
+                        SerialApiMachineState::Sending => {
+                            // FIXME: We should take a reference here and use try_into()
+                            let frame = SerialFrame::from(command.clone());
+                            // Send the command to the controller
+                            awaited_ack = Some(self.write_serial(frame).await?);
+                            // and notify the state machine
+                            next_input = Some(SerialApiMachineInput::FrameSent);
+                        }
+                        SerialApiMachineState::WaitingForACK => {
+                            // Wait for ACK, but also accept CAN and NAK
+                            match awaited_ack
+                                .take()
+                                .expect("ACK awaiter already consumed")
+                                .try_await()
+                                .await
+                            {
+                                Ok(frame) => {
+                                    next_input = Some(match frame {
+                                        ControlFlow::ACK => SerialApiMachineInput::ACK,
+                                        ControlFlow::NAK => SerialApiMachineInput::NAK,
+                                        ControlFlow::CAN => SerialApiMachineInput::CAN,
+                                    });
+                                }
+                                Err(Error::Timeout) => {
+                                    next_input = Some(SerialApiMachineInput::Timeout);
+                                }
+                                Err(_) => {
+                                    panic!("Unexpected internal error while waiting for ACK");
+                                }
+                            }
+                        }
+                        SerialApiMachineState::WaitingForResponse => {
+                            match awaited_response
+                                .take()
+                                .expect("Response awaiter already consumed")
+                                .try_await()
+                                .await
+                            {
+                                Ok(response) if response.is_ok() => {
+                                    next_input = Some(SerialApiMachineInput::Response(response));
+                                }
+                                Ok(response) => {
+                                    next_input = Some(SerialApiMachineInput::ResponseNOK(response));
+                                }
+                                Err(Error::Timeout) => {
+                                    next_input = Some(SerialApiMachineInput::Timeout);
+                                }
+                                Err(_) => {
+                                    panic!("Unexpected internal error while waiting for response");
+                                }
+                            }
+                        }
+                        SerialApiMachineState::WaitingForCallback => {
+                            match awaited_callback
+                                .take()
+                                .expect("Callback awaiter already consumed")
+                                .try_await()
+                                .await
+                            {
+                                Ok(callback) if callback.is_ok() => {
+                                    next_input = Some(SerialApiMachineInput::Callback(callback));
+                                }
+                                Ok(callback) => {
+                                    next_input = Some(SerialApiMachineInput::CallbackNOK(callback));
+                                }
+                                Err(Error::Timeout) => {
+                                    next_input = Some(SerialApiMachineInput::Timeout);
+                                }
+                                Err(_) => {
+                                    panic!("Unexpected internal error while waiting for callback");
+                                }
+                            }
+                        }
+                        SerialApiMachineState::Done(_) => (),
+                    }
                 }
             } else {
                 println!("WARN: IDLE in Serial API machine - no input");
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
-        }
-
-        if let Some(ack) = ack.take() {
-            ack.send(()).unwrap();
         }
 
         // Wait for the machine to finish
@@ -307,18 +293,113 @@ impl Driver {
     }
 }
 
-enum MainTaskCommand {}
+macro_rules! define_task_commands {
+    (
+        $enum_name:ident$(<$($enum_lt:lifetime),+ $(,)?>)? {
+            $( $cmd_name:ident$(<$($lt:lifetime),+ $(,)?>)? -> $cmd_result:ty {
+                $( $field_name:ident : $field_type:ty ),* $(,)?
+            } ),* $(,)?
+        }
+    ) => {
+        enum $enum_name$(<$($enum_lt),+>)? {
+            $(
+                $cmd_name($cmd_name$(<$($lt),+>)?),
+            )*
+        }
+
+        $(
+            define_task_commands!(
+                @variant $cmd_name$(<$($lt),+>)? -> $cmd_result {
+                    $( $field_name : $field_type ),*
+                }
+            );
+        )*
+    };
+    // Variant with lifetimes
+    (
+        @variant $cmd_name:ident<$($lt:lifetime),+ $(,)?> -> $cmd_result:ty {
+            $( $field_name:ident : $field_type:ty ),* $(,)?
+        }
+    ) => {
+        struct $cmd_name<$($lt),+> {
+            $( pub $field_name: $field_type ),*,
+            pub callback: oneshot::Sender<$cmd_result>,
+        }
+
+        impl<$($lt),+> $cmd_name<$($lt),+> {
+            pub fn new(
+                $( $field_name: $field_type ),*
+            ) -> (Self, oneshot::Receiver<$cmd_result>) {
+                let (tx, rx) = oneshot::channel::<$cmd_result>();
+                (
+                    Self {
+                        $( $field_name ),*,
+                        callback: tx,
+                    },
+                    rx,
+                )
+            }
+        }
+    };
+    // Variant without lifetimes
+    (
+        @variant $cmd_name:ident -> $cmd_result:ty {
+            $( $field_name:ident : $field_type:ty ),* $(,)?
+        }
+    ) => {
+        struct $cmd_name {
+            $( pub $field_name: $field_type ),*,
+            pub callback: oneshot::Sender<$cmd_result>,
+        }
+
+        impl $cmd_name {
+            pub fn new(
+                $( $field_name: $field_type ),*
+            ) -> (Self, oneshot::Receiver<$cmd_result>) {
+                let (tx, rx) = oneshot::channel::<$cmd_result>();
+                (
+                    Self {
+                        $( $field_name ),*,
+                        callback: tx,
+                    },
+                    rx,
+                )
+            }
+        }
+    }
+}
+
+define_task_commands!(MainTaskCommand {
+    RegisterAwaitedCommand -> AwaitedRef<Command> {
+        predicate: Predicate<Command>,
+        timeout: Option<Duration>
+    },
+    RegisterAwaitedControlFlowFrame -> AwaitedRef<ControlFlow> {
+        predicate: Predicate<ControlFlow>,
+        timeout: Option<Duration>
+    },
+});
+
 type MainTaskCommandSender = TaskCommandSender<MainTaskCommand>;
 type MainTaskCommandReceiver = TaskCommandReceiver<MainTaskCommand>;
 
+struct MainLoopState {
+    awaited_control_flow_frames: Arc<AwaitedRegistry<ControlFlow>>,
+    awaited_commands: Arc<AwaitedRegistry<Command>>,
+}
+
 async fn main_loop(
-    inner: Arc<DriverInner>,
     mut cmd_rx: MainTaskCommandReceiver,
     shutdown: Arc<Notify>,
     serial_cmd: SerialTaskCommandSender,
     mut serial_listener: SerialListener,
     // command_handlers: Arc<Mutex<Vec<CommandHandler>>>,
 ) {
+    let state = MainLoopState {
+        awaited_control_flow_frames: Arc::new(AwaitedRegistry::default()),
+        awaited_commands: Arc::new(AwaitedRegistry::default()),
+    };
+
     loop {
         tokio::select! {
             // Make sure we don't read from the serial port if there is a potential command
@@ -329,10 +410,10 @@ async fn main_loop(
             _ = shutdown.notified() => break,
 
             // We received a command from the outside
-            Some((cmd, done)) = cmd_rx.recv() => main_loop_handle_command(&inner, cmd, done, &serial_cmd).await,
+            Some(cmd) = cmd_rx.recv() => main_loop_handle_command(&state, cmd, &serial_cmd).await,
 
             // The serial port emitted a frame
-            Ok(frame) = serial_listener.recv() => main_loop_handle_frame(&inner, frame, &serial_cmd).await
+            Ok(frame) = serial_listener.recv() => main_loop_handle_frame(&state, frame, &serial_cmd).await
         }
     }
 
@@ -340,41 +421,51 @@ async fn main_loop(
 }
 
 async fn main_loop_handle_command(
-    _inner: &Arc<DriverInner>,
+    state: &MainLoopState,
     cmd: MainTaskCommand,
-    _done: oneshot::Sender<()>,
     _serial_cmd: &SerialTaskCommandSender,
 ) {
     match cmd {
+        MainTaskCommand::RegisterAwaitedControlFlowFrame(ctrl) => {
+            let result = state
+                .awaited_control_flow_frames
+                .add(ctrl.predicate, ctrl.timeout);
+            ctrl.callback
+                .send(result)
+                .map_err(|_| Error::Internal)
+                .unwrap();
+        }
+        MainTaskCommand::RegisterAwaitedCommand(cmd) => {
+            let result = state.awaited_commands.add(cmd.predicate, cmd.timeout);
+            cmd.callback
+                .send(result)
+                .map_err(|_| Error::Internal)
+                .unwrap();
+        }
         _ => {} // Ignore other commands
     }
 }
 
 async fn main_loop_handle_frame(
-    inner: &Arc<DriverInner>,
+    state: &MainLoopState,
     frame: SerialFrame,
     _serial_cmd: &SerialTaskCommandSender,
 ) {
     // TODO: Consider if we need to always handle something here
+    println!("handle_Frame: {:?}", &frame);
     match &frame {
         SerialFrame::ControlFlow(cf) => {
             // If the awaited control-flow-frame registry has a matching awaiter,
             // remove it and send the frame through its channel
-            if let Some(channel) = inner.awaited_control_flow_frames.take_matching(cf) {
-                // Send the frame through the channel along with a callback oneshot to acknowledge it
-                let (done_tx, done_rx) = oneshot::channel::<()>();
-                channel.send((*cf, done_tx)).unwrap();
-                done_rx.await.unwrap();
+            if let Some(channel) = state.awaited_control_flow_frames.take_matching(cf) {
+                channel.send(*cf).unwrap();
             }
         }
         SerialFrame::Command(cmd) => {
             // If the awaited command registry has a matching awaiter,
             // remove it and send the command through its channel
-            if let Some(channel) = inner.awaited_commands.take_matching(cmd) {
-                // Send the command through the channel along with a callback oneshot to acknowledge it
-                let (done_tx, done_rx) = oneshot::channel::<()>();
-                channel.send((cmd.clone(), done_tx)).unwrap();
-                done_rx.await.unwrap();
+            if let Some(channel) = state.awaited_commands.take_matching(cmd) {
+                channel.send(cmd.clone()).unwrap();
             }
         }
         _ => {}
@@ -382,9 +473,13 @@ async fn main_loop_handle_frame(
     // tokio::time::sleep(Duration::from_millis(10)).await;
 }
 
-enum SerialTaskCommand {
-    Send(SerialFrame),
-}
+define_task_commands!(SerialTaskCommand {
+    SendFrame -> () {
+        frame: SerialFrame
+    }
+});
+
+struct SerialLoopState {}
 
 type SerialTaskCommandSender = TaskCommandSender<SerialTaskCommand>;
 type SerialTaskCommandReceiver = TaskCommandReceiver<SerialTaskCommand>;
@@ -402,7 +497,7 @@ async fn serial_loop(
             _ = shutdown.notified() => break,
 
             // We received a command from the outside
-            Some((cmd, done)) = cmd_rx.recv() => serial_loop_handle_command(&mut port, cmd, done).await,
+            Some(cmd) = cmd_rx.recv() => serial_loop_handle_command(&mut port, cmd).await,
 
             // We received a frame from the serial port
             Some(frame) = port.read() => serial_loop_handle_frame(&mut port, frame, &frame_emitter).await
@@ -412,15 +507,11 @@ async fn serial_loop(
     println!("serial task stopped")
 }
 
-async fn serial_loop_handle_command(
-    port: &mut SerialPort,
-    cmd: SerialTaskCommand,
-    done: oneshot::Sender<()>,
-) {
+async fn serial_loop_handle_command(port: &mut SerialPort, cmd: SerialTaskCommand) {
     #[allow(irrefutable_let_patterns)]
-    if let SerialTaskCommand::Send(frame) = cmd {
+    if let SerialTaskCommand::SendFrame(SendFrame { frame, callback }) = cmd {
         port.write(frame.try_into().unwrap()).await.unwrap();
-        done.send(()).unwrap();
+        callback.send(()).unwrap();
     }
 }
 
@@ -482,15 +573,31 @@ async fn serial_loop_handle_frame(
     }
 }
 
-async fn exec_background_task<T>(command_sender: &TaskCommandSender<T>, cmd: T) -> Result<()> {
-    let (tx, rx) = oneshot::channel();
-    command_sender
-        .send((cmd, tx))
-        .await
-        .map_err(|_| Error::Internal)?;
-    rx.await.map_err(|_| Error::Internal)?;
-    Ok(())
+macro_rules! exec_background_task {
+    ($command_sender:expr, $command_type:ident::$variant:ident, $($new_args:tt)*) => {
+        {
+            let (cmd, rx) = $variant::new($($new_args)*);
+            let cmd = $command_type::$variant(cmd);
+            $command_sender.send(cmd).await.map_err(|_| Error::Internal)?;
+            rx.await.map_err(|_| Error::Internal)
+        }
+    };
 }
+use exec_background_task;
+
+// async fn exec_background_task<T>(
+//     command_sender: &TaskCommandSender<T>,
+//     cmd: T,
+// ) -> Result<dyn std::any::Any> {
+//     let (cmd)
+//     let (tx, rx) = oneshot::channel::<dyn std::any::Any>();
+//     command_sender
+//         .send((cmd, tx))
+//         .await
+//         .map_err(|_| Error::Internal)?;
+//     let res = rx.await.map_err(|_| Error::Internal)?;
+//     Ok(())
+// }
 
 impl Drop for Driver {
     fn drop(&mut self) {

@@ -38,27 +38,21 @@ state_machine! { SerialApiMachine {
         Callback(Command),
         CallbackNOK(Command),
     },
-    Effect = {
-        SendFrame,
-        AbortSending,
-        WaitForACK,
-        WaitForResponse,
-        WaitForCallback,
-    },
+    Effect = {},
     Condition = {
         ExpectsResponse,
         ExpectsCallback,
     },
     Transitions = [
         [Initial => [
-            [Start => ! SendFrame => Sending],
+            [Start => Sending],
         ]],
         [Sending => [
-            [FrameSent => ! WaitForACK => WaitingForACK],
+            [FrameSent => WaitingForACK],
         ]],
         [WaitingForACK => [
-            [ACK if ExpectsResponse => !WaitForResponse => WaitingForResponse],
-            [ACK if ExpectsCallback => !WaitForCallback => WaitingForCallback],
+            [ACK if ExpectsResponse => WaitingForResponse],
+            [ACK if ExpectsCallback => WaitingForCallback],
             [ACK => Done(SerialApiMachineResult::Success(None))],
             [NAK => Done(SerialApiMachineResult::NAK)],
             [CAN => Done(SerialApiMachineResult::CAN)],
@@ -66,7 +60,7 @@ state_machine! { SerialApiMachine {
         ]],
         [WaitingForResponse => [
             // TODO:
-            [Response(_) if ExpectsCallback => !WaitForCallback => WaitingForCallback],
+            [Response(_) if ExpectsCallback => WaitingForCallback],
             [Response(cmd) => Done(SerialApiMachineResult::Success(Some(cmd)))],
             [ResponseNOK(cmd)  => Done(SerialApiMachineResult::ResponseNOK(cmd))],
             [Timeout => Done(SerialApiMachineResult::ResponseTimeout)]
