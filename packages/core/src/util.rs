@@ -43,3 +43,11 @@ pub fn now() -> String {
         format_description!("[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:4]Z");
     OffsetDateTime::now_utc().format(format).unwrap()
 }
+
+macro_rules! submodule {
+    ($name:ident) => {
+        mod $name;
+        pub use $name::*;
+    };
+}
+pub(crate) use submodule;

@@ -154,7 +154,7 @@
             "",
             "impl Parsable for ${1}Response {",
             "    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {",
-            "        todo!(\"ERROR: ${1}Response::parse() not implemented\");",
+            "        eprintln!(\"ERROR: ${1}Response::parse() not implemented\");",
             "        Ok((i, Self {}))",
             "    }",
             "}",
@@ -162,7 +162,7 @@
             "impl Serializable for ${1}Response {",
             "    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {",
             "        use cf::{bytes::be_u8, sequence::tuple};",
-            "        move |out| todo!()",
+            "        move |out| todo!(\"ERROR: ${1}Response::serialize() not implemented\")",
             "    }",
             "}"
         ]
@@ -247,7 +247,7 @@
             "",
             "impl Parsable for ${1}Callback {",
             "    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {",
-            "        todo!(\"ERROR: ${1}Response::parse() not implemented\");",
+            "        eprintln!(\"ERROR: ${1}Callback::parse() not implemented\");",
             "        Ok((i, Self {",
             "            callback_id: None,",
             "        }))",
@@ -257,7 +257,7 @@
             "impl Serializable for ${1}Callback {",
             "    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {",
             "        use cf::{bytes::be_u8, sequence::tuple};",
-            "        move |out| todo!()",
+            "        move |out| todo!(\"ERROR: ${1}Callback::serialize() not implemented\")",
             "    }",
             "}"
         ]
@@ -336,7 +336,7 @@
             "",
             "impl Parsable for ${1}Response {",
             "    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {",
-            "        todo!(\"ERROR: ${1}Response::parse() not implemented\");",
+            "        eprintln!(\"ERROR: ${1}Response::parse() not implemented\");",
             "        Ok((i, Self {}))",
             "    }",
             "}",
@@ -344,7 +344,7 @@
             "impl Serializable for ${1}Response {",
             "    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {",
             "        use cf::{bytes::be_u8, sequence::tuple};",
-            "        move |out| todo!()",
+            "        move |out| todo!(\"ERROR: ${1}Response::serialize() not implemented\")",
             "    }",
             "}"
             "",
@@ -361,7 +361,7 @@
             "",
             "impl Parsable for ${1}Callback {",
             "    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {",
-            "        todo!(\"ERROR: ${1}Callback::parse() not implemented\");",
+            "        eprintln!(\"ERROR: ${1}Callback::parse() not implemented\");",
             "        Ok((i, Self {",
             "            callback_id: None,",
             "        }))",
@@ -371,7 +371,7 @@
             "impl Serializable for ${1}Callback {",
             "    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {",
             "        use cf::{bytes::be_u8, sequence::tuple};",
-            "        move |out| todo!()",
+            "        move |out| todo!(\"ERROR: ${1}Callback::serialize() not implemented\")",
             "    }",
             "}"
         ]

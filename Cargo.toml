@@ -12,6 +12,7 @@ rust-version = "1.76"
 edition = "2021"
 
 [workspace.dependencies]
+bitflags = "2.4.1"
 bitvec = "1.0.1"
 bytes = "1.5.0"
 cookie-factory = "0.3.2"

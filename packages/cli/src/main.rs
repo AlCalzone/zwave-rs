@@ -1,7 +1,9 @@
 use std::thread;
 use std::time::Duration;
 use zwave_driver::SerialApiMachineResult;
-use zwave_serial::command::{Command, GetProtocolVersionRequest};
+use zwave_serial::command::{
+    Command, CommandBase, GetProtocolVersionRequest, SendDataCallback, SendDataRequest,
+};
 
 #[cfg(target_os = "linux")]
 const PORT: &str = "/dev/ttyUSB0";
@@ -55,27 +57,26 @@ async fn main() {
     //     None => println!("timed out waiting for protocol version"),
     // }
 
-    // for loop from 1 to 100
     let mut failures: Vec<SerialApiMachineResult> = Vec::new();
     let mut ok = 0;
-    for i in 1..=2500 {
-        println!("sending protocol version request");
+    for i in 1..=250 {
+        println!("sending data");
         let result = driver
-            .execute_serial_api_command(GetProtocolVersionRequest::new())
+            .execute_serial_api_command(SendDataRequest::new())
             .await
             .unwrap();
 
         println!("execute result: {:?}", result);
-        if matches!(
-            result,
-            SerialApiMachineResult::Success(Some(Command::GetProtocolVersionResponse(_)))
-        ) {
-            ok += 1;
-            println!("Test {i} passed");
-        } else {
-            failures.push(result);
-            println!("Test {i} failed");
-            break;
+        match result {
+            SerialApiMachineResult::CallbackNOK(Command::SendDataCallback(cb)) if !cb.is_ok() => {
+                ok += 1;
+                println!("Test {i} passed");
+            }
+            _ => {
+                failures.push(result);
+                println!("Test {i} failed");
+                break;
+            }
         }
     }
 
@@ -83,6 +84,13 @@ async fn main() {
     if !failures.is_empty() {
         println!("Failures: {:?}", failures);
     }
+
+    let result = driver
+        .execute_serial_api_command(SendDataRequest::new())
+        .await
+        .unwrap();
+    println!("execute result: {:?}", result);
+
     thread::sleep(Duration::from_millis(2000));
 
     drop(driver);

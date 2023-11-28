@@ -10,6 +10,8 @@ mod capability;
 pub use capability::*;
 mod misc;
 pub use misc::*;
+mod transport;
+pub use transport::*;
 
 #[enum_dispatch(Command)]
 /// Command-specific functionality that may need to be implemented for each command
@@ -69,6 +71,21 @@ define_commands!(
         function_type: FunctionType::GetProtocolVersion,
         origin: MessageOrigin::Controller,
     },
+    SendDataRequest {
+        command_type: CommandType::Request,
+        function_type: FunctionType::SendData,
+        origin: MessageOrigin::Host,
+    },
+    SendDataResponse {
+        command_type: CommandType::Response,
+        function_type: FunctionType::SendData,
+        origin: MessageOrigin::Controller,
+    },
+    SendDataCallback {
+        command_type: CommandType::Request,
+        function_type: FunctionType::SendData,
+        origin: MessageOrigin::Controller,
+    }
 );
 
 pub trait CommandRequest: CommandId {
