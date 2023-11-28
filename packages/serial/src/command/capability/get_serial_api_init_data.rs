@@ -23,6 +23,18 @@ impl GetSerialApiInitDataRequest {
     }
 }
 
+impl CommandBase for GetSerialApiInitDataRequest {}
+
+impl CommandRequest for GetSerialApiInitDataRequest {
+    fn expects_response(&self) -> bool {
+        true
+    }
+
+    fn expects_callback(&self) -> bool {
+        false
+    }
+}
+
 impl Parsable for GetSerialApiInitDataRequest {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         // No payload
@@ -37,16 +49,6 @@ impl Serializable for GetSerialApiInitDataRequest {
     }
 }
 
-impl CommandRequest for GetSerialApiInitDataRequest {
-    fn expects_response(&self) -> bool {
-        true
-    }
-
-    fn expects_callback(&self) -> bool {
-        false
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetSerialApiInitDataResponse {
     pub api_version: ZWaveApiVersion,
@@ -57,6 +59,8 @@ pub struct GetSerialApiInitDataResponse {
     pub node_ids: Vec<u8>,
     pub chip_type: Option<ChipType>,
 }
+
+impl CommandBase for GetSerialApiInitDataResponse {}
 
 impl Parsable for GetSerialApiInitDataResponse {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {

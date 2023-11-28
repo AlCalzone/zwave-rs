@@ -14,6 +14,18 @@ impl SoftResetRequest {
     }
 }
 
+impl CommandBase for SoftResetRequest {}
+
+impl CommandRequest for SoftResetRequest {
+    fn expects_response(&self) -> bool {
+        false
+    }
+
+    fn expects_callback(&self) -> bool {
+        false
+    }
+}
+
 impl Parsable for SoftResetRequest {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         // No payload
@@ -25,15 +37,5 @@ impl Serializable for SoftResetRequest {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
         // No payload
         empty()
-    }
-}
-
-impl CommandRequest for SoftResetRequest {
-    fn expects_response(&self) -> bool {
-        false
-    }
-
-    fn expects_callback(&self) -> bool {
-        false
     }
 }

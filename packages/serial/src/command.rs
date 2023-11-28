@@ -10,13 +10,12 @@ mod capability;
 pub use capability::*;
 mod misc;
 pub use misc::*;
+mod transport;
+pub use transport::*;
 
 #[enum_dispatch(Command)]
+/// Command-specific functionality that may need to be implemented for each command
 pub trait CommandBase: std::fmt::Debug + Sync + Send {
-    fn command_type(&self) -> CommandType;
-    fn function_type(&self) -> FunctionType;
-    fn origin(&self) -> MessageOrigin;
-
     // Used to test responses and callbacks whether they indicate an OK result
     fn is_ok(&self) -> bool {
         true
@@ -26,6 +25,14 @@ pub trait CommandBase: std::fmt::Debug + Sync + Send {
     fn callback_id(&self) -> Option<u8> {
         None
     }
+}
+
+#[enum_dispatch(Command)]
+/// Identifies the types of a command
+pub trait CommandId: CommandBase {
+    fn command_type(&self) -> CommandType;
+    fn function_type(&self) -> FunctionType;
+    fn origin(&self) -> MessageOrigin;
 }
 
 define_commands!(
@@ -66,7 +73,7 @@ define_commands!(
     },
 );
 
-pub trait CommandRequest: CommandBase {
+pub trait CommandRequest: CommandId {
     fn expects_response(&self) -> bool;
     fn test_response(&self, response: &Command) -> bool {
         // By default, we expect a response with the same function type
@@ -121,7 +128,7 @@ macro_rules! define_commands {
         }
 
         // Define command type and function type for each variant
-        $( impl CommandBase for $cmd_name {
+        $( impl CommandId for $cmd_name {
             fn command_type(&self) -> CommandType {
                 CommandType::$cmd_type
             }
@@ -211,7 +218,9 @@ pub struct NotImplemented {
     pub payload: Vec<u8>,
 }
 
-impl CommandBase for NotImplemented {
+impl CommandBase for NotImplemented {}
+
+impl CommandId for NotImplemented {
     fn command_type(&self) -> CommandType {
         self.command_type
     }

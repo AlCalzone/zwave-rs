@@ -30,6 +30,8 @@ impl Serializable for GetControllerVersionRequest {
     }
 }
 
+impl CommandBase for GetControllerVersionRequest {}
+
 impl CommandRequest for GetControllerVersionRequest {
     fn expects_response(&self) -> bool {
         true
@@ -45,6 +47,8 @@ pub struct GetControllerVersionResponse {
     library_type: ZWaveLibraryType,
     library_version: String,
 }
+
+impl CommandBase for GetControllerVersionResponse {}
 
 impl Parsable for GetControllerVersionResponse {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {

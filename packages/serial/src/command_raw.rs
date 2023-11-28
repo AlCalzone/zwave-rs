@@ -1,3 +1,4 @@
+use crate::command::CommandId;
 use crate::prelude::*;
 use zwave_core::prelude::*;
 

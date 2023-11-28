@@ -20,6 +20,19 @@ impl GetProtocolVersionRequest {
     }
 }
 
+impl CommandBase for GetProtocolVersionRequest {}
+
+impl CommandRequest for GetProtocolVersionRequest {
+    fn expects_response(&self) -> bool {
+        true
+    }
+
+    fn expects_callback(&self) -> bool {
+        false
+    }
+}
+
+
 impl Parsable for GetProtocolVersionRequest {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         // No payload
@@ -34,16 +47,6 @@ impl Serializable for GetProtocolVersionRequest {
     }
 }
 
-impl CommandRequest for GetProtocolVersionRequest {
-    fn expects_response(&self) -> bool {
-        true
-    }
-
-    fn expects_callback(&self) -> bool {
-        false
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetProtocolVersionResponse {
     pub protocol_type: ProtocolType,
@@ -51,6 +54,8 @@ pub struct GetProtocolVersionResponse {
     pub app_framework_build_number: Option<u16>,
     pub git_commit_hash: Option<String>,
 }
+
+impl CommandBase for GetProtocolVersionResponse {}
 
 impl Parsable for GetProtocolVersionResponse {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
@@ -94,3 +99,4 @@ impl Serializable for GetProtocolVersionResponse {
         move |_out| todo!()
     }
 }
+
