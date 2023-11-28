@@ -24,4 +24,3 @@ pub use zwave_api_version::*;
 
 mod zwave_library_type;
 pub use zwave_library_type::*;
-

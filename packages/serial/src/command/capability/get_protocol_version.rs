@@ -32,7 +32,6 @@ impl CommandRequest for GetProtocolVersionRequest {
     }
 }
 
-
 impl Parsable for GetProtocolVersionRequest {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         // No payload
@@ -99,4 +98,3 @@ impl Serializable for GetProtocolVersionResponse {
         move |_out| todo!()
     }
 }
-

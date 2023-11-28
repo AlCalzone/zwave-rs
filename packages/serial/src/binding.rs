@@ -5,8 +5,10 @@ pub trait SerialBinding {
     where
         Self: Sized;
 
-    fn write(&mut self, frame: RawSerialFrame)
-        -> impl std::future::Future<Output = Result<()>> + Send;
+    fn write(
+        &mut self,
+        frame: RawSerialFrame,
+    ) -> impl std::future::Future<Output = Result<()>> + Send;
 
     fn read(&mut self) -> impl std::future::Future<Output = Option<RawSerialFrame>> + Send;
 }

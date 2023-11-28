@@ -53,10 +53,7 @@ impl<T> AwaitedRegistry<T> {
     /// Finds the first entry in the registry that matches the given value, returning the channel
     /// that can be used to receive the value when it is available.
     /// The entry is removed from the registry.
-    pub fn take_matching(
-        self: &Arc<Self>,
-        value: &T,
-    ) -> Option<oneshot::Sender<T>> {
+    pub fn take_matching(self: &Arc<Self>, value: &T) -> Option<oneshot::Sender<T>> {
         let mut vec = self.store.lock().unwrap();
         let index = vec.iter().position(|a| (a.predicate)(value));
         index.map(|i| vec.remove(i).channel)

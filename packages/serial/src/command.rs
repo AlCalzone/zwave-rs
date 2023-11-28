@@ -10,8 +10,6 @@ mod capability;
 pub use capability::*;
 mod misc;
 pub use misc::*;
-mod transport;
-pub use transport::*;
 
 #[enum_dispatch(Command)]
 /// Command-specific functionality that may need to be implemented for each command

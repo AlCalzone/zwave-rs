@@ -3,4 +3,3 @@ pub enum MessageOrigin {
     Controller,
     Host,
 }
-

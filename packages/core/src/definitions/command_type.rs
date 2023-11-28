@@ -3,13 +3,7 @@ use crate::encoding::{self, BitParsable, BitSerializable, Parsable, Serializable
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
 use derive_try_from_primitive::*;
-use nom::{
-    bits::complete::take as take_bits,
-    combinator::map,
-    error::context,
-    number::complete::{be_u16, be_u8},
-};
-use std::fmt;
+use nom::{combinator::map, error::context, number::complete::be_u8};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
@@ -33,4 +27,3 @@ impl CommandType {
         be_u8(*self as u8)
     }
 }
-

@@ -1,4 +1,4 @@
-use std::{fmt::Debug, marker::Send, time::Duration, cmp::Ordering};
+use std::{cmp::Ordering, fmt::Debug, marker::Send, time::Duration};
 
 /// Describes a state machine transition to take, with an optional effect to be executed before entering the new state
 pub trait StateMachineTransition: Sized + Clone + Debug + Send {
@@ -21,10 +21,7 @@ pub enum Delay {
 }
 
 impl Delay {
-    pub fn as_duration(
-        &self,
-        resolve_named: &impl Fn(&str) -> Duration,
-    ) -> Duration {
+    pub fn as_duration(&self, resolve_named: &impl Fn(&str) -> Duration) -> Duration {
         match self {
             Delay::Static(duration) => *duration,
             Delay::Named(name) => resolve_named(name),

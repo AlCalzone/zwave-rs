@@ -1,15 +1,9 @@
-use crate::encoding::{self, BitParsable, BitSerializable, Parsable, Serializable, WriteLastNBits};
+use crate::encoding::{self, Parsable, Serializable};
 
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
-use derive_try_from_primitive::*;
-use nom::{
-    bits::complete::take as take_bits,
-    combinator::map,
-    error::context,
-    number::complete::{be_u16, be_u8},
-};
-use std::fmt;
+
+use nom::{combinator::map, error::context, number::complete::be_u16};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u16)]
@@ -72,4 +66,3 @@ impl From<ChipType> for u16 {
         }
     }
 }
-
