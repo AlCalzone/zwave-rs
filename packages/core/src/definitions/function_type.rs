@@ -1,4 +1,4 @@
-use crate::encoding::{self, BitParsable, BitSerializable, Parsable, Serializable, WriteLastNBits};
+use crate::encoding::{self};
 
 use cookie_factory as cf;
 use custom_debug_derive::Debug;

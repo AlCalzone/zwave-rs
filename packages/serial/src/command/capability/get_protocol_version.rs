@@ -1,5 +1,3 @@
-#![allow(clippy::new_without_default)]
-
 use crate::prelude::*;
 use hex::ToHex;
 use nom::bytes::complete::take;
@@ -11,14 +9,8 @@ use zwave_core::{encoding, prelude::*};
 
 use nom::combinator::map;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetProtocolVersionRequest {}
-
-impl GetProtocolVersionRequest {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
 
 impl CommandBase for GetProtocolVersionRequest {}
 

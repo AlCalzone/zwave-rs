@@ -8,6 +8,7 @@ submodule!(node_type);
 submodule!(protocol_type);
 submodule!(routing_scheme);
 submodule!(rssi);
+submodule!(transmit_options);
 submodule!(transmit_status);
 submodule!(version);
 submodule!(zwave_api_version);

@@ -5,6 +5,7 @@ use std::time::Duration;
 use zwave_core::prelude::*;
 use zwave_core::state_machine::{StateMachine, StateMachineTransition};
 use zwave_core::util::now;
+use zwave_core::wrapping_counter::WrappingCounter;
 use zwave_serial::prelude::*;
 
 use zwave_serial::binding::SerialBinding;
@@ -41,8 +42,8 @@ pub struct Driver {
     serial_cmd: SerialTaskCommandSender,
     serial_listener: SerialListener,
     serial_task_shutdown: Arc<Notify>,
-    // command_handlers: Arc<Mutex<Vec<SerialCommandHandlerSender>>>,
-    // command_handlers: Arc<Mutex<Vec<CommandHandler>>>,
+
+    callback_id_gen: WrappingCounter<u8>,
 }
 
 impl Driver {
@@ -80,6 +81,8 @@ impl Driver {
             serial_listener_tx,
         ));
 
+        let callback_id_gen = WrappingCounter::new();
+
         Self {
             main_task,
             main_cmd: main_cmd_tx,
@@ -88,6 +91,7 @@ impl Driver {
             serial_cmd: serial_cmd_tx,
             serial_task_shutdown,
             serial_listener: serial_listener_rx,
+            callback_id_gen,
         }
     }
 
@@ -131,13 +135,18 @@ impl Driver {
         )
     }
 
-    pub async fn execute_serial_api_command<C>(&self, command: C) -> Result<SerialApiMachineResult>
+    pub async fn execute_serial_api_command<C>(&mut self, mut command: C) -> Result<SerialApiMachineResult>
     where
         C: CommandRequest + Clone + 'static,
         SerialFrame: From<C>,
     {
         // Set up state machine and interpreter
         let mut state_machine = SerialApiMachine::new();
+
+        // Give the command a callback ID if it needs one
+        if command.needs_callback_id() {
+            command.set_callback_id(Some(self.callback_id_gen.increment()));
+        }
 
         let expects_response = command.expects_response();
         let expects_callback = command.expects_callback();

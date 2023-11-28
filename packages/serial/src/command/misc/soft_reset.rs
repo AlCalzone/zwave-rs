@@ -1,18 +1,10 @@
-#![allow(clippy::new_without_default)]
-
 use crate::prelude::*;
 use zwave_core::prelude::*;
 
 use zwave_core::encoding::{self, encoders::empty};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct SoftResetRequest {}
-
-impl SoftResetRequest {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
 
 impl CommandBase for SoftResetRequest {}
 

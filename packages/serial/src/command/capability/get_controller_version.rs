@@ -1,5 +1,3 @@
-#![allow(clippy::new_without_default)]
-
 use crate::prelude::*;
 use zwave_core::prelude::*;
 
@@ -7,14 +5,8 @@ use cookie_factory as cf;
 use nom::{bytes::complete::tag, character::complete::none_of, combinator::map, multi::many1};
 use zwave_core::encoding::{self, encoders::empty};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetControllerVersionRequest {}
-
-impl GetControllerVersionRequest {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
 
 impl Parsable for GetControllerVersionRequest {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {

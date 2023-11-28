@@ -1,5 +1,3 @@
-#![allow(clippy::new_without_default)]
-
 use crate::prelude::*;
 use zwave_core::{
     encoding::{encoders, BitSerializable},
@@ -14,14 +12,8 @@ use zwave_core::encoding::{
     self, encoders::empty, parsers::bitmask_u8 as parse_bitmask_u8, BitParsable,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetSerialApiInitDataRequest {}
-
-impl GetSerialApiInitDataRequest {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
 
 impl CommandBase for GetSerialApiInitDataRequest {}
 

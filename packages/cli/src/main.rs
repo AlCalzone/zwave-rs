@@ -1,9 +1,8 @@
 use std::thread;
 use std::time::Duration;
+use zwave_core::definitions::TransmitOptions;
 use zwave_driver::SerialApiMachineResult;
-use zwave_serial::command::{
-    Command, CommandBase, GetProtocolVersionRequest, SendDataCallback, SendDataRequest,
-};
+use zwave_serial::command::{Command, CommandBase, SendDataRequest, SendDataRequestBuilder};
 
 #[cfg(target_os = "linux")]
 const PORT: &str = "/dev/ttyUSB0";
@@ -15,7 +14,7 @@ const PORT: &str = "COM5";
 
 #[tokio::main]
 async fn main() {
-    let driver = zwave_driver::Driver::new(PORT);
+    let mut driver = zwave_driver::Driver::new(PORT);
     println!("driver started");
 
     // driver
@@ -59,10 +58,15 @@ async fn main() {
 
     let mut failures: Vec<SerialApiMachineResult> = Vec::new();
     let mut ok = 0;
-    for i in 1..=250 {
+    for i in 1..=3 {
         println!("sending data");
+        let cmd = SendDataRequest::builder()
+            .node_id(2)
+            .transmit_options(TransmitOptions::new().ack(true).no_route(true))
+            .payload(vec![0x00])
+            .build().unwrap();
         let result = driver
-            .execute_serial_api_command(SendDataRequest::new())
+            .execute_serial_api_command(cmd)
             .await
             .unwrap();
 
@@ -85,11 +89,11 @@ async fn main() {
         println!("Failures: {:?}", failures);
     }
 
-    let result = driver
-        .execute_serial_api_command(SendDataRequest::new())
-        .await
-        .unwrap();
-    println!("execute result: {:?}", result);
+    // let result = driver
+    //     .execute_serial_api_command(SendDataRequest::new())
+    //     .await
+    //     .unwrap();
+    // println!("execute result: {:?}", result);
 
     thread::sleep(Duration::from_millis(2000));
 

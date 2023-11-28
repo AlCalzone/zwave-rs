@@ -3,5 +3,5 @@
 		"cargo",
 		"clippy",
 		"--message-format=json"
-	]
+	],
 }

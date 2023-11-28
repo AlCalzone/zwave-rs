@@ -1,31 +1,26 @@
-#![allow(clippy::new_without_default)]
-
 use crate::prelude::*;
 use zwave_core::prelude::*;
 
 use cookie_factory as cf;
-use nom::{
-    bytes::complete::tag, bytes::complete::take, character::complete::none_of, combinator::map,
-    multi::many1, number::complete::be_u8,
-};
-use zwave_core::encoding::{self, encoders::empty};
+use derive_builder::Builder;
+use nom::{bytes::complete::take, combinator::map, number::complete::be_u8};
+use zwave_core::encoding;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Builder)]
+#[builder(pattern = "owned")]
+#[builder(build_fn(error = "crate::error::Error"))]
 pub struct SendDataRequest {
     node_id: u16,
+    #[builder(setter(skip))]
     callback_id: Option<u8>,
-    transmit_options: u8, // FIXME: Should be TransmitOptions
-    payload: Vec<u8>,     // FIXME: This should be a CommandClass
+    transmit_options: TransmitOptions,
+    payload: Vec<u8>, // FIXME: This should be a CommandClass
 }
 
 impl SendDataRequest {
-    pub fn new() -> Self {
-        Self {
-            node_id: 2,
-            callback_id: Some(1),
-            transmit_options: 0b00_01_0_001,
-            payload: vec![0],
-        }
+    pub fn builder() -> SendDataRequestBuilder {
+        SendDataRequestBuilder::default()
     }
 }
 
@@ -58,7 +53,7 @@ impl Parsable for SendDataRequest {
         let (i, node_id) = be_u8(i)?; // FIXME: This needs to depend on the controller's node ID type
         let (i, payload_len) = be_u8(i)?;
         let (i, payload) = take(payload_len)(i)?;
-        let (i, transmit_options) = be_u8(i)?; // FIXME: This must be TransmitOptions
+        let (i, transmit_options) = TransmitOptions::parse(i)?;
         let (i, callback_id) = be_u8(i)?;
 
         Ok((
@@ -80,7 +75,7 @@ impl Serializable for SendDataRequest {
             be_u8(self.node_id as u8), // FIXME: This needs to depend on the controller's node ID type
             be_u8(self.payload.len() as u8),
             slice(&self.payload), // FIXME: This must be the serialized CC
-            be_u8(self.transmit_options),
+            self.transmit_options.serialize(),
             be_u8(self.callback_id.unwrap_or(0)),
         ))
     }

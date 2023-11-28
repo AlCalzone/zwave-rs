@@ -1,4 +1,4 @@
-use crate::encoding::{self, BitParsable, BitSerializable, Parsable, Serializable, WriteLastNBits};
+use crate::encoding::{self, BitParsable, BitSerializable, WriteLastNBits};
 
 use custom_debug_derive::Debug;
 use derive_try_from_primitive::*;

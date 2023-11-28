@@ -17,6 +17,15 @@ pub enum RSSI {
     NoSignalDetected = 125,
 }
 
+impl RSSI {
+    pub fn is_error(&self) -> bool {
+        matches!(
+            self,
+            Self::NotAvailable | Self::ReceiverSaturated | Self::NoSignalDetected
+        )
+    }
+}
+
 impl From<i8> for RSSI {
     fn from(raw: i8) -> Self {
         match raw {
