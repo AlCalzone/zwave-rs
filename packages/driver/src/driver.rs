@@ -1,11 +1,10 @@
 use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::Duration;
-use std::vec::Vec;
 
 use zwave_core::prelude::*;
 use zwave_core::state_machine::{StateMachine, StateMachineTransition};
-use zwave_core::util::{now, MaybeSleep};
+use zwave_core::util::now;
 use zwave_serial::prelude::*;
 
 use zwave_serial::binding::SerialBinding;
@@ -14,13 +13,12 @@ use zwave_serial::serialport::SerialPort;
 
 use crate::error::{Error, Result};
 
-use tokio::sync::{broadcast, mpsc, oneshot, Mutex, Notify};
+use tokio::sync::{broadcast, mpsc, oneshot, Notify};
 use tokio::task::JoinHandle;
 
 use self::awaited::{AwaitedRef, AwaitedRegistry, Predicate};
 use self::serial_api_machine::{
-    SerialApiMachine, SerialApiMachineCondition, SerialApiMachineEffect, SerialApiMachineInput,
-    SerialApiMachineState,
+    SerialApiMachine, SerialApiMachineCondition, SerialApiMachineInput, SerialApiMachineState,
 };
 
 mod awaited;
@@ -33,8 +31,6 @@ type TaskCommandReceiver<T> = mpsc::Receiver<T>;
 
 type SerialFrameEmitter = broadcast::Sender<SerialFrame>;
 type SerialListener = broadcast::Receiver<SerialFrame>;
-
-type CommandHandler = Box<dyn Fn(Command) -> bool + Send + Sync>;
 
 #[allow(dead_code)]
 pub struct Driver {
@@ -67,11 +63,6 @@ impl Driver {
         let main_serial_listener = serial_listener_tx.subscribe();
         let main_task_shutdown = Arc::new(Notify::new());
         let main_task_shutdown2 = main_task_shutdown.clone();
-
-        // let command_handlers: Vec<SerialCommandHandlerSender> = Vec::new();
-        // let command_handlers = Arc::new(Mutex::new(command_handlers));
-        let command_handlers: Vec<CommandHandler> = Vec::new();
-        let command_handlers = Mutex::new(command_handlers);
 
         // Start the background task for the main logic
         let main_task = tokio::spawn(main_loop(
@@ -181,7 +172,7 @@ impl Driver {
                     Box::new(move |cmd| command.test_callback(cmd)),
                     Some(Duration::from_millis(30000)),
                 )
-                .await?
+                .await?,
             )
         };
         // The ACK awaiter is returned by the call to `write_serial()`
@@ -435,6 +426,7 @@ async fn main_loop_handle_command(
                 .map_err(|_| Error::Internal)
                 .unwrap();
         }
+
         MainTaskCommand::RegisterAwaitedCommand(cmd) => {
             let result = state.awaited_commands.add(cmd.predicate, cmd.timeout);
             cmd.callback
@@ -442,6 +434,8 @@ async fn main_loop_handle_command(
                 .map_err(|_| Error::Internal)
                 .unwrap();
         }
+
+        #[allow(unreachable_patterns)]
         _ => {} // Ignore other commands
     }
 }
@@ -452,13 +446,15 @@ async fn main_loop_handle_frame(
     _serial_cmd: &SerialTaskCommandSender,
 ) {
     // TODO: Consider if we need to always handle something here
-    println!("handle_Frame: {:?}", &frame);
     match &frame {
         SerialFrame::ControlFlow(cf) => {
             // If the awaited control-flow-frame registry has a matching awaiter,
             // remove it and send the frame through its channel
             if let Some(channel) = state.awaited_control_flow_frames.take_matching(cf) {
                 channel.send(*cf).unwrap();
+
+                #[allow(clippy::needless_return)]
+                return;
             }
         }
         SerialFrame::Command(cmd) => {
@@ -466,6 +462,9 @@ async fn main_loop_handle_frame(
             // remove it and send the command through its channel
             if let Some(channel) = state.awaited_commands.take_matching(cmd) {
                 channel.send(cmd.clone()).unwrap();
+
+                #[allow(clippy::needless_return)]
+                return;
             }
         }
         _ => {}
@@ -478,8 +477,6 @@ define_task_commands!(SerialTaskCommand {
         frame: SerialFrame
     }
 });
-
-struct SerialLoopState {}
 
 type SerialTaskCommandSender = TaskCommandSender<SerialTaskCommand>;
 type SerialTaskCommandReceiver = TaskCommandReceiver<SerialTaskCommand>;

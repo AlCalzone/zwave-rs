@@ -80,7 +80,7 @@ macro_rules! state_machine {
         }
     ) => {
         paste::paste! {
-            #[derive(Debug, Clone)]
+            #[derive(Debug, Clone, PartialEq)]
             pub enum [<$fsm_name State>] $state_enum
 
             #[derive(Debug, Clone, PartialEq)]
@@ -92,7 +92,7 @@ macro_rules! state_machine {
             #[derive(Debug, Clone, Copy, PartialEq)]
             pub enum [<$fsm_name Condition>] $cond_enum
 
-            #[derive(Debug, Clone)]
+            #[derive(Debug, Clone, PartialEq)]
             pub struct [<$fsm_name Transition>] {
                 effect: Option<[<$fsm_name Effect>]>,
                 new_state: [<$fsm_name State>],
@@ -111,7 +111,7 @@ macro_rules! state_machine {
                 }
             }
 
-            #[derive(Debug, Clone)]
+            #[derive(Debug, Clone, PartialEq)]
             pub struct [<$fsm_name DelayedTransition>] {
                 delay: $crate::state_machine::Delay,
                 effect: Option<[<$fsm_name Effect>]>,

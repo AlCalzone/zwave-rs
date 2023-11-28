@@ -1,11 +1,10 @@
-use zwave_core::prelude::*;
 use zwave_core::state_machine;
 use zwave_core::state_machine::StateMachine;
 use zwave_serial::prelude::*;
 
 #[allow(clippy::upper_case_acronyms)]
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SerialApiMachineResult {
     Success(Option<Command>),
     ACKTimeout,

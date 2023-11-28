@@ -154,10 +154,10 @@ mod test {
             Ok((
                 remaining.as_slice(),
                 vec![
-                    RawSerialFrame::ACK,
-                    RawSerialFrame::ACK,
-                    RawSerialFrame::NAK,
-                    RawSerialFrame::CAN,
+                    RawSerialFrame::ControlFlow(ControlFlow::ACK),
+                    RawSerialFrame::ControlFlow(ControlFlow::ACK),
+                    RawSerialFrame::ControlFlow(ControlFlow::NAK),
+                    RawSerialFrame::ControlFlow(ControlFlow::CAN),
                 ]
             )),
         );
@@ -191,8 +191,8 @@ mod test {
             results,
             vec![
                 RawSerialFrame::Data(expected),
-                RawSerialFrame::ACK,
-                RawSerialFrame::CAN,
+                RawSerialFrame::ControlFlow(ControlFlow::ACK),
+                RawSerialFrame::ControlFlow(ControlFlow::CAN),
                 RawSerialFrame::Garbage(garbage),
             ]
         );

@@ -318,7 +318,7 @@ pub(crate) mod test {
         );
 
         let final_state = interpreter.result().await.unwrap();
-        assert_eq!(final_state, FSMState::Done);
+        assert!(matches!(final_state, FSMState::Done));
     }
 
     #[tokio::test]

@@ -1,6 +1,7 @@
 use std::thread;
 use std::time::Duration;
-use zwave_serial::command::GetProtocolVersionRequest;
+use zwave_driver::SerialApiMachineResult;
+use zwave_serial::command::{Command, GetProtocolVersionRequest};
 
 #[cfg(target_os = "linux")]
 const PORT: &str = "/dev/ttyUSB0";
@@ -54,14 +55,34 @@ async fn main() {
     //     None => println!("timed out waiting for protocol version"),
     // }
 
-    println!("sending protocol version request");
-    let result = driver
-        .execute_serial_api_command(GetProtocolVersionRequest::new())
-        .await
-        .unwrap();
+    // for loop from 1 to 100
+    let mut failures: Vec<SerialApiMachineResult> = Vec::new();
+    let mut ok = 0;
+    for i in 1..=2500 {
+        println!("sending protocol version request");
+        let result = driver
+            .execute_serial_api_command(GetProtocolVersionRequest::new())
+            .await
+            .unwrap();
 
-    println!("execute result: {:?}", result);
+        println!("execute result: {:?}", result);
+        if matches!(
+            result,
+            SerialApiMachineResult::Success(Some(Command::GetProtocolVersionResponse(_)))
+        ) {
+            ok += 1;
+            println!("Test {i} passed");
+        } else {
+            failures.push(result);
+            println!("Test {i} failed");
+            break;
+        }
+    }
 
+    println!("{} tests PASSED, {} tests FAILED", ok, failures.len());
+    if !failures.is_empty() {
+        println!("Failures: {:?}", failures);
+    }
     thread::sleep(Duration::from_millis(2000));
 
     drop(driver);
