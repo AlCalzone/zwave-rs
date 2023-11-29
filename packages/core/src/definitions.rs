@@ -11,6 +11,7 @@ submodule!(protocol_type);
 submodule!(rf_region);
 submodule!(routing_scheme);
 submodule!(rssi);
+submodule!(serial_api_wakeup_reason);
 submodule!(transmit_options);
 submodule!(transmit_report);
 submodule!(transmit_status);

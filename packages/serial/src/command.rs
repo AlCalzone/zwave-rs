@@ -1,17 +1,15 @@
 use crate::prelude::*;
-use zwave_core::prelude::*;
+use zwave_core::{prelude::*, submodule};
 
 use crate::{frame::SerialFrame, util::hex_fmt};
 use custom_debug_derive::Debug;
 use enum_dispatch::enum_dispatch;
 use zwave_core::{impl_vec_conversion_for, impl_vec_parsing_for, impl_vec_serializing_for};
 
-mod capability;
-pub use capability::*;
-mod misc;
-pub use misc::*;
-mod transport;
-pub use transport::*;
+submodule!(application);
+submodule!(capability);
+submodule!(misc);
+submodule!(transport);
 
 #[enum_dispatch(Command)]
 /// Command-specific functionality that may need to be implemented for each command
@@ -35,6 +33,7 @@ pub trait CommandId: CommandBase {
     fn origin(&self) -> MessageOrigin;
 }
 
+// TODO: Autogenerate Command enum and move this into the command implementations
 define_commands!(
     GetSerialApiInitDataRequest {
         command_type: CommandType::Request,
@@ -94,6 +93,11 @@ define_commands!(
     BridgeApplicationCommandRequest {
         command_type: CommandType::Request,
         function_type: FunctionType::BridgeApplicationCommand,
+        origin: MessageOrigin::Controller,
+    },
+    SerialAPIStartedRequest {
+        command_type: CommandType::Request,
+        function_type: FunctionType::SerialAPIStarted,
         origin: MessageOrigin::Controller,
     },
 );
