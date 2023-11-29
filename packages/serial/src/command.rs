@@ -86,6 +86,11 @@ define_commands!(
         function_type: FunctionType::SendData,
         origin: MessageOrigin::Controller,
     },
+    ApplicationCommandRequest {
+        command_type: CommandType::Request,
+        function_type: FunctionType::ApplicationCommand,
+        origin: MessageOrigin::Controller,
+    },
     BridgeApplicationCommandRequest {
         command_type: CommandType::Request,
         function_type: FunctionType::BridgeApplicationCommand,
