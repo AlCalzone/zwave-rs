@@ -85,7 +85,12 @@ define_commands!(
         command_type: CommandType::Request,
         function_type: FunctionType::SendData,
         origin: MessageOrigin::Controller,
-    }
+    },
+    BridgeApplicationCommandRequest {
+        command_type: CommandType::Request,
+        function_type: FunctionType::BridgeApplicationCommand,
+        origin: MessageOrigin::Controller,
+    },
 );
 
 pub trait CommandRequest: CommandId {

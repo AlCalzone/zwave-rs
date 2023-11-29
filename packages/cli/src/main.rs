@@ -2,12 +2,11 @@ use std::thread;
 use std::time::Duration;
 use zwave_core::definitions::TransmitOptions;
 use zwave_driver::SerialApiMachineResult;
-use zwave_serial::command::{Command, CommandBase, SendDataRequest, SendDataRequestBuilder};
+use zwave_serial::command::{Command, CommandBase, SendDataRequest};
 
 #[cfg(target_os = "linux")]
-const PORT: &str = "/dev/ttyUSB0";
-
-// const PORT: &str = "/dev/serial/by-id/usb-0658_0200_E4051302-4A02-010A-1407-031500A31880-if00";
+// const PORT: &str = "/dev/ttyUSB0";
+const PORT: &str = "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5479014030-if00";
 
 #[cfg(target_os = "windows")]
 const PORT: &str = "COM5";
@@ -58,12 +57,18 @@ async fn main() {
 
     let mut failures: Vec<SerialApiMachineResult> = Vec::new();
     let mut ok = 0;
-    for i in 1..=3 {
+    let mut on = false;
+    for i in 1..=1 {
         println!("sending data");
         let cmd = SendDataRequest::builder()
-            .node_id(2)
+            .node_id(7)
             .transmit_options(TransmitOptions::new().ack(true).no_route(true))
-            .payload(vec![0x00])
+            .payload(vec![
+                // 0x00, // PING
+                0x20, // Basic CC
+                0x02, // Basic Get
+                // if on { 0xFF } else { 0x00 },
+            ])
             .build().unwrap();
         let result = driver
             .execute_serial_api_command(cmd)
@@ -72,7 +77,7 @@ async fn main() {
 
         println!("execute result: {:?}", result);
         match result {
-            SerialApiMachineResult::CallbackNOK(Command::SendDataCallback(cb)) if !cb.is_ok() => {
+            SerialApiMachineResult::Success(_) => {
                 ok += 1;
                 println!("Test {i} passed");
             }
@@ -82,6 +87,8 @@ async fn main() {
                 break;
             }
         }
+        on = !on;
+        tokio::time::sleep(Duration::from_millis(250)).await;
     }
 
     println!("{} tests PASSED, {} tests FAILED", ok, failures.len());

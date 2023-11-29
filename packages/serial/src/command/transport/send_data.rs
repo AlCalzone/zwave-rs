@@ -110,7 +110,7 @@ impl Serializable for SendDataResponse {
 pub struct SendDataCallback {
     callback_id: Option<u8>,
     transmit_status: TransmitStatus,
-    // TODO: TX Report
+    transmit_report: TransmitReport,
 }
 
 impl CommandBase for SendDataCallback {
@@ -127,12 +127,14 @@ impl Parsable for SendDataCallback {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         let (i, callback_id) = be_u8(i)?;
         let (i, transmit_status) = TransmitStatus::parse(i)?;
-        // TODO: Parse TX Report (if OK or NoACK)
+        let (i, transmit_report) = TransmitReport::parse(i, transmit_status != TransmitStatus::NoAck)?;
+
         Ok((
             i,
             Self {
                 callback_id: Some(callback_id),
                 transmit_status,
+                transmit_report
             },
         ))
     }

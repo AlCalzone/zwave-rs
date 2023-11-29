@@ -44,10 +44,10 @@ pub fn now() -> String {
     OffsetDateTime::now_utc().format(format).unwrap()
 }
 
+#[macro_export]
 macro_rules! submodule {
     ($name:ident) => {
         mod $name;
         pub use $name::*;
     };
 }
-pub(crate) use submodule;

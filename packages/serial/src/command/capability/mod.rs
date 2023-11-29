@@ -1,8 +1,5 @@
-mod get_serial_api_init_data;
-pub use get_serial_api_init_data::*;
+use zwave_core::submodule;
 
-mod get_controller_version;
-pub use get_controller_version::*;
-
-mod get_protocol_version;
-pub use get_protocol_version::*;
+submodule!(get_serial_api_init_data);
+submodule!(get_controller_version);
+submodule!(get_protocol_version);

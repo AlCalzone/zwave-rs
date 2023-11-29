@@ -1,2 +1,4 @@
-mod send_data;
-pub use send_data::*;
+use zwave_core::submodule;
+
+submodule!(send_data);
+submodule!(bridge_application_command_request);

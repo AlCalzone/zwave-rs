@@ -1,2 +1,3 @@
-mod soft_reset;
-pub use soft_reset::*;
+use zwave_core::submodule;
+
+submodule!(soft_reset);
