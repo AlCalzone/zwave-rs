@@ -1,20 +1,26 @@
 use crate::encoding::{self, BitParsable, BitSerializable, Parsable, Serializable, WriteLastNBits};
 
 use cookie_factory as cf;
-use custom_debug_derive::Debug;
 use derive_try_from_primitive::*;
 use encoding::{EncodingError, EncodingResult};
 use nom::{
     bits::complete::take as take_bits, combinator::map, error::context, number::complete::be_u8,
 };
-use ux::u3;
+use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProtocolDataRate {
-    #[debug(format = "Z-Wave, {:?}", _0)]
     ZWave(DataRate),
-    #[debug(format = "Z-Wave Long Range, 100 kbps")]
     ZWaveLongRange,
+}
+
+impl Display for ProtocolDataRate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProtocolDataRate::ZWave(rate) => write!(f, "Z-Wave, {}", rate),
+            ProtocolDataRate::ZWaveLongRange => write!(f, "Z-Wave Long Range, 100 kbit/s"),
+        }
+    }
 }
 
 impl TryFrom<u8> for ProtocolDataRate {
@@ -73,12 +79,19 @@ impl BitSerializable for ProtocolDataRate {
 #[allow(non_camel_case_types)]
 #[repr(u8)]
 pub enum DataRate {
-    #[debug(format = "9.6 kbps")]
     DataRate_9k6 = 0x01,
-    #[debug(format = "40 kbps")]
     DataRate_40k = 0x02,
-    #[debug(format = "100 kbps")]
     DataRate_100k = 0x03,
+}
+
+impl Display for DataRate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DataRate::DataRate_9k6 => write!(f, "9.6 kbit/s"),
+            DataRate::DataRate_40k => write!(f, "40 kbit/s"),
+            DataRate::DataRate_100k => write!(f, "100 kbit/s"),
+        }
+    }
 }
 
 impl Parsable for DataRate {

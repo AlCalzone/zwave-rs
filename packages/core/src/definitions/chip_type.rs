@@ -1,28 +1,35 @@
 use crate::encoding::{self, Parsable, Serializable};
 
+use std::fmt::Display;
 use cookie_factory as cf;
-use custom_debug_derive::Debug;
-
 use nom::{combinator::map, error::context, number::complete::be_u16};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u16)]
 pub enum ChipType {
-    #[debug(format = "ZW0102")]
     ZW0102 = 0x0102,
-    #[debug(format = "ZW0201")]
     ZW0201 = 0x0201,
-    #[debug(format = "ZW0301")]
     ZW0301 = 0x0301,
-    #[debug(format = "ZM0401 / ZM4102 / SD3402")]
     ZM040x = 0x0401,
-    #[debug(format = "ZW050x")]
     ZW050x = 0x0501,
-    #[debug(format = "EFR32ZG14 / ZGM130S")]
     EFR32xG1x = 0x0700,
-    #[debug(format = "EFR32ZG23 / ZGM230S")]
     EFR32xG2x = 0x0800,
     Unknown(u16),
+}
+
+impl Display for ChipType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ChipType::ZW0102 => write!(f, "ZW0102"),
+            ChipType::ZW0201 => write!(f, "ZW0201"),
+            ChipType::ZW0301 => write!(f, "ZW0301"),
+            ChipType::ZM040x => write!(f, "ZM0401 / ZM4102 / SD3402"),
+            ChipType::ZW050x => write!(f, "ZW050x"),
+            ChipType::EFR32xG1x => write!(f, "EFR32ZG14 / ZGM130S"),
+            ChipType::EFR32xG2x => write!(f, "EFR32ZG23 / ZGM230S"),
+            ChipType::Unknown(v) => write!(f, "Unknown({:#04x})", v),
+        }
+    }
 }
 
 impl From<u16> for ChipType {

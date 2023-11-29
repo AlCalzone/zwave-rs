@@ -1,14 +1,19 @@
+use super::{ProtocolDataRate, RoutingScheme, RSSI};
 use crate::encoding::{self, BitParsable, Parsable, Serializable};
 
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
 use nom::{
-    bits, bits::complete::take as take_bits, combinator::map, multi::count,
-    number::complete::be_u16, number::complete::be_u8, sequence::tuple,
+    bits,
+    bits::complete::take as take_bits,
+    combinator::{cond, map, opt},
+    multi::count,
+    number::complete::be_u16,
+    number::complete::{be_i8, be_u8},
+    sequence::tuple,
 };
+use std::fmt::Display;
 use ux::{u1, u2};
-
-use super::{ProtocolDataRate, RoutingScheme, RSSI};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Repeater {
@@ -24,12 +29,47 @@ pub struct RouteFailLocation {
     pub first_non_functional_node_id: u8,
 }
 
+fn validate_route_fail_location(val: Option<RouteFailLocation>) -> Option<RouteFailLocation> {
+    match val {
+        Some(RouteFailLocation {
+            last_functional_node_id,
+            first_non_functional_node_id,
+        }) if last_functional_node_id == 0 || first_non_functional_node_id == 0 => None,
+        val => val,
+    }
+}
+
+impl Display for RouteFailLocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} ↯ {}",
+            self.last_functional_node_id, self.first_non_functional_node_id
+        )
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Beam {
-    #[debug(format = "250 ms")]
     Beam250ms,
-    #[debug(format = "1000 ms")]
     Beam1000ms,
+}
+
+impl Display for Beam {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Beam::Beam250ms => write!(f, "250 ms"),
+            Beam::Beam1000ms => write!(f, "1000 ms"),
+        }
+    }
+}
+
+fn validate_tx_power(val: Option<i8>) -> Option<i8> {
+    match val {
+        Some(val) if val < -127 => None,
+        Some(val) if val > 126 => None,
+        val => val,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -90,13 +130,33 @@ impl TransmitReport {
         )))(i)?;
         let (i, routing_attempts) = be_u8(i)?;
 
-        // TODO: Optionally parse those. They may not always be present
-        let route_fail_location = None;
-        let tx_power = None;
-        let measured_noise_floor = None;
-        let destination_ack_tx_power = None;
-        let destination_ack_measured_rssi = None;
-        let destination_ack_measured_noise_floor = None;
+        // Some of the following data is not always present, depending on the controller firmware version.
+        // Since new fields are added at the end, we only parse them if the previous fields were present.
+        let (i, route_fail_location) = opt(map(
+            tuple((be_u8, be_u8)),
+            |(last_functional_node_id, first_non_functional_node_id)| RouteFailLocation {
+                last_functional_node_id,
+                first_non_functional_node_id,
+            },
+        ))(i)?;
+        let (i, tx_power) = map(
+            cond(route_fail_location.is_some(), opt(be_i8)),
+            Option::flatten,
+        )(i)?;
+        let (i, measured_noise_floor) =
+            map(cond(tx_power.is_some(), opt(RSSI::parse)), Option::flatten)(i)?;
+        let (i, destination_ack_tx_power) = map(
+            cond(measured_noise_floor.is_some(), opt(be_i8)),
+            Option::flatten,
+        )(i)?;
+        let (i, destination_ack_measured_rssi) = map(
+            cond(destination_ack_tx_power.is_some(), opt(RSSI::parse)),
+            Option::flatten,
+        )(i)?;
+        let (i, destination_ack_measured_noise_floor) = map(
+            cond(destination_ack_measured_rssi.is_some(), opt(RSSI::parse)),
+            Option::flatten,
+        )(i)?;
 
         let repeaters = repeater_node_ids
             .iter()
@@ -112,20 +172,32 @@ impl TransmitReport {
             i,
             Self {
                 tx_ticks,
-                tx_power,
+                tx_power: validate_tx_power(tx_power),
                 tx_channel_no,
                 repeaters,
                 routing_scheme,
                 route_speed,
                 beam,
                 routing_attempts,
-                route_fail_location,
+                route_fail_location: validate_route_fail_location(route_fail_location),
                 measured_noise_floor,
                 ack_rssi: if with_ack { Some(ack_rssi) } else { None },
                 ack_channel_no: if with_ack { Some(ack_channel_no) } else { None },
-                destination_ack_tx_power,
-                destination_ack_measured_rssi,
-                destination_ack_measured_noise_floor,
+                destination_ack_tx_power: if with_ack {
+                    validate_tx_power(destination_ack_tx_power)
+                } else {
+                    None
+                },
+                destination_ack_measured_rssi: if with_ack {
+                    destination_ack_measured_rssi
+                } else {
+                    None
+                },
+                destination_ack_measured_noise_floor: if with_ack {
+                    destination_ack_measured_noise_floor
+                } else {
+                    None
+                },
             },
         ))
     }

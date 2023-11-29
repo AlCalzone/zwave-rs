@@ -1,7 +1,8 @@
+use std::fmt::Display;
+
 use crate::encoding::{self, Parsable, Serializable};
 
 use cookie_factory as cf;
-use custom_debug_derive::Debug;
 use derive_try_from_primitive::*;
 use nom::{combinator::map, error::context, number::complete::be_u8};
 
@@ -9,41 +10,44 @@ use nom::{combinator::map, error::context, number::complete::be_u8};
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 pub enum RfRegion {
-    #[debug(format = "Europe")]
     EU = 0,
-    #[debug(format = "USA")]
     US = 1,
-    #[debug(format = "Australia / New Zealand")]
     ANZ = 2,
-    #[debug(format = "Hong Kong")]
     HK = 3,
-    #[debug(format = "India")]
     IN = 5,
-    #[debug(format = "Israel")]
     IL = 6,
-    #[debug(format = "Russia")]
     RU = 7,
-    #[debug(format = "China")]
     CN = 8,
-    #[debug(format = "USA (Long Range)")]
     US_LongRange = 9,
-    #[debug(format = "Japan")]
     JP = 32,
-    #[debug(format = "Korea")]
     KR = 33,
-    #[debug(format = "Unknown")]
     Unknown = 254,
-    #[debug(format = "Default (Europe)")]
     Default = 255,
-    
+}
+
+impl Display for RfRegion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RfRegion::EU => write!(f, "Europe"),
+            RfRegion::US => write!(f, "USA"),
+            RfRegion::ANZ => write!(f, "Australia / New Zealand"),
+            RfRegion::HK => write!(f, "Hong Kong"),
+            RfRegion::IN => write!(f, "India"),
+            RfRegion::IL => write!(f, "Israel"),
+            RfRegion::RU => write!(f, "Russia"),
+            RfRegion::CN => write!(f, "China"),
+            RfRegion::US_LongRange => write!(f, "USA (Long Range)"),
+            RfRegion::JP => write!(f, "Japan"),
+            RfRegion::KR => write!(f, "Korea"),
+            RfRegion::Unknown => write!(f, "Unknown"),
+            RfRegion::Default => write!(f, "Default (Europe)"),
+        }
+    }
 }
 
 impl Parsable for RfRegion {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context(
-            "RfRegion",
-            map(be_u8, |x| RfRegion::try_from(x).unwrap()),
-        )(i)
+        context("RfRegion", map(be_u8, |x| RfRegion::try_from(x).unwrap()))(i)
     }
 }
 

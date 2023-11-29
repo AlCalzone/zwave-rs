@@ -1,20 +1,27 @@
 use crate::encoding::{self, Parsable, Serializable};
 
 use cookie_factory as cf;
-use custom_debug_derive::Debug;
 use nom::{combinator::map, error::context, number::complete::be_i8};
+use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i8)]
 pub enum RSSI {
-    #[debug(fmt = "{} dBm", _0)]
     Measured(i8),
-    #[debug(fmt = "N/A")]
     NotAvailable = 127,
-    #[debug(fmt = "Receiver saturated")]
     ReceiverSaturated = 126,
-    #[debug(fmt = "No signal detected")]
     NoSignalDetected = 125,
+}
+
+impl Display for RSSI {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RSSI::Measured(rssi) => write!(f, "{} dBm", rssi),
+            RSSI::NotAvailable => write!(f, "N/A"),
+            RSSI::ReceiverSaturated => write!(f, "Receiver saturated"),
+            RSSI::NoSignalDetected => write!(f, "No signal detected"),
+        }
+    }
 }
 
 impl RSSI {

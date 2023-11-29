@@ -1,15 +1,23 @@
 use crate::encoding::{self, BitParsable, BitSerializable, WriteLastNBits};
 
-use custom_debug_derive::Debug;
 use derive_try_from_primitive::*;
 use nom::{bits::complete::take as take_bits, combinator::map};
+use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum NodeType {
     Controller = 0,
-    #[debug(format = "End Node")]
     EndNode = 1,
+}
+
+impl Display for NodeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NodeType::Controller => write!(f, "Controller"),
+            NodeType::EndNode => write!(f, "End Node"),
+        }
+    }
 }
 
 impl BitParsable for NodeType {

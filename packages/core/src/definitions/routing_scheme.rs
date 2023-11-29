@@ -1,29 +1,36 @@
 use crate::encoding::{self, Parsable, Serializable};
 
 use cookie_factory as cf;
-use custom_debug_derive::Debug;
 use derive_try_from_primitive::*;
 use nom::{combinator::map, error::context, number::complete::be_u8};
+use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum RoutingScheme {
-    #[debug(fmt = "Idle")]
     Idle,
-    #[debug(fmt = "Direct")]
     Direct,
-    #[debug(fmt = "Priority route")]
     Priority,
-    #[debug(fmt = "LWR")]
     LWR,
-    #[debug(fmt = "NLWR")]
     NLWR,
-    #[debug(fmt = "Auto route")]
     Auto,
-    #[debug(fmt = "Resort to direct")]
     ResortDirect,
-    #[debug(fmt = "Explorer Frame")]
     Explore,
+}
+
+impl Display for RoutingScheme {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RoutingScheme::Idle => write!(f, "Idle"),
+            RoutingScheme::Direct => write!(f, "Direct"),
+            RoutingScheme::Priority => write!(f, "Priority route"),
+            RoutingScheme::LWR => write!(f, "LWR"),
+            RoutingScheme::NLWR => write!(f, "NLWR"),
+            RoutingScheme::Auto => write!(f, "Auto route"),
+            RoutingScheme::ResortDirect => write!(f, "Resort to direct"),
+            RoutingScheme::Explore => write!(f, "Explorer Frame"),
+        }
+    }
 }
 
 impl Parsable for RoutingScheme {

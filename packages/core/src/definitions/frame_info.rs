@@ -1,13 +1,13 @@
-use crate::encoding::{self, BitParsable, BitSerializable, Parsable, Serializable, WriteLastNBits};
+use crate::encoding::{self, BitParsable, BitSerializable, Parsable, WriteLastNBits};
 
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
 use derive_try_from_primitive::*;
 use nom::{
     bits, bits::complete::take as take_bits, combinator::map, complete::bool, error::context,
-    multi::count, number::complete::be_u16, number::complete::be_u8, sequence::tuple,
+    sequence::tuple,
 };
-use ux::{u1, u2};
+use ux::u1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]

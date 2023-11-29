@@ -1,19 +1,26 @@
 use crate::encoding::{self, Parsable, Serializable};
 
 use cookie_factory as cf;
-use custom_debug_derive::Debug;
 use derive_try_from_primitive::*;
 use nom::{combinator::map, error::context, number::complete::be_u8};
+use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum ProtocolType {
-    #[debug(format = "Z-Wave")]
     ZWave,
-    #[debug(format = "Z-Wave AV")]
     ZWaveAV,
-    #[debug(format = "Z-Wave for IP")]
     ZWaveIP,
+}
+
+impl Display for ProtocolType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProtocolType::ZWave => write!(f, "Z-Wave"),
+            ProtocolType::ZWaveAV => write!(f, "Z-Wave AV"),
+            ProtocolType::ZWaveIP => write!(f, "Z-Wave for IP"),
+        }
+    }
 }
 
 impl Parsable for ProtocolType {
