@@ -1,4 +1,4 @@
-use crate::{prelude::*, util::hex_fmt};
+use crate::{prelude::*, util::hex_fmt, command::CommandId};
 use zwave_core::prelude::*;
 
 use cookie_factory as cf;
@@ -16,6 +16,20 @@ pub struct BridgeApplicationCommandRequest {
     payload: Vec<u8>,
     multicast_node_ids: Vec<u16>, // FIXME: bitvec?
     rssi: Option<RSSI>,
+}
+
+impl CommandId for BridgeApplicationCommandRequest {
+    fn command_type(&self) -> CommandType {
+        CommandType::Request
+    }
+
+    fn function_type(&self) -> FunctionType {
+        FunctionType::BridgeApplicationCommand
+    }
+
+    fn origin(&self) -> MessageOrigin {
+        MessageOrigin::Controller
+    }
 }
 
 impl CommandBase for BridgeApplicationCommandRequest {}

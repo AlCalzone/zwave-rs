@@ -6,8 +6,7 @@ use derive_builder::Builder;
 use nom::{bytes::complete::take, combinator::map, number::complete::be_u8};
 use zwave_core::encoding;
 
-#[derive(Default, Debug, Clone, PartialEq)]
-#[derive(Builder)]
+#[derive(Default, Debug, Clone, PartialEq, Builder)]
 #[builder(pattern = "owned")]
 #[builder(build_fn(error = "crate::error::Error"))]
 pub struct SendDataRequest {
@@ -21,6 +20,20 @@ pub struct SendDataRequest {
 impl SendDataRequest {
     pub fn builder() -> SendDataRequestBuilder {
         SendDataRequestBuilder::default()
+    }
+}
+
+impl CommandId for SendDataRequest {
+    fn command_type(&self) -> CommandType {
+        CommandType::Request
+    }
+
+    fn function_type(&self) -> FunctionType {
+        FunctionType::SendData
+    }
+
+    fn origin(&self) -> MessageOrigin {
+        MessageOrigin::Host
     }
 }
 
@@ -92,6 +105,20 @@ impl CommandBase for SendDataResponse {
     }
 }
 
+impl CommandId for SendDataResponse {
+    fn command_type(&self) -> CommandType {
+        CommandType::Response
+    }
+
+    fn function_type(&self) -> FunctionType {
+        FunctionType::SendData
+    }
+
+    fn origin(&self) -> MessageOrigin {
+        MessageOrigin::Controller
+    }
+}
+
 impl Parsable for SendDataResponse {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         let (i, was_sent) = map(be_u8, |x| x > 0)(i)?;
@@ -123,18 +150,33 @@ impl CommandBase for SendDataCallback {
     }
 }
 
+impl CommandId for SendDataCallback {
+    fn command_type(&self) -> CommandType {
+        CommandType::Request
+    }
+
+    fn function_type(&self) -> FunctionType {
+        FunctionType::SendData
+    }
+
+    fn origin(&self) -> MessageOrigin {
+        MessageOrigin::Controller
+    }
+}
+
 impl Parsable for SendDataCallback {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         let (i, callback_id) = be_u8(i)?;
         let (i, transmit_status) = TransmitStatus::parse(i)?;
-        let (i, transmit_report) = TransmitReport::parse(i, transmit_status != TransmitStatus::NoAck)?;
+        let (i, transmit_report) =
+            TransmitReport::parse(i, transmit_status != TransmitStatus::NoAck)?;
 
         Ok((
             i,
             Self {
                 callback_id: Some(callback_id),
                 transmit_status,
-                transmit_report
+                transmit_report,
             },
         ))
     }

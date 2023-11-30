@@ -12,6 +12,20 @@ use nom::combinator::map;
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetProtocolVersionRequest {}
 
+impl CommandId for GetProtocolVersionRequest {
+    fn command_type(&self) -> CommandType {
+        CommandType::Request
+    }
+
+    fn function_type(&self) -> FunctionType {
+        FunctionType::GetProtocolVersion
+    }
+
+    fn origin(&self) -> MessageOrigin {
+        MessageOrigin::Host
+    }
+}
+
 impl CommandBase for GetProtocolVersionRequest {}
 
 impl CommandRequest for GetProtocolVersionRequest {
@@ -44,6 +58,20 @@ pub struct GetProtocolVersionResponse {
     pub version: Version,
     pub app_framework_build_number: Option<u16>,
     pub git_commit_hash: Option<String>,
+}
+
+impl CommandId for GetProtocolVersionResponse {
+    fn command_type(&self) -> CommandType {
+        CommandType::Response
+    }
+
+    fn function_type(&self) -> FunctionType {
+        FunctionType::GetProtocolVersion
+    }
+
+    fn origin(&self) -> MessageOrigin {
+        MessageOrigin::Host
+    }
 }
 
 impl CommandBase for GetProtocolVersionResponse {}

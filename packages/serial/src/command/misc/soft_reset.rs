@@ -6,6 +6,20 @@ use zwave_core::encoding::{self, encoders::empty};
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct SoftResetRequest {}
 
+impl CommandId for SoftResetRequest {
+    fn command_type(&self) -> CommandType {
+        CommandType::Request
+    }
+
+    fn function_type(&self) -> FunctionType {
+        FunctionType::SoftReset
+    }
+
+    fn origin(&self) -> MessageOrigin {
+        MessageOrigin::Host
+    }
+}
+
 impl CommandBase for SoftResetRequest {}
 
 impl CommandRequest for SoftResetRequest {

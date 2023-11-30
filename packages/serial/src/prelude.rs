@@ -1,4 +1,4 @@
-pub use crate::command::{Command, CommandBase, CommandRequest};
+pub use crate::command::{Command, CommandBase, CommandId, CommandRequest};
 pub use crate::command_raw::CommandRaw;
 
 // Can't use this in combination with the TryFromPrimitive derive macro

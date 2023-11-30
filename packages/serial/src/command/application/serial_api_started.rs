@@ -23,6 +23,20 @@ pub struct SerialAPIStartedRequest {
     supports_long_range: bool,
 }
 
+impl CommandId for SerialAPIStartedRequest {
+    fn command_type(&self) -> CommandType {
+        CommandType::Request
+    }
+
+    fn function_type(&self) -> FunctionType {
+        FunctionType::SerialAPIStarted
+    }
+
+    fn origin(&self) -> MessageOrigin {
+        MessageOrigin::Controller
+    }
+}
+
 impl CommandBase for SerialAPIStartedRequest {}
 
 impl Parsable for SerialAPIStartedRequest {

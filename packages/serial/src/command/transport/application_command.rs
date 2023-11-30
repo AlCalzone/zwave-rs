@@ -1,4 +1,4 @@
-use crate::{prelude::*, util::hex_fmt};
+use crate::{prelude::*, util::hex_fmt, command::CommandId};
 use zwave_core::prelude::*;
 
 use cookie_factory as cf;
@@ -14,6 +14,20 @@ pub struct ApplicationCommandRequest {
     #[debug(with = "hex_fmt")]
     payload: Vec<u8>,
     rssi: Option<RSSI>,
+}
+
+impl CommandId for ApplicationCommandRequest {
+    fn command_type(&self) -> CommandType {
+        CommandType::Request
+    }
+
+    fn function_type(&self) -> FunctionType {
+        FunctionType::ApplicationCommand
+    }
+
+    fn origin(&self) -> MessageOrigin {
+        MessageOrigin::Controller
+    }
 }
 
 impl CommandBase for ApplicationCommandRequest {}

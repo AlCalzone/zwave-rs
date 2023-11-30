@@ -15,6 +15,20 @@ use zwave_core::encoding::{
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetSerialApiInitDataRequest {}
 
+impl CommandId for GetSerialApiInitDataRequest {
+    fn command_type(&self) -> CommandType {
+        CommandType::Request
+    }
+
+    fn function_type(&self) -> FunctionType {
+        FunctionType::GetSerialApiInitData
+    }
+
+    fn origin(&self) -> MessageOrigin {
+        MessageOrigin::Host
+    }
+}
+
 impl CommandBase for GetSerialApiInitDataRequest {}
 
 impl CommandRequest for GetSerialApiInitDataRequest {
@@ -50,6 +64,20 @@ pub struct GetSerialApiInitDataResponse {
     pub node_type: NodeType,
     pub node_ids: Vec<u8>,
     pub chip_type: Option<ChipType>,
+}
+
+impl CommandId for GetSerialApiInitDataResponse {
+    fn command_type(&self) -> CommandType {
+        CommandType::Response
+    }
+
+    fn function_type(&self) -> FunctionType {
+        FunctionType::GetSerialApiInitData
+    }
+
+    fn origin(&self) -> MessageOrigin {
+        MessageOrigin::Controller
+    }
 }
 
 impl CommandBase for GetSerialApiInitDataResponse {}

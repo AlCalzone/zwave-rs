@@ -1,9 +1,10 @@
 [workspace]
 members = [
-    "packages/serial",
     "packages/cli",
-    "packages/driver",
     "packages/core",
+    "packages/driver",
+    "packages/proc-macros",
+    "packages/serial",
 ]
 resolver = "2"
 
@@ -39,6 +40,8 @@ tokio-serial = "5.4.4"
 tokio-util = { version = "0.7.10", features = ["codec"] }
 unique_id = "0.1.5"
 ux = "0.1.5"
+proc-macros = { path = "packages/proc-macros" }
+walkdir = "2.4.0"
 zwave-core = { path = "packages/core" }
 zwave-driver = { path = "packages/driver" }
 zwave-serial = { path = "packages/serial" }

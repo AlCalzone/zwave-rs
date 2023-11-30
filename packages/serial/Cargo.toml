@@ -24,5 +24,6 @@ tokio-serial.workspace = true
 tokio-util.workspace = true
 tokio.workspace = true
 ux.workspace = true
+proc-macros.workspace = true
 zwave-core.workspace = true
 time.workspace = true
