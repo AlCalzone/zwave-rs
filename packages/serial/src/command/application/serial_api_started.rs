@@ -39,8 +39,8 @@ impl CommandId for SerialAPIStartedRequest {
 
 impl CommandBase for SerialAPIStartedRequest {}
 
-impl Parsable for SerialAPIStartedRequest {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
+impl CommandParsable for SerialAPIStartedRequest {
+    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
         let (i, wake_up_reason) = SerialAPIWakeUpReason::parse(i)?;
         let (i, watchdog_enabled) = map(be_u8, |x| x == 0x01)(i)?;
         let (i, (is_listening, _reserved)) = bits(tuple((bool, u7::parse)))(i)?;
@@ -68,7 +68,7 @@ impl Parsable for SerialAPIStartedRequest {
 
 impl Serializable for SerialAPIStartedRequest {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, sequence::tuple};
-        move |out| todo!("ERROR: SerialAPIStartedRequest::serialize() not implemented")
+        
+        move |_out| todo!("ERROR: SerialAPIStartedRequest::serialize() not implemented")
     }
 }

@@ -32,8 +32,8 @@ impl CommandId for ApplicationCommandRequest {
 
 impl CommandBase for ApplicationCommandRequest {}
 
-impl Parsable for ApplicationCommandRequest {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
+impl CommandParsable for ApplicationCommandRequest {
+    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
         let (i, frame_info) = FrameInfo::parse(i)?;
         let (i, source_node_id) = be_u8(i)?; // FIXME: This needs to depend on the controller's node ID type
         let (i, payload) = length_data(be_u8)(i)?;
@@ -53,7 +53,7 @@ impl Parsable for ApplicationCommandRequest {
 
 impl Serializable for ApplicationCommandRequest {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, sequence::tuple};
-        move |out| todo!("ERROR: ApplicationCommandRequest::serialize() not implemented")
+        
+        move |_out| todo!("ERROR: ApplicationCommandRequest::serialize() not implemented")
     }
 }

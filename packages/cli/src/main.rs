@@ -2,7 +2,7 @@ use std::thread;
 use std::time::Duration;
 use zwave_core::definitions::TransmitOptions;
 use zwave_driver::SerialApiMachineResult;
-use zwave_serial::command::{Command, CommandBase, SendDataRequest};
+use zwave_serial::command::{SendDataRequest, GetSerialApiCapabilitiesRequest};
 
 #[cfg(target_os = "linux")]
 // const PORT: &str = "/dev/ttyUSB0";
@@ -55,56 +55,53 @@ async fn main() {
     //     None => println!("timed out waiting for protocol version"),
     // }
 
-    let mut failures: Vec<SerialApiMachineResult> = Vec::new();
-    let mut ok = 0;
-    let mut on = false;
-    for i in 1..=1 {
-        println!("sending data");
-        let cmd = SendDataRequest::builder()
-            .node_id(7)
-            .transmit_options(TransmitOptions::new().ack(true).no_route(true))
-            .payload(vec![
-                // 0x00, // PING
-                0x20, // Basic CC
-                0x02, // Basic Get
-                // if on { 0xFF } else { 0x00 },
-            ])
-            .build().unwrap();
-        let result = driver
-            .execute_serial_api_command(cmd)
-            .await
-            .unwrap();
+    // let mut failures: Vec<SerialApiMachineResult> = Vec::new();
+    // let mut ok = 0;
+    // let mut on = false;
+    // for i in 1..=1 {
+    //     println!("sending data");
+    //     let cmd = SendDataRequest::builder()
+    //         .node_id(7)
+    //         .transmit_options(TransmitOptions::new().ack(true).no_route(true))
+    //         .payload(vec![
+    //             // 0x00, // PING
+    //             0x20, // Basic CC
+    //             0x02, // Basic Get
+    //                   // if on { 0xFF } else { 0x00 },
+    //         ])
+    //         .build()
+    //         .unwrap();
+    //     let result = driver.execute_serial_api_command(cmd).await.unwrap();
 
-        println!("execute result: {:?}", result);
-        match result {
-            SerialApiMachineResult::Success(_) => {
-                ok += 1;
-                println!("Test {i} passed");
-            }
-            _ => {
-                failures.push(result);
-                println!("Test {i} failed");
-                break;
-            }
-        }
-        on = !on;
-        tokio::time::sleep(Duration::from_millis(250)).await;
-    }
+    //     println!("execute result: {:?}", result);
+    //     match result {
+    //         SerialApiMachineResult::Success(_) => {
+    //             ok += 1;
+    //             println!("Test {i} passed");
+    //         }
+    //         _ => {
+    //             failures.push(result);
+    //             println!("Test {i} failed");
+    //             break;
+    //         }
+    //     }
+    //     on = !on;
+    //     tokio::time::sleep(Duration::from_millis(250)).await;
+    // }
 
-    println!("{} tests PASSED, {} tests FAILED", ok, failures.len());
-    if !failures.is_empty() {
-        println!("Failures: {:?}", failures);
-    }
+    // println!("{} tests PASSED, {} tests FAILED", ok, failures.len());
+    // if !failures.is_empty() {
+    //     println!("Failures: {:?}", failures);
+    // }
 
-    // let result = driver
-    //     .execute_serial_api_command(SendDataRequest::new())
-    //     .await
-    //     .unwrap();
-    // println!("execute result: {:?}", result);
+    let result = driver
+        .execute_serial_api_command(GetSerialApiCapabilitiesRequest::default())
+        .await
+        .unwrap();
+    println!("execute result: {:?}", result);
 
     thread::sleep(Duration::from_millis(2000));
 
     drop(driver);
     println!("driver stopped");
 }
-

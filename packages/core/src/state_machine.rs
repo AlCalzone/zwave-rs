@@ -25,12 +25,12 @@ mod test {
             Callback,
         },
         Effect = {
-            Send,
+            SendFrame,
         },
         Condition = {},
         Transitions = [
             [Initial => [
-                [Sent => ! Send => WaitingForResponse]
+                [Sent => ! SendFrame => WaitingForResponse]
             ]],
             [WaitingForResponse => [
                 [Response => WaitingForCallback],
@@ -42,10 +42,10 @@ mod test {
         Delays = [
             [WaitingForResponse => [
                 [@Custom => Done(1)],
-                [Duration::from_millis(1000) => ! Send => Done(2)]
+                [Duration::from_millis(1000) => ! SendFrame => Done(2)]
             ]],
             [WaitingForCallback => [
-                [Duration::from_millis(1000) => ! Send => Done(2)]
+                [Duration::from_millis(1000) => ! SendFrame => Done(2)]
             ]]
         ],
         Initial = Initial,
@@ -61,7 +61,7 @@ mod test {
         let transition = fsm.next(FSMInput::Sent, eval);
         assert!(transition.is_some());
         let transition = transition.unwrap();
-        assert_eq!(transition.effect, Some(FSMEffect::Send));
+        assert_eq!(transition.effect, Some(FSMEffect::SendFrame));
         fsm.transition(transition.new_state);
         assert_eq!(fsm.state(), &(FSMState::WaitingForResponse));
         assert_eq!(
@@ -74,7 +74,7 @@ mod test {
                 },
                 FSMDelayedTransition {
                     delay: Delay::Static(Duration::from_millis(1000)),
-                    effect: Some(FSMEffect::Send),
+                    effect: Some(FSMEffect::SendFrame),
                     new_state: FSMState::Done(2),
                 },
             ])

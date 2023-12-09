@@ -1,6 +1,6 @@
 use crate::encoding::{self, BitParsable, BitSerializable, Parsable, WriteLastNBits};
 
-use cookie_factory as cf;
+
 use custom_debug_derive::Debug;
 use derive_try_from_primitive::*;
 use nom::{

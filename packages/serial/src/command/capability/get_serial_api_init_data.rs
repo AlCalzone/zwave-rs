@@ -9,7 +9,7 @@ use custom_debug_derive::Debug;
 use nom::{bits, bits::complete::bool, combinator::opt, sequence::tuple};
 use ux::u4;
 use zwave_core::encoding::{
-    self, encoders::empty, parsers::bitmask_u8 as parse_bitmask_u8, BitParsable,
+    self, encoders::empty, parsers::variable_length_bitmask_u8, BitParsable,
 };
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -41,8 +41,8 @@ impl CommandRequest for GetSerialApiInitDataRequest {
     }
 }
 
-impl Parsable for GetSerialApiInitDataRequest {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
+impl CommandParsable for GetSerialApiInitDataRequest {
+    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
         // No payload
         Ok((i, Self {}))
     }
@@ -82,12 +82,12 @@ impl CommandId for GetSerialApiInitDataResponse {
 
 impl CommandBase for GetSerialApiInitDataResponse {}
 
-impl Parsable for GetSerialApiInitDataResponse {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
+impl CommandParsable for GetSerialApiInitDataResponse {
+    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
         let (i, api_version) = ZWaveApiVersion::parse(i)?;
         let (i, (_reserved, is_sis, is_primary, supports_timers, node_type)) =
             bits(tuple((u4::parse, bool, bool, bool, NodeType::parse)))(i)?;
-        let (i, node_ids) = parse_bitmask_u8(i, 1)?;
+        let (i, node_ids) = variable_length_bitmask_u8(i, 1)?;
         let (i, chip_type) = opt(ChipType::parse)(i)?;
         Ok((
             i,

@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -135,7 +134,10 @@ impl Driver {
         )
     }
 
-    pub async fn execute_serial_api_command<C>(&mut self, mut command: C) -> Result<SerialApiMachineResult>
+    pub async fn execute_serial_api_command<C>(
+        &mut self,
+        mut command: C,
+    ) -> Result<SerialApiMachineResult>
     where
         C: CommandRequest + Clone + 'static,
         SerialFrame: From<C>,
@@ -538,7 +540,8 @@ async fn serial_loop_handle_frame(
                         .unwrap();
 
                     // Now try to convert it into an actual command
-                    match zwave_serial::command::Command::try_from(raw) {
+                    match zwave_serial::command::Command::try_from_raw(raw, CommandParseContext {})
+                    {
                         Ok(cmd) => {
                             println!("{} received {:#?}", now(), cmd);
                             Some(SerialFrame::Command(cmd))

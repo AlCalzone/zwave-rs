@@ -271,6 +271,20 @@ macro_rules! impl_vec_parsing_for {
 }
 
 #[macro_export]
+macro_rules! impl_vec_parsing_with_context_for {
+    ($struct_name:ident, $context_type:ty) => {
+        // FIXME: This is awkward and should probably be a different trait instead
+        impl TryFrom<(&[u8], $context_type)> for $struct_name {
+            type Error = EncodingError;
+
+            fn try_from(value: (&[u8], $context_type)) -> EncodingResult<Self> {
+                Self::parse(value.0, value.1).into_encoding_result()
+            }
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! impl_vec_serializing_for {
     ($struct_name:ident) => {
         impl TryInto<Vec<u8>> for &$struct_name {
@@ -447,12 +461,31 @@ pub mod encoders {
 pub mod parsers {
     use bitvec::prelude::*;
     use nom::bytes::complete::take as take_bytes;
+    use nom::multi::length_data;
     use nom::number::complete::be_u8;
 
-    /// Parses a bitmask into a `Vec<u8>`. The least significant bit is mapped to `bit0_value`.
-    pub fn bitmask_u8(i: super::Input, bit0_value: u8) -> super::ParseResult<Vec<u8>> {
-        let (i, len_bitmask) = be_u8(i)?;
-        let (i, bitmask) = take_bytes(len_bitmask)(i)?;
+    /// Parses a bitmask into a `Vec<u8>`. The least significant bit is mapped to `bit0_value`. The first byte is considerd to be the bitmask length.
+    pub fn variable_length_bitmask_u8(
+        i: super::Input,
+        bit0_value: u8,
+    ) -> super::ParseResult<Vec<u8>> {
+        let (i, bitmask) = length_data(be_u8)(i)?;
+
+        let view = bitmask.view_bits::<Lsb0>();
+        let ret = view
+            .iter_ones()
+            .map(|index| (index as u8) + bit0_value)
+            .collect::<Vec<_>>();
+        Ok((i, ret))
+    }
+
+    /// Parses a bitmask with the given length into a `Vec<u8>`. The least significant bit is mapped to `bit0_value`.
+    pub fn fixed_length_bitmask_u8(
+        i: super::Input,
+        bit0_value: u8,
+        bitmask_len: usize,
+    ) -> super::ParseResult<Vec<u8>> {
+        let (i, bitmask) = take_bytes(bitmask_len)(i)?;
 
         let view = bitmask.view_bits::<Lsb0>();
         let ret = view

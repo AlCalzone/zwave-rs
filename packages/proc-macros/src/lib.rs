@@ -67,7 +67,8 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
     let vec_conversion_impls = commands.iter().map(|c| {
         let command_name = c.command_name;
         quote! {
-            impl_vec_conversion_for!(#command_name);
+            impl_vec_serializing_for!(#command_name);
+            impl_vec_parsing_with_context_for!(#command_name, CommandParseContext);
         }
     });
 
@@ -78,7 +79,7 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
         let origin = c.origin;
         quote! {
             (#command_type, #function_type, #origin) => {
-                Ok(Self::#command_name(#command_name::try_from(raw.payload.as_slice())?))
+                Ok(Self::#command_name(#command_name::try_from((raw.payload.as_slice(), ctx))?))
             }
         }
     });
@@ -129,11 +130,9 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
         // Implement shortcuts from each variant to CommandRaw / SerialFrame
         #( #command_raw_serial_frame_conversions )*
 
-        // Implement conversion from a raw command to the correct variant
-        impl TryFrom<CommandRaw> for Command {
-            type Error = EncodingError;
-
-            fn try_from(raw: CommandRaw) -> std::result::Result<Self, Self::Error> {
+        impl Command {
+            // Implement conversion from a raw command to the correct variant
+            pub fn try_from_raw(raw: CommandRaw, ctx: CommandParseContext) -> std::result::Result<Self, EncodingError> {
                 let command_type = raw.command_type;
                 let function_type = raw.function_type;
                 // We parse commands that are sent by the controller

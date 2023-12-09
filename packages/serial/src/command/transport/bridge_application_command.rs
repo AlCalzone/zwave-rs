@@ -1,5 +1,5 @@
 use crate::{prelude::*, util::hex_fmt, command::CommandId};
-use zwave_core::prelude::*;
+use zwave_core::{prelude::*, encoding::parsers::variable_length_bitmask_u8};
 
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
@@ -34,13 +34,13 @@ impl CommandId for BridgeApplicationCommandRequest {
 
 impl CommandBase for BridgeApplicationCommandRequest {}
 
-impl Parsable for BridgeApplicationCommandRequest {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
+impl CommandParsable for BridgeApplicationCommandRequest {
+    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
         let (i, frame_info) = FrameInfo::parse(i)?;
         let (i, destination_node_id) = be_u8(i)?; // FIXME: This needs to depend on the controller's node ID type
         let (i, source_node_id) = be_u8(i)?; // FIXME: This needs to depend on the controller's node ID type
         let (i, payload) = length_data(be_u8)(i)?;
-        let (i, multicast_node_id_bitmask) = length_data(be_u8)(i)?;
+        let (i, multicast_node_id_bitmask) = variable_length_bitmask_u8(i, 1)?;
         let (i, rssi) = opt(RSSI::parse)(i)?;
 
         let multicast_node_ids = multicast_node_id_bitmask
@@ -64,7 +64,7 @@ impl Parsable for BridgeApplicationCommandRequest {
 
 impl Serializable for BridgeApplicationCommandRequest {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, sequence::tuple};
-        move |out| todo!("ERROR: BridgeApplicationCommandRequest::serialize() not implemented")
+        
+        move |_out| todo!("ERROR: BridgeApplicationCommandRequest::serialize() not implemented")
     }
 }

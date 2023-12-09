@@ -12,7 +12,7 @@ where
 impl<T> Default for WrappingCounter<T>
 where
     T: Bounded + Ord + Unsigned + WrappingAdd + One + Copy,
- {
+{
     fn default() -> Self {
         Self::new()
     }
@@ -23,7 +23,10 @@ where
     T: Bounded + Ord + Unsigned + WrappingAdd + One + Copy,
 {
     pub fn new() -> Self {
-        Self { value: T::zero(), max: None }
+        Self {
+            value: T::zero(),
+            max: None,
+        }
     }
 
     pub fn new_with_max(max: T) -> Self {

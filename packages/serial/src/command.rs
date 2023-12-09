@@ -1,15 +1,24 @@
 use crate::prelude::*;
-use zwave_core::{prelude::*, submodule};
+use zwave_core::{encoding::Input, prelude::*, submodule};
 
 use crate::{frame::SerialFrame, util::hex_fmt};
 use custom_debug_derive::Debug;
 use enum_dispatch::enum_dispatch;
-use zwave_core::{impl_vec_conversion_for, impl_vec_parsing_for, impl_vec_serializing_for};
+use zwave_core::{impl_vec_parsing_with_context_for, impl_vec_serializing_for};
 
 submodule!(application);
 submodule!(capability);
 submodule!(misc);
 submodule!(transport);
+
+pub struct CommandParseContext {}
+
+pub trait CommandParsable
+where
+    Self: Sized + CommandBase,
+{
+    fn parse(i: Input, ctx: CommandParseContext) -> ParseResult<Self>;
+}
 
 #[enum_dispatch(Command)]
 /// Command-specific functionality that may need to be implemented for each command
