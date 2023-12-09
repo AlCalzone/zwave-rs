@@ -1,7 +1,7 @@
 use std::thread;
 use std::time::Duration;
 
-use zwave_serial::command::SetRfReceiveModeRequest;
+use zwave_serial::command::GetBackgroundRssiRequest;
 
 #[cfg(target_os = "linux")]
 // const PORT: &str = "/dev/ttyUSB0";
@@ -94,12 +94,7 @@ async fn main() {
     // }
 
     let result = driver
-        .execute_serial_api_command(
-            SetRfReceiveModeRequest::builder()
-                .enabled(true)
-                .build()
-                .unwrap(),
-        )
+        .execute_serial_api_command(GetBackgroundRssiRequest::default())
         .await
         .unwrap();
     println!("execute result: {:?}", result);

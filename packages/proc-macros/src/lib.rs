@@ -79,7 +79,7 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
         let origin = c.origin;
         quote! {
             (#command_type, #function_type, #origin) => {
-                Ok(Self::#command_name(#command_name::try_from((raw.payload.as_slice(), ctx))?))
+                #command_name::try_from((raw.payload.as_slice(), ctx)).map(Self::#command_name)
             }
         }
     });
@@ -139,13 +139,20 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
                 let expected_origin = MessageOrigin::Controller;
 
                 // ...and hope that Rust optimizes the match arms with origin Host away
-                match (command_type, function_type, expected_origin) {
+                let ret = match (command_type, function_type, expected_origin) {
                     #( #impl_try_from_command_raw_match_arms ),*
-                    _ => Ok(Self::NotImplemented(NotImplemented {
+                    _ => Err(EncodingError::NotImplemented("Unknown combination of command_type, function_type and origin")),
+                };
+
+                if let Err(EncodingError::NotImplemented(_)) = ret {
+                    // If we don't know how to parse the command, we return the raw command
+                    Ok(Self::NotImplemented(NotImplemented {
                         command_type,
                         function_type,
                         payload: raw.payload,
-                    })),
+                    }))
+                } else {
+                    ret
                 }
             }
         }

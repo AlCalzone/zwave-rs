@@ -46,6 +46,11 @@ impl SerialBinding for SerialPort {
             EncodingError::Parse(_) => {
                 todo!("A parse error should not occur when sending data to the serial port")
             }
+            EncodingError::NotImplemented(_) => {
+                todo!(
+                    "A not implemented error should not occur when sending data to the serial port"
+                )
+            }
             EncodingError::Serialize(reason) => std::io::Error::other(reason).into(),
         })
     }

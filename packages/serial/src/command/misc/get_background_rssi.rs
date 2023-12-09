@@ -1,11 +1,7 @@
 use crate::prelude::*;
 use zwave_core::prelude::*;
 
-
-
-use nom::{
-    combinator::{opt},
-};
+use nom::combinator::opt;
 use zwave_core::encoding::{self, encoders::empty};
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -46,7 +42,6 @@ impl CommandParsable for GetBackgroundRssiRequest {
 
 impl Serializable for GetBackgroundRssiRequest {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        
         // No payload
         empty()
     }
@@ -80,18 +75,19 @@ impl CommandParsable for GetBackgroundRssiResponse {
         let (i, rssi0) = RSSI::parse(i)?;
         let (i, rssi1) = RSSI::parse(i)?;
         let (i, rssi2) = opt(RSSI::parse)(i)?;
-        eprintln!("ERROR: GetBackgroundRssiResponse::parse() not implemented");
-        Ok((i, Self {
-            rssi_channel_0: rssi0,
-            rssi_channel_1: rssi1,
-            rssi_channel_2: rssi2,
-        }))
+        Ok((
+            i,
+            Self {
+                rssi_channel_0: rssi0,
+                rssi_channel_1: rssi1,
+                rssi_channel_2: rssi2,
+            },
+        ))
     }
 }
 
 impl Serializable for GetBackgroundRssiResponse {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        
         move |_out| todo!("ERROR: GetBackgroundRssiResponse::serialize() not implemented")
     }
 }

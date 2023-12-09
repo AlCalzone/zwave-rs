@@ -16,6 +16,7 @@ pub enum ErrorKind {
     Nom(NomErrorKind),
     Context(&'static str),
     Validation(String),
+    NotImplemented(&'static str),
 }
 
 #[derive(PartialEq)]
@@ -26,6 +27,11 @@ pub struct NomError<I> {
 impl<I> NomError<I> {
     fn validation_failure(input: I, reason: String) -> Self {
         let errors = vec![(input, ErrorKind::Validation(reason))];
+        Self { errors }
+    }
+
+    fn not_implemented(input: I, message: &'static str) -> Self {
+        let errors = vec![(input, ErrorKind::NotImplemented(message))];
         Self { errors }
     }
 }
@@ -39,6 +45,14 @@ pub fn validate(input: Input, condition: bool, message: String) -> ParseResult<(
             input, message,
         ))),
     }
+}
+
+/// Returns a nom Failure indicating that this parser is not implemented yet.
+pub fn parser_not_implemented<'a, T>(
+    input: Input<'a>,
+    message: &'static str,
+) -> ParseResult<'a, T> {
+    Err(nom::Err::Failure(NomError::not_implemented(input, message)))
 }
 
 impl<I> NomParseError<I> for NomError<I> {
@@ -150,6 +164,7 @@ impl<'a> fmt::Debug for NomError<&'a [u8]> {
                 ErrorKind::Context(ctx) => format!("...in {}", ctx),
                 ErrorKind::Nom(err) => format!("nom error {:?}", err),
                 ErrorKind::Validation(reason) => format!("validation error: {}", reason),
+                ErrorKind::NotImplemented(reason) => format!("not implemented: {}", reason),
             };
 
             writeln!(f, "{}", prefix)?;
@@ -335,6 +350,8 @@ pub enum EncodingError {
     Parse(Option<String>),
     #[error("Serialization error: {0:?}")]
     Serialize(String),
+    #[error("Not implemented: {0:?}")]
+    NotImplemented(&'static str),
 }
 
 /// Provides a way to convert custom results into this library's result type
@@ -349,19 +366,26 @@ impl<T> IntoEncodingResult for ParseResult<'_, T> {
     type Output = T;
 
     fn into_encoding_result(self) -> EncodingResult<Self::Output> {
-        let reason = match self {
-            Ok((_, output)) => return Ok(output),
+        match self {
+            Ok((_, output)) => Ok(output),
 
-            Err(nom::Err::Incomplete(_)) | Err(nom::Err::Error(_)) => None,
+            Err(nom::Err::Incomplete(_)) | Err(nom::Err::Error(_)) => {
+                Err(EncodingError::Parse(None))
+            }
             Err(nom::Err::Failure(e)) => {
                 // Try to extract the failure reason
-                e.errors.iter().find_map(|(_, kind)| match kind {
-                    ErrorKind::Validation(reason) => Some(reason.clone()),
+                let err = e.errors.iter().find_map(|(_, kind)| match kind {
+                    ErrorKind::NotImplemented(reason) => {
+                        Some(EncodingError::NotImplemented(reason))
+                    }
+                    ErrorKind::Validation(reason) => {
+                        Some(EncodingError::Parse(Some(reason.clone())))
+                    }
                     _ => None,
-                })
+                });
+                Err(err.unwrap_or(EncodingError::Parse(None)))
             }
-        };
-        Err(EncodingError::Parse(reason))
+        }
     }
 }
 
@@ -369,19 +393,26 @@ impl<T> IntoEncodingResult for BitParseResult<'_, T> {
     type Output = T;
 
     fn into_encoding_result(self) -> EncodingResult<Self::Output> {
-        let reason = match self {
-            Ok((_, output)) => return Ok(output),
+        match self {
+            Ok((_, output)) => Ok(output),
 
-            Err(nom::Err::Incomplete(_)) | Err(nom::Err::Error(_)) => None,
+            Err(nom::Err::Incomplete(_)) | Err(nom::Err::Error(_)) => {
+                Err(EncodingError::Parse(None))
+            }
             Err(nom::Err::Failure(e)) => {
                 // Try to extract the failure reason
-                e.errors.iter().find_map(|(_, kind)| match kind {
-                    ErrorKind::Validation(reason) => Some(reason.clone()),
+                let err = e.errors.iter().find_map(|(_, kind)| match kind {
+                    ErrorKind::NotImplemented(reason) => {
+                        Some(EncodingError::NotImplemented(reason))
+                    }
+                    ErrorKind::Validation(reason) => {
+                        Some(EncodingError::Parse(Some(reason.clone())))
+                    }
                     _ => None,
-                })
+                });
+                Err(err.unwrap_or(EncodingError::Parse(None)))
             }
-        };
-        Err(EncodingError::Parse(reason))
+        }
     }
 }
 
