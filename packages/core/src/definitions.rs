@@ -1,6 +1,7 @@
 use crate::submodule;
 
 submodule!(chip_type);
+submodule!(controller_role);
 submodule!(command_type);
 submodule!(data_rate);
 submodule!(function_type);
