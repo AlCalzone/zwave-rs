@@ -2,7 +2,7 @@ use crate::prelude::*;
 use ux::u7;
 use zwave_core::{encoding::BitParsable, prelude::*};
 
-use cookie_factory as cf;
+
 use custom_debug_derive::Debug;
 
 use nom::{

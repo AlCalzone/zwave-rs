@@ -1,8 +1,7 @@
 use std::thread;
 use std::time::Duration;
-use zwave_core::definitions::TransmitOptions;
-use zwave_driver::SerialApiMachineResult;
-use zwave_serial::command::{SendDataRequest, GetSerialApiCapabilitiesRequest, GetControllerCapabilitiesRequest};
+
+use zwave_serial::command::SetRfReceiveModeRequest;
 
 #[cfg(target_os = "linux")]
 // const PORT: &str = "/dev/ttyUSB0";
@@ -95,7 +94,12 @@ async fn main() {
     // }
 
     let result = driver
-        .execute_serial_api_command(GetControllerCapabilitiesRequest::default())
+        .execute_serial_api_command(
+            SetRfReceiveModeRequest::builder()
+                .enabled(true)
+                .build()
+                .unwrap(),
+        )
         .await
         .unwrap();
     println!("execute result: {:?}", result);

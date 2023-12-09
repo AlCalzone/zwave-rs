@@ -3,7 +3,7 @@ use zwave_core::{encoding::parsers::fixed_length_bitmask_u8, prelude::*};
 
 use custom_debug_derive::Debug;
 
-use cookie_factory as cf;
+
 use nom::{
     combinator::map,
     number::complete::{be_u16, be_u8},

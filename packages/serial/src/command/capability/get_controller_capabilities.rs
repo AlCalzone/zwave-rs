@@ -2,12 +2,7 @@ use crate::prelude::*;
 use ux::{u1, u3};
 use zwave_core::{encoding::BitParsable, prelude::*};
 
-use cookie_factory as cf;
-use derive_builder::Builder;
-use nom::{
-    bits, bytes::complete::tag, character::complete::none_of, combinator::map, complete::bool,
-    multi::many1, sequence::tuple,
-};
+use nom::{bits, complete::bool, sequence::tuple};
 use zwave_core::encoding::{self, encoders::empty};
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -40,7 +35,7 @@ impl CommandRequest for GetControllerCapabilitiesRequest {
 }
 
 impl CommandParsable for GetControllerCapabilitiesRequest {
-    fn parse(i: encoding::Input, ctx: CommandParseContext) -> encoding::ParseResult<Self> {
+    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
         // No payload
         Ok((i, Self {}))
     }
@@ -48,7 +43,6 @@ impl CommandParsable for GetControllerCapabilitiesRequest {
 
 impl Serializable for GetControllerCapabilitiesRequest {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, sequence::tuple};
         // No payload
         empty()
     }
@@ -80,7 +74,7 @@ impl CommandId for GetControllerCapabilitiesResponse {
 impl CommandBase for GetControllerCapabilitiesResponse {}
 
 impl CommandParsable for GetControllerCapabilitiesResponse {
-    fn parse(i: encoding::Input, ctx: CommandParseContext) -> encoding::ParseResult<Self> {
+    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
         let (i, (_reserved765, is_suc, _reserved3, sis_present, other_network, secondary)) =
             bits(tuple((u3::parse, bool, u1::parse, bool, bool, bool)))(i)?;
         Ok((
@@ -101,7 +95,6 @@ impl CommandParsable for GetControllerCapabilitiesResponse {
 
 impl Serializable for GetControllerCapabilitiesResponse {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, sequence::tuple};
-        move |out| todo!("ERROR: GetControllerCapabilitiesResponse::serialize() not implemented")
+        move |_out| todo!("ERROR: GetControllerCapabilitiesResponse::serialize() not implemented")
     }
 }

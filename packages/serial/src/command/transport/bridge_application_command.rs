@@ -1,7 +1,7 @@
 use crate::{prelude::*, util::hex_fmt, command::CommandId};
 use zwave_core::{prelude::*, encoding::parsers::variable_length_bitmask_u8};
 
-use cookie_factory as cf;
+
 use custom_debug_derive::Debug;
 
 use nom::{combinator::opt, multi::length_data, number::complete::be_u8};

@@ -11,6 +11,7 @@ submodule!(capability);
 submodule!(misc);
 submodule!(transport);
 
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct CommandParseContext {}
 
 pub trait CommandParsable

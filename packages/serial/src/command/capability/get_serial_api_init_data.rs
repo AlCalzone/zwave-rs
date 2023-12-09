@@ -172,6 +172,8 @@ fn test_parse() {
         node_ids: vec![1, 4, 8, 10],
         chip_type: Some(ChipType::EFR32xG1x),
     };
-    let actual = GetSerialApiInitDataResponse::try_from(input.as_slice()).unwrap();
+    let actual =
+        GetSerialApiInitDataResponse::try_from((input.as_slice(), CommandParseContext::default()))
+            .unwrap();
     assert_eq!(actual, expected)
 }
