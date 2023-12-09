@@ -12,8 +12,8 @@ use nom::{
 use zwave_core::encoding::{self};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SerialAPIStartedRequest {
-    wake_up_reason: SerialAPIWakeUpReason,
+pub struct SerialApiStartedRequest {
+    wake_up_reason: SerialApiWakeUpReason,
     watchdog_enabled: bool,
     generic_device_class: u8,
     specific_device_class: u8,
@@ -23,13 +23,13 @@ pub struct SerialAPIStartedRequest {
     supports_long_range: bool,
 }
 
-impl CommandId for SerialAPIStartedRequest {
+impl CommandId for SerialApiStartedRequest {
     fn command_type(&self) -> CommandType {
         CommandType::Request
     }
 
     fn function_type(&self) -> FunctionType {
-        FunctionType::SerialAPIStarted
+        FunctionType::SerialApiStarted
     }
 
     fn origin(&self) -> MessageOrigin {
@@ -37,11 +37,11 @@ impl CommandId for SerialAPIStartedRequest {
     }
 }
 
-impl CommandBase for SerialAPIStartedRequest {}
+impl CommandBase for SerialApiStartedRequest {}
 
-impl CommandParsable for SerialAPIStartedRequest {
+impl CommandParsable for SerialApiStartedRequest {
     fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
-        let (i, wake_up_reason) = SerialAPIWakeUpReason::parse(i)?;
+        let (i, wake_up_reason) = SerialApiWakeUpReason::parse(i)?;
         let (i, watchdog_enabled) = map(be_u8, |x| x == 0x01)(i)?;
         let (i, (is_listening, _reserved)) = bits(tuple((bool, u7::parse)))(i)?;
         let (i, generic_device_class) = be_u8(i)?;
@@ -66,9 +66,9 @@ impl CommandParsable for SerialAPIStartedRequest {
     }
 }
 
-impl Serializable for SerialAPIStartedRequest {
+impl Serializable for SerialApiStartedRequest {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
         
-        move |_out| todo!("ERROR: SerialAPIStartedRequest::serialize() not implemented")
+        move |_out| todo!("ERROR: SerialApiStartedRequest::serialize() not implemented")
     }
 }

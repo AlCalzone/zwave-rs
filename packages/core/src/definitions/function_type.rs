@@ -26,9 +26,9 @@ pub enum FunctionType {
     SoftReset = 0x08,
 
     GetProtocolVersion = 0x09, // Used to request the Z-Wave Protocol version data (700 series)
-    SerialAPIStarted = 0x0a, // Sent by the controller after the serial API has been started (again)
+    SerialApiStarted = 0x0a, // Sent by the controller after the serial API has been started (again)
 
-    SerialAPISetup = 0x0b, // Configure the Serial API
+    SerialApiSetup = 0x0b, // Configure the Serial API
 
     SetRFReceiveMode = 0x10, // Power the RF section of the stick down/up
     UNKNOWN_FUNC_SET_SLEEP_MODE = 0x11, // Set the CPU into sleep mode
@@ -183,7 +183,7 @@ pub enum FunctionType {
     UNKNOWN_FUNC_ZMERestore = 0xf3,
     UNKNOWN_FUNC_ZMEBootloaderFlash = 0xf4,
     UNKNOWN_FUNC_ZMECapabilities = 0xf5,
-    UNKNOWN_FUNC_ZMESerialAPIOptions = 0xf8,
+    UNKNOWN_FUNC_ZMESerialApiOptions = 0xf8,
 }
 
 impl FunctionType {

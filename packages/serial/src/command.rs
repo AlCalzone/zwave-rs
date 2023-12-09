@@ -12,7 +12,9 @@ submodule!(misc);
 submodule!(transport);
 
 #[derive(Default, Debug, Clone, PartialEq)]
-pub struct CommandParseContext {}
+pub struct CommandParseContext {
+    sdk_version: Option<Version>,
+}
 
 pub trait CommandParsable
 where

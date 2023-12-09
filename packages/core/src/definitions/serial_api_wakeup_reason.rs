@@ -9,7 +9,7 @@ use nom::{combinator::map, error::context, number::complete::be_u8};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
-pub enum SerialAPIWakeUpReason {
+pub enum SerialApiWakeUpReason {
 	/// The Z-Wave API Module has been woken up by reset or external interrupt.
 	Reset = 0x00,
 	/// The Z-Wave API Module has been woken up by a timer.
@@ -34,34 +34,34 @@ pub enum SerialAPIWakeUpReason {
 	Unknown = 0xff,
 }
 
-impl Display for SerialAPIWakeUpReason {
+impl Display for SerialApiWakeUpReason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SerialAPIWakeUpReason::Reset => write!(f, "Reset"),
-            SerialAPIWakeUpReason::Timer => write!(f, "Timer"),
-            SerialAPIWakeUpReason::WakeUpBeam => write!(f, "Wake up beam"),
-            SerialAPIWakeUpReason::WatchdogReset => write!(f, "Reset by watchdog"),
-            SerialAPIWakeUpReason::ExternalInterrupt => write!(f, "External interrupt"),
-            SerialAPIWakeUpReason::PowerUp => write!(f, "Powered up"),
-            SerialAPIWakeUpReason::USBSuspend => write!(f, "USB suspend"),
-            SerialAPIWakeUpReason::SoftwareReset => write!(f, "Reset by software"),
-            SerialAPIWakeUpReason::EmergencyWatchdogReset => write!(f, "Emergency watchdog reset"),
-            SerialAPIWakeUpReason::BrownoutCircuit => write!(f, "Reset by brownout circuit"),
-            SerialAPIWakeUpReason::Unknown => write!(f, "Unknown"),
+            SerialApiWakeUpReason::Reset => write!(f, "Reset"),
+            SerialApiWakeUpReason::Timer => write!(f, "Timer"),
+            SerialApiWakeUpReason::WakeUpBeam => write!(f, "Wake up beam"),
+            SerialApiWakeUpReason::WatchdogReset => write!(f, "Reset by watchdog"),
+            SerialApiWakeUpReason::ExternalInterrupt => write!(f, "External interrupt"),
+            SerialApiWakeUpReason::PowerUp => write!(f, "Powered up"),
+            SerialApiWakeUpReason::USBSuspend => write!(f, "USB suspend"),
+            SerialApiWakeUpReason::SoftwareReset => write!(f, "Reset by software"),
+            SerialApiWakeUpReason::EmergencyWatchdogReset => write!(f, "Emergency watchdog reset"),
+            SerialApiWakeUpReason::BrownoutCircuit => write!(f, "Reset by brownout circuit"),
+            SerialApiWakeUpReason::Unknown => write!(f, "Unknown"),
         }
     }
 }
 
-impl Parsable for SerialAPIWakeUpReason {
+impl Parsable for SerialApiWakeUpReason {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         context(
-            "SerialAPIWakeUpReason",
-            map(be_u8, |x| SerialAPIWakeUpReason::try_from(x).unwrap()),
+            "SerialApiWakeUpReason",
+            map(be_u8, |x| SerialApiWakeUpReason::try_from(x).unwrap()),
         )(i)
     }
 }
 
-impl Serializable for SerialAPIWakeUpReason {
+impl Serializable for SerialApiWakeUpReason {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
         cf::bytes::be_u8(*self as u8)
     }

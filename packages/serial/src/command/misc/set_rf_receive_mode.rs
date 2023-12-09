@@ -55,7 +55,7 @@ impl CommandParsable for SetRfReceiveModeRequest {
 
 impl Serializable for SetRfReceiveModeRequest {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8};
+        use cf::bytes::be_u8;
         be_u8(if self.enabled { 1 } else { 0 })
     }
 }
@@ -94,7 +94,6 @@ impl CommandParsable for SetRfReceiveModeResponse {
 
 impl Serializable for SetRfReceiveModeResponse {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        
         move |_out| todo!("ERROR: SetRfReceiveModeResponse::serialize() not implemented")
     }
 }

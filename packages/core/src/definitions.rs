@@ -8,6 +8,7 @@ submodule!(function_type);
 submodule!(frame_info);
 submodule!(message_origin);
 submodule!(node_type);
+submodule!(node_id_type);
 submodule!(protocol_type);
 submodule!(rf_region);
 submodule!(routing_scheme);
