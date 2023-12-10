@@ -20,7 +20,7 @@ pub trait CommandParsable
 where
     Self: Sized + CommandBase,
 {
-    fn parse(i: Input, ctx: CommandParseContext) -> ParseResult<Self>;
+    fn parse<'a>(i: Input<'a>, ctx: &CommandParseContext) -> ParseResult<'a, Self>;
 }
 
 #[enum_dispatch(Command)]

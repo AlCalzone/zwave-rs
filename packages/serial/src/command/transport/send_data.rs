@@ -62,7 +62,7 @@ impl CommandRequest for SendDataRequest {
 }
 
 impl CommandParsable for SendDataRequest {
-    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
         let (i, node_id) = be_u8(i)?; // FIXME: This needs to depend on the controller's node ID type
         let (i, payload_len) = be_u8(i)?;
         let (i, payload) = take(payload_len)(i)?;
@@ -120,7 +120,7 @@ impl CommandId for SendDataResponse {
 }
 
 impl CommandParsable for SendDataResponse {
-    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
         let (i, was_sent) = map(be_u8, |x| x > 0)(i)?;
         Ok((i, Self { was_sent }))
     }
@@ -165,7 +165,7 @@ impl CommandId for SendDataCallback {
 }
 
 impl CommandParsable for SendDataCallback {
-    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
         let (i, callback_id) = be_u8(i)?;
         let (i, transmit_status) = TransmitStatus::parse(i)?;
         let (i, transmit_report) =

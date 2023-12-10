@@ -202,7 +202,7 @@ impl CommandRequest for SerialApiSetupRequest {
 }
 
 impl CommandParsable for SerialApiSetupRequest {
-    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
         parser_not_implemented(i, "ERROR: SerialApiSetupRequest::parse() not implemented")
         // Ok((i, Self {}))
     }
@@ -333,7 +333,7 @@ impl CommandId for SerialApiSetupResponse {
 impl CommandBase for SerialApiSetupResponse {}
 
 impl CommandParsable for SerialApiSetupResponse {
-    fn parse(i: encoding::Input, ctx: CommandParseContext) -> encoding::ParseResult<Self> {
+    fn parse<'a>(i: encoding::Input<'a>, ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
         let (i, command) = map(be_u8, |x| SerialApiSetupCommand::try_from(x).unwrap())(i)?;
         let (i, payload) = match command {
             SerialApiSetupCommand::Unsupported => {

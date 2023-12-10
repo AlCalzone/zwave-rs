@@ -35,7 +35,7 @@ impl CommandRequest for GetControllerVersionRequest {
 }
 
 impl CommandParsable for GetControllerVersionRequest {
-    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
         // No payload
         Ok((i, Self {}))
     }
@@ -71,7 +71,7 @@ impl CommandId for GetControllerVersionResponse {
 impl CommandBase for GetControllerVersionResponse {}
 
 impl CommandParsable for GetControllerVersionResponse {
-    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
         let (i, version) = map(many1(none_of("\0")), |v| v.into_iter().collect::<String>())(i)?;
         let (i, _) = tag("\0")(i)?;
         let (i, library_type) = ZWaveLibraryType::parse(i)?;

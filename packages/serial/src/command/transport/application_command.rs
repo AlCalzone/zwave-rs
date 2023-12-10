@@ -33,7 +33,7 @@ impl CommandId for ApplicationCommandRequest {
 impl CommandBase for ApplicationCommandRequest {}
 
 impl CommandParsable for ApplicationCommandRequest {
-    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
         let (i, frame_info) = FrameInfo::parse(i)?;
         let (i, source_node_id) = be_u8(i)?; // FIXME: This needs to depend on the controller's node ID type
         let (i, payload) = length_data(be_u8)(i)?;

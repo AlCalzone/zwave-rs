@@ -47,7 +47,7 @@ impl CommandRequest for SetRfReceiveModeRequest {
 }
 
 impl CommandParsable for SetRfReceiveModeRequest {
-    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
         eprintln!("ERROR: SetRfReceiveModeRequest::parse() not implemented");
         Ok((i, Self::default()))
     }
@@ -86,7 +86,7 @@ impl CommandBase for SetRfReceiveModeResponse {
 }
 
 impl CommandParsable for SetRfReceiveModeResponse {
-    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
         let (i, success) = map(be_u8, |x| x > 0)(i)?;
         Ok((i, Self { success }))
     }

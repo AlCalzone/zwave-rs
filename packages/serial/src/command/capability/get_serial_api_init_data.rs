@@ -42,7 +42,7 @@ impl CommandRequest for GetSerialApiInitDataRequest {
 }
 
 impl CommandParsable for GetSerialApiInitDataRequest {
-    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
         // No payload
         Ok((i, Self {}))
     }
@@ -83,7 +83,7 @@ impl CommandId for GetSerialApiInitDataResponse {
 impl CommandBase for GetSerialApiInitDataResponse {}
 
 impl CommandParsable for GetSerialApiInitDataResponse {
-    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
         let (i, api_version) = ZWaveApiVersion::parse(i)?;
         let (i, (_reserved, is_sis, is_primary, supports_timers, node_type)) =
             bits(tuple((u4::parse, bool, bool, bool, NodeType::parse)))(i)?;
@@ -173,7 +173,7 @@ fn test_parse() {
         chip_type: Some(ChipType::EFR32xG1x),
     };
     let actual =
-        GetSerialApiInitDataResponse::try_from((input.as_slice(), CommandParseContext::default()))
+        GetSerialApiInitDataResponse::try_from((input.as_slice(), &CommandParseContext::default()))
             .unwrap();
     assert_eq!(actual, expected)
 }

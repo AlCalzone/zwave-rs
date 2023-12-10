@@ -35,7 +35,7 @@ impl CommandId for BridgeApplicationCommandRequest {
 impl CommandBase for BridgeApplicationCommandRequest {}
 
 impl CommandParsable for BridgeApplicationCommandRequest {
-    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
         let (i, frame_info) = FrameInfo::parse(i)?;
         let (i, destination_node_id) = be_u8(i)?; // FIXME: This needs to depend on the controller's node ID type
         let (i, source_node_id) = be_u8(i)?; // FIXME: This needs to depend on the controller's node ID type

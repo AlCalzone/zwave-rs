@@ -554,10 +554,8 @@ async fn serial_loop_handle_frame(
                         .unwrap();
 
                     // Now try to convert it into an actual command
-                    match zwave_serial::command::Command::try_from_raw(
-                        raw,
-                        CommandParseContext::default(),
-                    ) {
+                    let ctx = CommandParseContext::default();
+                    match zwave_serial::command::Command::try_from_raw(raw, &ctx) {
                         Ok(cmd) => {
                             println!("{} received {:#?}", now(), cmd);
                             Some(SerialFrame::Command(cmd))

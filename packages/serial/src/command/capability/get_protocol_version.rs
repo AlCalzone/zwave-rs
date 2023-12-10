@@ -39,7 +39,7 @@ impl CommandRequest for GetProtocolVersionRequest {
 }
 
 impl CommandParsable for GetProtocolVersionRequest {
-    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
         // No payload
         Ok((i, Self {}))
     }
@@ -77,7 +77,7 @@ impl CommandId for GetProtocolVersionResponse {
 impl CommandBase for GetProtocolVersionResponse {}
 
 impl CommandParsable for GetProtocolVersionResponse {
-    fn parse(i: encoding::Input, _ctx: CommandParseContext) -> encoding::ParseResult<Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
         let (i, protocol_type) = ProtocolType::parse(i)?;
         let (i, version) = map(tuple((be_u8, be_u8, be_u8)), |(major, minor, patch)| {
             Version {
