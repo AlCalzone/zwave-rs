@@ -3,6 +3,7 @@ use crate::submodule;
 submodule!(chip_type);
 submodule!(controller_role);
 submodule!(command_type);
+submodule!(command_classes);
 submodule!(data_rate);
 submodule!(function_type);
 submodule!(frame_info);
