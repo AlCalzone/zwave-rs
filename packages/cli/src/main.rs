@@ -15,6 +15,9 @@ async fn main() {
     let mut driver = zwave_driver::Driver::new(PORT);
     println!("driver started");
 
+    driver.init().await.unwrap();
+    println!("driver initialized");
+
     // driver
     //     .register_command_handler(Box::new(|cmd| {
     //         if cmd.function_type() == FunctionType::AddNodeToNetwork {

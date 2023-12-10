@@ -34,10 +34,11 @@ type SerialListener = broadcast::Receiver<SerialFrame>;
 
 #[allow(dead_code)]
 pub struct Driver {
-    serial_task: JoinHandle<()>,
     main_task: JoinHandle<()>,
     main_cmd: MainTaskCommandSender,
     main_task_shutdown: Arc<Notify>,
+
+    serial_task: JoinHandle<()>,
     serial_cmd: SerialTaskCommandSender,
     serial_listener: SerialListener,
     serial_task_shutdown: Arc<Notify>,
@@ -92,6 +93,19 @@ impl Driver {
             serial_listener: serial_listener_rx,
             callback_id_gen,
         }
+    }
+
+    pub async fn init(&self) -> Result<()> {
+        // Synchronize the serial port
+        exec_background_task!(
+            self.serial_cmd,
+            SerialTaskCommand::SendFrame,
+            SerialFrame::ControlFlow(ControlFlow::NAK)
+        )?;
+
+        // TODO: Interview controller
+
+        Ok(())
     }
 
     /// Write a frame to the serial port, returning a reference to the awaited ACK frame
@@ -595,20 +609,6 @@ macro_rules! exec_background_task {
     };
 }
 use exec_background_task;
-
-// async fn exec_background_task<T>(
-//     command_sender: &TaskCommandSender<T>,
-//     cmd: T,
-// ) -> Result<dyn std::any::Any> {
-//     let (cmd)
-//     let (tx, rx) = oneshot::channel::<dyn std::any::Any>();
-//     command_sender
-//         .send((cmd, tx))
-//         .await
-//         .map_err(|_| Error::Internal)?;
-//     let res = rx.await.map_err(|_| Error::Internal)?;
-//     Ok(())
-// }
 
 impl Drop for Driver {
     fn drop(&mut self) {
