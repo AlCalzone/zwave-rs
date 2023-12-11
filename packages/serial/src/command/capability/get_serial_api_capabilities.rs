@@ -62,14 +62,14 @@ impl Serializable for GetSerialApiCapabilitiesRequest {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetSerialApiCapabilitiesResponse {
-    firmware_version: Version,
     #[debug(format = "0x{:04x}")]
-    manufacturer_id: u16,
+    pub manufacturer_id: u16,
     #[debug(format = "0x{:04x}")]
-    product_type: u16,
+    pub product_type: u16,
     #[debug(format = "0x{:04x}")]
-    product_id: u16,
-    supported_function_types: Vec<FunctionType>,
+    pub product_id: u16,
+    pub firmware_version: Version,
+    pub supported_function_types: Vec<FunctionType>,
 }
 
 impl CommandId for GetSerialApiCapabilitiesResponse {

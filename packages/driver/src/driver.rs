@@ -1,10 +1,10 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use zwave_core::prelude::*;
 use zwave_core::state_machine::{StateMachine, StateMachineTransition};
 use zwave_core::util::now;
 use zwave_core::wrapping_counter::WrappingCounter;
+use zwave_core::{prelude::*, submodule};
 use zwave_serial::prelude::*;
 
 use zwave_serial::binding::SerialBinding;
@@ -21,10 +21,13 @@ use self::serial_api_machine::{
     SerialApiMachine, SerialApiMachineCondition, SerialApiMachineInput, SerialApiMachineState,
 };
 
+pub use serial_api_machine::SerialApiMachineResult;
+
 mod awaited;
+mod identify_controller;
 mod serial_api_machine;
 
-pub use serial_api_machine::SerialApiMachineResult;
+submodule!(exec_controller_command);
 
 type TaskCommandSender<T> = mpsc::Sender<T>;
 type TaskCommandReceiver<T> = mpsc::Receiver<T>;
@@ -95,7 +98,7 @@ impl Driver {
         }
     }
 
-    pub async fn init(&self) -> Result<()> {
+    pub async fn init(&mut self) -> Result<()> {
         // Synchronize the serial port
         exec_background_task!(
             self.serial_cmd,
@@ -104,6 +107,8 @@ impl Driver {
         )?;
 
         // TODO: Interview controller
+        let controller_info = self.identify_controller().await.unwrap();
+        println!("Controller info: {:#?}", controller_info);
 
         Ok(())
     }

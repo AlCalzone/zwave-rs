@@ -50,8 +50,8 @@ impl Serializable for GetControllerVersionRequest {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetControllerVersionResponse {
-    library_type: ZWaveLibraryType,
-    library_version: String,
+    pub library_type: ZWaveLibraryType,
+    pub library_version: String,
 }
 
 impl CommandId for GetControllerVersionResponse {
