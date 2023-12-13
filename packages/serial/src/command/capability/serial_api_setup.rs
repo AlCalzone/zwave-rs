@@ -41,31 +41,17 @@ pub struct SerialApiSetupRequest {
 #[derive(Debug, Clone, PartialEq)]
 pub enum SerialApiSetupRequestPayload {
     GetSupportedCommands,
-    SetTxStatusReport {
-        enabled: bool,
-    },
-    SetPowerlevel {
-        powerlevel: f32,
-        measured_0_dbm: f32,
-    },
+    SetTxStatusReport { enabled: bool },
+    SetPowerlevel { powerlevel: Powerlevel },
     GetPowerlevel,
     GetMaximumPayloadSize,
     GetRFRegion,
-    SetRFRegion {
-        region: RfRegion,
-    },
-    SetNodeIDType {
-        node_id_type: NodeIdType,
-    },
-    SetLRMaximumTxPower {
-        max_power: f32,
-    },
+    SetRFRegion { region: RfRegion },
+    SetNodeIDType { node_id_type: NodeIdType },
+    SetLRMaximumTxPower { max_power: f32 },
     GetLRMaximumTxPower,
     GetLRMaximumPayloadSize,
-    SetPowerlevel16Bit {
-        powerlevel: f32,
-        measured_0_dbm: f32,
-    },
+    SetPowerlevel16Bit { powerlevel: Powerlevel },
     GetPowerlevel16Bit,
 }
 
@@ -84,13 +70,10 @@ impl SerialApiSetupRequest {
         }
     }
 
-    pub fn set_powerlevel(powerlevel: f32, measured_0_dbm: f32) -> Self {
+    pub fn set_powerlevel(powerlevel: Powerlevel) -> Self {
         Self {
             command: SerialApiSetupCommand::SetPowerlevel,
-            payload: SerialApiSetupRequestPayload::SetPowerlevel {
-                powerlevel,
-                measured_0_dbm,
-            },
+            payload: SerialApiSetupRequestPayload::SetPowerlevel { powerlevel },
         }
     }
 
@@ -150,13 +133,10 @@ impl SerialApiSetupRequest {
         }
     }
 
-    pub fn set_powerlevel_16bit(powerlevel: f32, measured_0_dbm: f32) -> Self {
+    pub fn set_powerlevel_16bit(powerlevel: Powerlevel) -> Self {
         Self {
             command: SerialApiSetupCommand::SetPowerlevel16Bit,
-            payload: SerialApiSetupRequestPayload::SetPowerlevel16Bit {
-                powerlevel,
-                measured_0_dbm,
-            },
+            payload: SerialApiSetupRequestPayload::SetPowerlevel16Bit { powerlevel },
         }
     }
 
@@ -212,7 +192,10 @@ impl CommandParsable for SerialApiSetupRequest {
 }
 
 impl CommandSerializable for SerialApiSetupRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        _ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         use cf::{
             bytes::{be_i16, be_i8, be_u8},
             sequence::tuple,
@@ -231,20 +214,26 @@ impl CommandSerializable for SerialApiSetupRequest {
                 be_u8(if enabled { 0xff } else { 0x00 })(out)
             }
             SerialApiSetupRequestPayload::SetPowerlevel {
-                powerlevel,
-                measured_0_dbm,
+                powerlevel:
+                    Powerlevel {
+                        tx_power: tx_power_dbm,
+                        measured_at_0_dbm,
+                    },
             } => tuple((
                 // The values are represented as a multiple of 0.1 dBm
-                be_i8((powerlevel * 10f32).round() as i8),
-                be_i8((measured_0_dbm * 10f32).round() as i8),
+                be_i8((tx_power_dbm * 10f32).round() as i8),
+                be_i8((measured_at_0_dbm * 10f32).round() as i8),
             ))(out),
             SerialApiSetupRequestPayload::SetPowerlevel16Bit {
-                powerlevel,
-                measured_0_dbm,
+                powerlevel:
+                    Powerlevel {
+                        tx_power: tx_power_dbm,
+                        measured_at_0_dbm,
+                    },
             } => tuple((
                 // The values are represented as a multiple of 0.1 dBm
-                be_i16((powerlevel * 10f32).round() as i16),
-                be_i16((measured_0_dbm * 10f32).round() as i16),
+                be_i16((tx_power_dbm * 10f32).round() as i16),
+                be_i16((measured_at_0_dbm * 10f32).round() as i16),
             ))(out),
             SerialApiSetupRequestPayload::SetLRMaximumTxPower { max_power } => {
                 // The values are represented as a multiple of 0.1 dBm
@@ -286,8 +275,7 @@ pub enum SerialApiSetupResponsePayload {
         success: bool,
     },
     GetPowerlevel {
-        powerlevel: f32,
-        measured_0_dbm: f32,
+        powerlevel: Powerlevel,
     },
     GetMaximumPayloadSize {
         size: u8,
@@ -314,8 +302,7 @@ pub enum SerialApiSetupResponsePayload {
         success: bool,
     },
     GetPowerlevel16Bit {
-        powerlevel: f32,
-        measured_0_dbm: f32,
+        powerlevel: Powerlevel,
     },
 }
 
@@ -417,13 +404,15 @@ impl CommandParsable for SerialApiSetupResponse {
                 (i, SerialApiSetupResponsePayload::SetPowerlevel { success })
             }
             SerialApiSetupCommand::GetPowerlevel => {
-                let (i, powerlevel) = map(be_i8, |x| x as f32 / 10f32)(i)?;
-                let (i, measured_0_dbm) = map(be_i8, |x| x as f32 / 10f32)(i)?;
+                let (i, tx_power_dbm) = map(be_i8, |x| x as f32 / 10f32)(i)?;
+                let (i, measured_at_0_dbm) = map(be_i8, |x| x as f32 / 10f32)(i)?;
                 (
                     i,
                     SerialApiSetupResponsePayload::GetPowerlevel {
-                        powerlevel,
-                        measured_0_dbm,
+                        powerlevel: Powerlevel {
+                            tx_power: tx_power_dbm,
+                            measured_at_0_dbm,
+                        },
                     },
                 )
             }
@@ -476,13 +465,15 @@ impl CommandParsable for SerialApiSetupResponse {
                 )
             }
             SerialApiSetupCommand::GetPowerlevel16Bit => {
-                let (i, powerlevel) = map(be_i16, |x| x as f32 / 10f32)(i)?;
-                let (i, measured_0_dbm) = map(be_i16, |x| x as f32 / 10f32)(i)?;
+                let (i, tx_power_dbm) = map(be_i16, |x| x as f32 / 10f32)(i)?;
+                let (i, measured_at_0_dbm) = map(be_i16, |x| x as f32 / 10f32)(i)?;
                 (
                     i,
                     SerialApiSetupResponsePayload::GetPowerlevel16Bit {
-                        powerlevel,
-                        measured_0_dbm,
+                        powerlevel: Powerlevel {
+                            tx_power: tx_power_dbm,
+                            measured_at_0_dbm,
+                        },
                     },
                 )
             }
@@ -492,7 +483,10 @@ impl CommandParsable for SerialApiSetupResponse {
 }
 
 impl CommandSerializable for SerialApiSetupResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        _ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         move |_out| todo!("ERROR: SerialApiSetupResponse::serialize() not implemented")
     }
 }

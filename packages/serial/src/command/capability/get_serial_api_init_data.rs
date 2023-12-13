@@ -68,7 +68,7 @@ pub struct GetSerialApiInitDataResponse {
     pub is_primary: bool,
     pub supports_timers: bool,
     pub node_type: NodeType,
-    pub node_ids: Vec<u8>,
+    pub node_ids: Vec<NodeId>,
     pub chip_type: Option<ChipType>,
 }
 
@@ -106,7 +106,7 @@ impl CommandParsable for GetSerialApiInitDataResponse {
                 is_primary,
                 supports_timers,
                 node_type,
-                node_ids,
+                node_ids: node_ids.into_iter().map(|n| n.into()).collect(),
                 chip_type,
             },
         ))
@@ -121,7 +121,13 @@ impl CommandSerializable for GetSerialApiInitDataResponse {
         use cf::sequence::tuple;
 
         move |out| {
-            tuple((
+            let node_ids: Vec<u8> = self
+                .node_ids
+                .iter()
+                .filter_map(|n| if *n < 256u16 { Some((*n).into()) } else { None })
+                .collect();
+
+            let ret = tuple((
                 self.api_version.serialize(),
                 encoders::bits(move |bo| {
                     let reserved = u4::new(0);
@@ -131,9 +137,11 @@ impl CommandSerializable for GetSerialApiInitDataResponse {
                     self.supports_timers.write(bo);
                     self.node_type.write(bo);
                 }),
-                encoders::bitmask_u8(&self.node_ids, 1),
+                encoders::bitmask_u8(&node_ids, 1),
                 self.chip_type.serialize(),
-            ))(out)
+            ))(out);
+
+            ret
         }
     }
 }
@@ -141,7 +149,7 @@ impl CommandSerializable for GetSerialApiInitDataResponse {
 #[cfg(test)]
 mod test {
     use crate::{command::GetSerialApiInitDataResponse, prelude::*};
-    use zwave_core::definitions::{ChipType, NodeType, ZWaveApiVersion};
+    use zwave_core::definitions::{ChipType, NodeId, NodeType, ZWaveApiVersion};
 
     #[test]
     fn test_serialize() {
@@ -151,7 +159,7 @@ mod test {
             is_primary: true,
             supports_timers: true,
             node_type: NodeType::Controller,
-            node_ids: vec![1, 4, 8, 10],
+            node_ids: vec![1u8, 4, 8, 10].into_iter().map(NodeId::new).collect(),
             chip_type: Some(ChipType::EFR32xG1x),
         };
         let ctx = CommandEncodingContext::default();
@@ -187,7 +195,7 @@ mod test {
             is_primary: true,
             supports_timers: true,
             node_type: NodeType::Controller,
-            node_ids: vec![1, 4, 8, 10],
+            node_ids: vec![1u8, 4, 8, 10].into_iter().map(NodeId::new).collect(),
             chip_type: Some(ChipType::EFR32xG1x),
         };
         let actual = GetSerialApiInitDataResponse::try_from_slice(

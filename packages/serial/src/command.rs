@@ -10,6 +10,7 @@ submodule!(application);
 submodule!(capability);
 submodule!(misc);
 submodule!(transport);
+submodule!(network_mgmt);
 
 #[derive(Default, Debug, Clone, PartialEq, Builder)]
 #[builder(pattern = "owned")]

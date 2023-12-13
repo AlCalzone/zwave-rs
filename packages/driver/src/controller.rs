@@ -1,45 +1,47 @@
 use custom_debug_derive::Debug;
+use derive_builder::Builder;
 use zwave_core::definitions::{
-    protocol_version_to_sdk_version, DeviceFingerprint, FunctionType, Version, ZWaveLibraryType, NodeId,
+    ControllerRole, DeviceFingerprint, FunctionType, NodeId, NodeType, Powerlevel, RfRegion,
+    Version, ZWaveApiVersion, ZWaveLibraryType,
 };
 use zwave_serial::command::SerialApiSetupCommand;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Builder)]
+#[builder(pattern = "owned")]
 pub struct Controller {
     #[debug(format = "0x{:08x}")]
     home_id: u32,
     own_node_id: NodeId,
+    node_ids: Vec<NodeId>,
+    suc_node_id: Option<NodeId>,
 
     fingerprint: DeviceFingerprint,
 
-    supported_function_types: Vec<FunctionType>,
-    supported_serial_api_setup_commands: Vec<SerialApiSetupCommand>,
-
     library_type: ZWaveLibraryType,
+    api_version: ZWaveApiVersion,
     protocol_version: Version,
     sdk_version: Version,
+
+    node_type: NodeType,
+    role: ControllerRole,
+    started_this_network: bool,
+    sis_present: bool,
+    is_sis: bool,
+    is_suc: bool,
+
+    supported_function_types: Vec<FunctionType>,
+    supported_serial_api_setup_commands: Vec<SerialApiSetupCommand>,
+    supports_timers: bool,
+
+    #[builder(setter(skip))]
+    rf_region: RfRegion,
+    #[builder(setter(skip))]
+    powerlevel: Powerlevel,
 }
 
 impl Controller {
-    pub fn new(
-        home_id: u32,
-        own_node_id: NodeId,
-        fingerprint: DeviceFingerprint,
-        library_type: ZWaveLibraryType,
-        protocol_version: Version,
-        supported_function_types: Vec<FunctionType>,
-        supported_serial_api_setup_commands: Vec<SerialApiSetupCommand>,
-    ) -> Self {
-        Self {
-            home_id,
-            own_node_id,
-            fingerprint,
-            library_type,
-            protocol_version,
-            sdk_version: protocol_version_to_sdk_version(&protocol_version),
-            supported_function_types,
-            supported_serial_api_setup_commands,
-        }
+    pub fn builder() -> ControllerBuilder {
+        ControllerBuilder::default()
     }
 
     /// Checks whether a given Z-Wave function type is supported by the controller.

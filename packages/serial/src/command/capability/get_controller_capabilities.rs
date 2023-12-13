@@ -50,10 +50,10 @@ impl CommandSerializable for GetControllerCapabilitiesRequest {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetControllerCapabilitiesResponse {
-    role: ControllerRole,
-    started_this_network: bool,
-    sis_present: bool,
-    is_suc: bool,
+    pub role: ControllerRole,
+    pub started_this_network: bool,
+    pub sis_present: bool,
+    pub is_suc: bool,
     // no_nodes_included: bool, // This flag is sometimes set when there are nodes in the network, so we ignore it
 }
 

@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use crate::driver::SerialTaskCommand;
 use crate::driver::UseNodeIDType;
 use crate::exec_background_task;
@@ -5,13 +7,22 @@ use crate::Driver;
 use crate::SerialApiMachineResult;
 
 use thiserror::Error;
+use zwave_core::definitions::NodeId;
 use zwave_core::definitions::NodeIdType;
+use zwave_serial::command::GetControllerCapabilitiesRequest;
+use zwave_serial::command::GetControllerCapabilitiesResponse;
+use zwave_serial::command::GetControllerIdRequest;
+use zwave_serial::command::GetControllerIdResponse;
 use zwave_serial::command::GetControllerVersionRequest;
 use zwave_serial::command::GetControllerVersionResponse;
 use zwave_serial::command::GetProtocolVersionRequest;
 use zwave_serial::command::GetProtocolVersionResponse;
 use zwave_serial::command::GetSerialApiCapabilitiesRequest;
 use zwave_serial::command::GetSerialApiCapabilitiesResponse;
+use zwave_serial::command::GetSerialApiInitDataRequest;
+use zwave_serial::command::GetSerialApiInitDataResponse;
+use zwave_serial::command::GetSucNodeIdRequest;
+use zwave_serial::command::GetSucNodeIdResponse;
 use zwave_serial::command::SerialApiSetupCommand;
 use zwave_serial::command::SerialApiSetupRequest;
 use zwave_serial::command::SerialApiSetupResponsePayload;
@@ -32,6 +43,39 @@ impl Driver {
         let capabilities =
             expect_controller_command_result!(response, GetSerialApiCapabilitiesResponse);
 
+        // TODO: Log response
+
+        Ok(capabilities)
+    }
+
+    pub async fn get_serial_api_init_data(
+        &mut self,
+    ) -> ControllerCommandResult<GetSerialApiInitDataResponse> {
+        println!("Querying Serial API init data...");
+        let response = self
+            .exec_controller_command(GetSerialApiInitDataRequest::default(), None)
+            .await;
+
+        let init_data = expect_controller_command_result!(response, GetSerialApiInitDataResponse);
+
+        // TODO: Log response
+
+        Ok(init_data)
+    }
+
+    pub async fn get_controller_capabilities(
+        &mut self,
+    ) -> ControllerCommandResult<GetControllerCapabilitiesResponse> {
+        println!("Querying controller capabilities...");
+        let response = self
+            .exec_controller_command(GetControllerCapabilitiesRequest::default(), None)
+            .await;
+
+        let capabilities =
+            expect_controller_command_result!(response, GetControllerCapabilitiesResponse);
+
+        // TODO: Log response
+
         Ok(capabilities)
     }
 
@@ -46,7 +90,24 @@ impl Driver {
         let version_info =
             expect_controller_command_result!(response, GetControllerVersionResponse);
 
+        // TODO: Log response
+
         Ok(version_info)
+    }
+
+    pub async fn get_controller_id(
+        &mut self,
+    ) -> ControllerCommandResult<GetControllerIdResponse> {
+        println!("Querying controller ID...");
+        let response = self
+            .exec_controller_command(GetControllerIdRequest::default(), None)
+            .await;
+
+        let ids = expect_controller_command_result!(response, GetControllerIdResponse);
+
+        // TODO: Log response
+
+        Ok(ids)
     }
 
     pub async fn get_protocol_version(
@@ -60,7 +121,23 @@ impl Driver {
         let protocol_version =
             expect_controller_command_result!(response, GetProtocolVersionResponse);
 
+        // TODO: Log response
+
         Ok(protocol_version)
+    }
+
+    pub async fn get_suc_node_id(&mut self) -> ControllerCommandResult<Option<NodeId>> {
+        println!("Querying SUC node ID...");
+        let response = self
+            .exec_controller_command(GetSucNodeIdRequest::default(), None)
+            .await;
+
+        let suc_node_id =
+            expect_controller_command_result!(response, GetSucNodeIdResponse).suc_node_id;
+
+        // TODO: Log response
+
+        Ok(suc_node_id)
     }
 
     pub async fn get_supported_serial_api_setup_commands(

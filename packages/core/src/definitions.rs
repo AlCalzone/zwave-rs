@@ -13,6 +13,7 @@ submodule!(node_id_type);
 submodule!(node_id);
 submodule!(node_type);
 submodule!(protocol_type);
+submodule!(powerlevel);
 submodule!(rf_region);
 submodule!(routing_scheme);
 submodule!(rssi);

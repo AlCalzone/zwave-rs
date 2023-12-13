@@ -6,7 +6,7 @@ use cookie_factory as cf;
 use derive_try_from_primitive::*;
 use nom::{combinator::map, error::context, number::complete::be_u8};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 pub enum RfRegion {
@@ -22,6 +22,7 @@ pub enum RfRegion {
     JP = 32,
     KR = 33,
     Unknown = 254,
+    #[default]
     Default = 255,
 }
 
