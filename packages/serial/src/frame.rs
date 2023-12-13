@@ -1,6 +1,8 @@
 use zwave_core::prelude::*;
 
-use crate::{command_raw::CommandRaw, prelude::Command};
+use crate::{
+    prelude::{Command, CommandEncodingContext},
+};
 
 use cookie_factory as cf;
 use derive_try_from_primitive::*;
@@ -116,13 +118,15 @@ impl RawSerialFrame {
 
 impl_vec_conversion_for!(RawSerialFrame);
 
-impl TryInto<RawSerialFrame> for SerialFrame {
-    type Error = EncodingError;
-
-    fn try_into(self) -> std::result::Result<RawSerialFrame, Self::Error> {
+impl SerialFrame {
+    pub fn try_into_raw(
+        self,
+        ctx: &CommandEncodingContext,
+    ) -> std::result::Result<RawSerialFrame, EncodingError> {
         match self {
             SerialFrame::ControlFlow(byte) => Ok(RawSerialFrame::ControlFlow(byte)),
-            SerialFrame::Command(cmd) => CommandRaw::try_from(cmd)
+            SerialFrame::Command(cmd) => cmd
+                .try_into_raw(ctx)
                 .map(TryInto::<Vec<u8>>::try_into)?
                 .map(RawSerialFrame::Data),
             SerialFrame::Raw(data) => Ok(RawSerialFrame::Data(data)),

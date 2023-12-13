@@ -51,8 +51,8 @@ impl CommandParsable for ApplicationCommandRequest {
     }
 }
 
-impl Serializable for ApplicationCommandRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for ApplicationCommandRequest {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         
         move |_out| todo!("ERROR: ApplicationCommandRequest::serialize() not implemented")
     }

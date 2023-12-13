@@ -52,8 +52,8 @@ impl CommandParsable for GetSerialApiCapabilitiesRequest {
     }
 }
 
-impl Serializable for GetSerialApiCapabilitiesRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for GetSerialApiCapabilitiesRequest {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         
         // No payload
         empty()
@@ -117,8 +117,8 @@ impl CommandParsable for GetSerialApiCapabilitiesResponse {
     }
 }
 
-impl Serializable for GetSerialApiCapabilitiesResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for GetSerialApiCapabilitiesResponse {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         
         move |_out| todo!("ERROR: GetSerialApiCapabilitiesResponse::serialize() not implemented")
     }

@@ -40,8 +40,8 @@ impl CommandParsable for GetBackgroundRssiRequest {
     }
 }
 
-impl Serializable for GetBackgroundRssiRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for GetBackgroundRssiRequest {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         // No payload
         empty()
     }
@@ -86,8 +86,8 @@ impl CommandParsable for GetBackgroundRssiResponse {
     }
 }
 
-impl Serializable for GetBackgroundRssiResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for GetBackgroundRssiResponse {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         move |_out| todo!("ERROR: GetBackgroundRssiResponse::serialize() not implemented")
     }
 }

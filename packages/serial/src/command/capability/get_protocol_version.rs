@@ -45,8 +45,8 @@ impl CommandParsable for GetProtocolVersionRequest {
     }
 }
 
-impl Serializable for GetProtocolVersionRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for GetProtocolVersionRequest {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         // No payload
         empty()
     }
@@ -113,8 +113,8 @@ impl CommandParsable for GetProtocolVersionResponse {
     }
 }
 
-impl Serializable for GetProtocolVersionResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for GetProtocolVersionResponse {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         move |_out| todo!()
     }
 }

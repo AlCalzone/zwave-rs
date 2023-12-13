@@ -39,8 +39,8 @@ impl CommandParsable for SoftResetRequest {
     }
 }
 
-impl Serializable for SoftResetRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for SoftResetRequest {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         // No payload
         empty()
     }

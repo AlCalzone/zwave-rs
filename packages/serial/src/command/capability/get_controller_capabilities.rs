@@ -41,8 +41,8 @@ impl CommandParsable for GetControllerCapabilitiesRequest {
     }
 }
 
-impl Serializable for GetControllerCapabilitiesRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for GetControllerCapabilitiesRequest {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         // No payload
         empty()
     }
@@ -93,8 +93,8 @@ impl CommandParsable for GetControllerCapabilitiesResponse {
     }
 }
 
-impl Serializable for GetControllerCapabilitiesResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for GetControllerCapabilitiesResponse {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         move |_out| todo!("ERROR: GetControllerCapabilitiesResponse::serialize() not implemented")
     }
 }

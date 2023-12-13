@@ -566,7 +566,11 @@ async fn serial_loop_handle_command(
 ) {
     match cmd {
         SerialTaskCommand::SendFrame(SendFrame { frame, callback }) => {
-            port.write(frame.try_into().unwrap()).await.unwrap();
+            let ctx = CommandEncodingContext::builder()
+                .node_id_type(state.node_id_type)
+                .build()
+                .unwrap();
+            port.write(frame.try_into_raw(&ctx).unwrap()).await.unwrap();
             callback.send(()).unwrap();
         }
         SerialTaskCommand::UseNodeIDType(UseNodeIDType {

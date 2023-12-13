@@ -110,21 +110,6 @@ impl Serializable for CommandRaw {
     }
 }
 
-impl TryFrom<Command> for CommandRaw {
-    type Error = EncodingError;
-
-    fn try_from(value: Command) -> std::result::Result<Self, Self::Error> {
-        let payload = cf::gen_simple(value.serialize(), Vec::new())?;
-        let raw = Self {
-            command_type: value.command_type(),
-            function_type: value.function_type(),
-            payload,
-            checksum: 0, // placeholder
-        };
-        Ok(raw)
-    }
-}
-
 impl_vec_conversion_for!(CommandRaw);
 
 #[test]

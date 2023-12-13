@@ -41,8 +41,8 @@ impl CommandParsable for GetControllerVersionRequest {
     }
 }
 
-impl Serializable for GetControllerVersionRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for GetControllerVersionRequest {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         // No payload
         empty()
     }
@@ -86,8 +86,8 @@ impl CommandParsable for GetControllerVersionResponse {
     }
 }
 
-impl Serializable for GetControllerVersionResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for GetControllerVersionResponse {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         use cf::{bytes::be_u8, combinator::string, sequence::tuple};
         tuple((
             string(&self.library_version),

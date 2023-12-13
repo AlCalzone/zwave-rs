@@ -1,16 +1,13 @@
 use crate::prelude::*;
 use zwave_core::prelude::*;
 
+use custom_debug_derive::Debug;
 use cookie_factory as cf;
-use derive_builder::Builder;
+
 use nom::{
-    bytes::complete::tag,
-    character::complete::none_of,
-    combinator::map,
-    multi::many1,
-    number::complete::{be_u32, be_u8},
+    number::complete::{be_u32},
 };
-use zwave_core::encoding::{self, encoders::empty, parser_not_implemented};
+use zwave_core::encoding::{self, encoders::empty};
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetControllerIdRequest {}
@@ -44,16 +41,16 @@ impl CommandRequest for GetControllerIdRequest {
 impl CommandParsable for GetControllerIdRequest {
     fn parse<'a>(
         i: encoding::Input<'a>,
-        ctx: &CommandEncodingContext,
+        _ctx: &CommandEncodingContext,
     ) -> encoding::ParseResult<'a, Self> {
         // No payload
         Ok((i, Self {}))
     }
 }
 
-impl Serializable for GetControllerIdRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, sequence::tuple};
+impl CommandSerializable for GetControllerIdRequest {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
+        
         // No payload
         empty()
     }
@@ -61,6 +58,7 @@ impl Serializable for GetControllerIdRequest {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetControllerIdResponse {
+    #[debug(format = "0x{:08x}")]
     pub home_id: u32,
     pub own_node_id: NodeId,
 }
@@ -99,8 +97,8 @@ impl CommandParsable for GetControllerIdResponse {
     }
 }
 
-impl Serializable for GetControllerIdResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for GetControllerIdResponse {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         use cf::{bytes::be_u32, sequence::tuple};
         // FIXME: Support serializing 16-bit node IDs
         tuple((

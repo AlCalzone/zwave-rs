@@ -81,8 +81,8 @@ impl CommandParsable for SendDataRequest {
     }
 }
 
-impl Serializable for SendDataRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for SendDataRequest {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         use cf::{bytes::be_u8, combinator::slice, sequence::tuple};
         tuple((
             self.node_id.serialize(NodeIdType::NodeId8Bit), // FIXME: This needs to depend on the controller's node ID type
@@ -126,8 +126,8 @@ impl CommandParsable for SendDataResponse {
     }
 }
 
-impl Serializable for SendDataResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for SendDataResponse {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         use cf::bytes::be_u8;
         be_u8(if self.was_sent { 1 } else { 0 })
     }
@@ -182,8 +182,8 @@ impl CommandParsable for SendDataCallback {
     }
 }
 
-impl Serializable for SendDataCallback {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for SendDataCallback {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         
         move |_out| todo!()
     }

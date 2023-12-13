@@ -211,8 +211,8 @@ impl CommandParsable for SerialApiSetupRequest {
     }
 }
 
-impl Serializable for SerialApiSetupRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for SerialApiSetupRequest {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         use cf::{
             bytes::{be_i16, be_i8, be_u8},
             sequence::tuple,
@@ -491,8 +491,8 @@ impl CommandParsable for SerialApiSetupResponse {
     }
 }
 
-impl Serializable for SerialApiSetupResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for SerialApiSetupResponse {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         move |_out| todo!("ERROR: SerialApiSetupResponse::serialize() not implemented")
     }
 }

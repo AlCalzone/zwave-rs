@@ -64,8 +64,11 @@ impl CommandParsable for BridgeApplicationCommandRequest {
     }
 }
 
-impl Serializable for BridgeApplicationCommandRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for BridgeApplicationCommandRequest {
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        _ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         move |_out| todo!("ERROR: BridgeApplicationCommandRequest::serialize() not implemented")
     }
 }

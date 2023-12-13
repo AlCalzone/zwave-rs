@@ -66,8 +66,8 @@ impl CommandParsable for SerialApiStartedRequest {
     }
 }
 
-impl Serializable for SerialApiStartedRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for SerialApiStartedRequest {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         
         move |_out| todo!("ERROR: SerialApiStartedRequest::serialize() not implemented")
     }

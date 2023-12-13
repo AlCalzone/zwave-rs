@@ -1,13 +1,11 @@
 use crate::{driver::ControllerCommandError, ControllerCommandResult, Driver};
 use crate::{expect_controller_command_result, Controller};
-use custom_debug_derive::Debug;
+
 use zwave_core::definitions::{
-    parse_libary_version, DeviceFingerprint, FunctionType, NodeIdType, Version, ZWaveLibraryType,
+    parse_libary_version, DeviceFingerprint, FunctionType, NodeIdType,
 };
 use zwave_serial::command::{
-    Command, GetControllerIdRequest, GetControllerVersionRequest, GetProtocolVersionRequest,
-    GetSerialApiCapabilitiesRequest, SerialApiSetupCommand, SerialApiSetupRequest,
-    SerialApiSetupResponsePayload,
+    Command, GetControllerIdRequest, SerialApiSetupCommand,
 };
 
 impl Driver {

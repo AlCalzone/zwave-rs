@@ -60,14 +60,14 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
     let serializable_match_arms = commands.iter().map(|c| {
         let command_name = c.command_name;
         quote! {
-            Self::#command_name(c) => c.serialize()(out)
+            Self::#command_name(c) => c.serialize(ctx)(out)
         }
     });
 
     let vec_conversion_impls = commands.iter().map(|c| {
         let command_name = c.command_name;
         quote! {
-            impl_vec_serializing_for!(#command_name);
+            // impl_vec_serializing_for!(#command_name);
             impl_vec_parsing_with_context_for!(#command_name, &CommandEncodingContext);
         }
     });
@@ -87,14 +87,14 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
     let command_raw_serial_frame_conversions = commands.iter().map(|c| {
         let command_name = c.command_name;
         quote! {
-            impl TryInto<CommandRaw> for #command_name {
-                type Error = EncodingError;
+            // impl TryInto<CommandRaw> for #command_name {
+            //     type Error = EncodingError;
 
-                fn try_into(self) -> std::result::Result<CommandRaw, Self::Error> {
-                    let cmd: Command = self.into();
-                    cmd.try_into()
-                }
-            }
+            //     fn try_into(self) -> std::result::Result<CommandRaw, Self::Error> {
+            //         let cmd: Command = self.into();
+            //         cmd.try_into()
+            //     }
+            // }
 
             impl From<#command_name> for SerialFrame {
                 fn from(val: #command_name) -> Self {
@@ -115,8 +115,8 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
         }
 
         // Delegate Serialization to the corresponding variant
-        impl Serializable for Command {
-            fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+        impl CommandSerializable for Command {
+            fn serialize<'a, W: std::io::Write + 'a>(&'a self, ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
                 move |out| match self {
                     Self::NotImplemented(c) => cookie_factory::combinator::slice(&c.payload)(out),
                     #( #serializable_match_arms ),*
@@ -154,6 +154,17 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
                 } else {
                     ret
                 }
+            }
+
+            pub fn try_into_raw(self, ctx: &CommandEncodingContext) -> std::result::Result<CommandRaw, EncodingError> {
+                let payload = cookie_factory::gen_simple(self.serialize(&ctx), Vec::new())?;
+                let raw = CommandRaw {
+                    command_type: self.command_type(),
+                    function_type: self.function_type(),
+                    payload,
+                    checksum: 0, // placeholder
+                };
+                Ok(raw)
             }
         }
     };

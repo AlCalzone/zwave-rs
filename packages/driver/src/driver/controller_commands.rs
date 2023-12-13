@@ -115,7 +115,7 @@ impl Driver {
     pub async fn exec_controller_command<C>(
         &mut self,
         command: C,
-        options: Option<ExecControllerCommandOptions>,
+        _options: Option<ExecControllerCommandOptions>,
     ) -> ExecControllerCommandResult<Option<Command>>
     where
         C: CommandRequest + Clone + 'static,

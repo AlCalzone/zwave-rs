@@ -42,14 +42,20 @@ impl CommandRequest for GetSerialApiInitDataRequest {
 }
 
 impl CommandParsable for GetSerialApiInitDataRequest {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(
+        i: encoding::Input<'a>,
+        _ctx: &CommandEncodingContext,
+    ) -> encoding::ParseResult<'a, Self> {
         // No payload
         Ok((i, Self {}))
     }
 }
 
-impl Serializable for GetSerialApiInitDataRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for GetSerialApiInitDataRequest {
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        _ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         // No payload
         empty()
     }
@@ -83,7 +89,10 @@ impl CommandId for GetSerialApiInitDataResponse {
 impl CommandBase for GetSerialApiInitDataResponse {}
 
 impl CommandParsable for GetSerialApiInitDataResponse {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(
+        i: encoding::Input<'a>,
+        _ctx: &CommandEncodingContext,
+    ) -> encoding::ParseResult<'a, Self> {
         let (i, api_version) = ZWaveApiVersion::parse(i)?;
         let (i, (_reserved, is_sis, is_primary, supports_timers, node_type)) =
             bits(tuple((u4::parse, bool, bool, bool, NodeType::parse)))(i)?;
@@ -104,8 +113,11 @@ impl CommandParsable for GetSerialApiInitDataResponse {
     }
 }
 
-impl Serializable for GetSerialApiInitDataResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl CommandSerializable for GetSerialApiInitDataResponse {
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        _ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         use cf::sequence::tuple;
 
         move |out| {
@@ -126,21 +138,47 @@ impl Serializable for GetSerialApiInitDataResponse {
     }
 }
 
-#[test]
-fn test_serialize() {
-    let cmd = GetSerialApiInitDataResponse {
-        api_version: ZWaveApiVersion::Official(1),
-        is_sis: true,
-        is_primary: true,
-        supports_timers: true,
-        node_type: NodeType::Controller,
-        node_ids: vec![1, 4, 8, 10],
-        chip_type: Some(ChipType::EFR32xG1x),
+#[cfg(test)]
+mod test {
+    use crate::{
+        command::GetSerialApiInitDataResponse, frame::SerialFrame, prelude::CommandEncodingContext,
     };
-    let raw: Vec<u8> = cmd.try_into().unwrap();
-    assert_eq!(
-        raw,
-        vec![
+    use zwave_core::definitions::{ChipType, NodeType, ZWaveApiVersion};
+
+    #[test]
+    fn test_serialize() {
+        let cmd = GetSerialApiInitDataResponse {
+            api_version: ZWaveApiVersion::Official(1),
+            is_sis: true,
+            is_primary: true,
+            supports_timers: true,
+            node_type: NodeType::Controller,
+            node_ids: vec![1, 4, 8, 10],
+            chip_type: Some(ChipType::EFR32xG1x),
+        };
+        let ctx = CommandEncodingContext::default();
+        let raw: Vec<u8> = SerialFrame::from(cmd)
+            .try_into_raw(&ctx)
+            .unwrap()
+            .try_into()
+            .unwrap();
+        assert_eq!(
+            raw,
+            vec![
+                10,          // API version
+                0b0000_1110, // Capabilities,
+                2,           // bitmask length
+                0b1000_1001, // node 1, 4, 8
+                0b0000_0010, // node 10
+                0x07,
+                0x00, // chip type
+            ]
+        )
+    }
+
+    #[test]
+    fn test_parse() {
+        let input: Vec<u8> = vec![
             10,          // API version
             0b0000_1110, // Capabilities,
             2,           // bitmask length
@@ -148,32 +186,21 @@ fn test_serialize() {
             0b0000_0010, // node 10
             0x07,
             0x00, // chip type
-        ]
-    )
-}
-
-#[test]
-fn test_parse() {
-    let input: Vec<u8> = vec![
-        10,          // API version
-        0b0000_1110, // Capabilities,
-        2,           // bitmask length
-        0b1000_1001, // node 1, 4, 8
-        0b0000_0010, // node 10
-        0x07,
-        0x00, // chip type
-    ];
-    let expected = GetSerialApiInitDataResponse {
-        api_version: ZWaveApiVersion::Official(1),
-        is_sis: true,
-        is_primary: true,
-        supports_timers: true,
-        node_type: NodeType::Controller,
-        node_ids: vec![1, 4, 8, 10],
-        chip_type: Some(ChipType::EFR32xG1x),
-    };
-    let actual =
-        GetSerialApiInitDataResponse::try_from((input.as_slice(), &CommandEncodingContext::default()))
-            .unwrap();
-    assert_eq!(actual, expected)
+        ];
+        let expected = GetSerialApiInitDataResponse {
+            api_version: ZWaveApiVersion::Official(1),
+            is_sis: true,
+            is_primary: true,
+            supports_timers: true,
+            node_type: NodeType::Controller,
+            node_ids: vec![1, 4, 8, 10],
+            chip_type: Some(ChipType::EFR32xG1x),
+        };
+        let actual = GetSerialApiInitDataResponse::try_from((
+            input.as_slice(),
+            &CommandEncodingContext::default(),
+        ))
+        .unwrap();
+        assert_eq!(actual, expected)
+    }
 }

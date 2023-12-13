@@ -5,7 +5,7 @@ use zwave_core::{encoding::Input, prelude::*, submodule};
 use crate::{frame::SerialFrame, util::hex_fmt};
 use custom_debug_derive::Debug;
 use enum_dispatch::enum_dispatch;
-use zwave_core::{impl_vec_parsing_with_context_for, impl_vec_serializing_for};
+use zwave_core::{impl_vec_parsing_with_context_for};
 
 submodule!(application);
 submodule!(capability);
@@ -38,8 +38,9 @@ pub trait CommandSerializable
 where
     Self: Sized,
 {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, ctx: &CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a;
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a;
 }
+
 #[enum_dispatch(Command)]
 /// Command-specific functionality that may need to be implemented for each command
 pub trait CommandBase: std::fmt::Debug + Sync + Send {
