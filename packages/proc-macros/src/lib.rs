@@ -67,7 +67,6 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
     let vec_conversion_impls = commands.iter().map(|c| {
         let command_name = c.command_name;
         quote! {
-            // impl_vec_serializing_for!(#command_name);
             impl_vec_parsing_with_context_for!(#command_name, &CommandEncodingContext);
         }
     });

@@ -213,6 +213,10 @@ where
     Self: Sized,
 {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a;
+
+    fn try_to_vec(&self) -> Result<Vec<u8>, EncodingError> {
+        cookie_factory::gen_simple(self.serialize(), Vec::new()).into_encoding_result()
+    }
 }
 
 pub trait BitSerializable {
@@ -273,19 +277,6 @@ impl BitSerializable for bool {
 }
 
 #[macro_export]
-macro_rules! impl_vec_parsing_for {
-    ($struct_name:ident) => {
-        impl TryFrom<&[u8]> for $struct_name {
-            type Error = EncodingError;
-
-            fn try_from(value: &[u8]) -> EncodingResult<Self> {
-                Self::parse(value).into_encoding_result()
-            }
-        }
-    };
-}
-
-#[macro_export]
 macro_rules! impl_vec_parsing_with_context_for {
     ($struct_name:ident, $context_type:ty) => {
         // FIXME: This is awkward and should probably be a different trait instead
@@ -296,35 +287,6 @@ macro_rules! impl_vec_parsing_with_context_for {
                 Self::parse(value.0, value.1).into_encoding_result()
             }
         }
-    };
-}
-
-#[macro_export]
-macro_rules! impl_vec_serializing_for {
-    ($struct_name:ident) => {
-        impl TryInto<Vec<u8>> for &$struct_name {
-            type Error = EncodingError;
-
-            fn try_into(self) -> std::result::Result<Vec<u8>, Self::Error> {
-                cookie_factory::gen_simple(self.serialize(), Vec::new()).into_encoding_result()
-            }
-        }
-
-        impl TryInto<Vec<u8>> for $struct_name {
-            type Error = EncodingError;
-
-            fn try_into(self) -> std::result::Result<Vec<u8>, Self::Error> {
-                (&self).try_into()
-            }
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! impl_vec_conversion_for {
-    ($struct_name:ident) => {
-        impl_vec_parsing_for!($struct_name);
-        impl_vec_serializing_for!($struct_name);
     };
 }
 

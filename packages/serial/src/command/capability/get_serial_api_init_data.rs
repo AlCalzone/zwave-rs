@@ -140,9 +140,7 @@ impl CommandSerializable for GetSerialApiInitDataResponse {
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        command::GetSerialApiInitDataResponse, frame::SerialFrame, prelude::CommandEncodingContext,
-    };
+    use crate::{command::GetSerialApiInitDataResponse, frame::SerialFrame, prelude::*};
     use zwave_core::definitions::{ChipType, NodeType, ZWaveApiVersion};
 
     #[test]
@@ -157,11 +155,7 @@ mod test {
             chip_type: Some(ChipType::EFR32xG1x),
         };
         let ctx = CommandEncodingContext::default();
-        let raw: Vec<u8> = SerialFrame::from(cmd)
-            .try_into_raw(&ctx)
-            .unwrap()
-            .try_into()
-            .unwrap();
+        let raw: Vec<u8> = Into::<Command>::into(cmd).try_to_vec(&ctx).unwrap();
         assert_eq!(
             raw,
             vec![

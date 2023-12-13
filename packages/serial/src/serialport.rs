@@ -94,8 +94,8 @@ impl Encoder<RawSerialFrame> for SerialFrameCodec {
         item: RawSerialFrame,
         dst: &mut BytesMut,
     ) -> std::result::Result<(), Self::Error> {
-        let data: Vec<u8> = (&item).try_into()?;
-        dst.extend_from_slice(data.as_slice());
+        let data: Vec<u8> = item.try_to_vec()?;
+        dst.extend_from_slice(&data);
         Ok(())
     }
 }

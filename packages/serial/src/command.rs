@@ -5,15 +5,14 @@ use zwave_core::{encoding::Input, prelude::*, submodule};
 use crate::{frame::SerialFrame, util::hex_fmt};
 use custom_debug_derive::Debug;
 use enum_dispatch::enum_dispatch;
-use zwave_core::{impl_vec_parsing_with_context_for};
+use zwave_core::impl_vec_parsing_with_context_for;
 
 submodule!(application);
 submodule!(capability);
 submodule!(misc);
 submodule!(transport);
 
-#[derive(Default, Debug, Clone, PartialEq)]
-#[derive(Builder)]
+#[derive(Default, Debug, Clone, PartialEq, Builder)]
 #[builder(pattern = "owned")]
 #[builder(default)]
 pub struct CommandEncodingContext {
@@ -38,7 +37,14 @@ pub trait CommandSerializable
 where
     Self: Sized,
 {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a;
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a;
+
+    fn try_to_vec<'a>(&'a self, ctx: &'a CommandEncodingContext) -> Result<Vec<u8>, EncodingError> {
+        cookie_factory::gen_simple(self.serialize(ctx), Vec::new()).into_encoding_result()
+    }
 }
 
 #[enum_dispatch(Command)]

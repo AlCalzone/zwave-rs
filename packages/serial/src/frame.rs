@@ -1,8 +1,6 @@
 use zwave_core::prelude::*;
 
-use crate::{
-    prelude::{Command, CommandEncodingContext},
-};
+use crate::prelude::{Command, CommandEncodingContext};
 
 use cookie_factory as cf;
 use derive_try_from_primitive::*;
@@ -14,9 +12,7 @@ use nom::{
     number::streaming::be_u8,
     sequence::tuple,
 };
-use zwave_core::{
-    encoding, impl_vec_conversion_for, impl_vec_parsing_for, impl_vec_serializing_for,
-};
+use zwave_core::encoding;
 
 #[derive(Debug, TryFromPrimitive)]
 #[repr(u8)]
@@ -94,18 +90,18 @@ fn parse_data(i: encoding::Input) -> encoding::ParseResult<RawSerialFrame> {
     Ok((i, RawSerialFrame::Data(data.to_vec())))
 }
 
-impl RawSerialFrame {
-    pub fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
+impl Parsable for RawSerialFrame {
+    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         // A serial frame is either a control byte, data starting with SOF, or skipped garbage
         context(
             "Serial Frame",
             alt((consume_garbage, parse_control, parse_data)),
         )(i)
     }
+}
 
-    pub fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl Serializable for RawSerialFrame {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
         use cf::{bytes::be_u8, combinator::slice};
 
         move |out| match self {
@@ -116,8 +112,6 @@ impl RawSerialFrame {
     }
 }
 
-impl_vec_conversion_for!(RawSerialFrame);
-
 impl SerialFrame {
     pub fn try_into_raw(
         self,
@@ -126,8 +120,8 @@ impl SerialFrame {
         match self {
             SerialFrame::ControlFlow(byte) => Ok(RawSerialFrame::ControlFlow(byte)),
             SerialFrame::Command(cmd) => cmd
-                .try_into_raw(ctx)
-                .map(TryInto::<Vec<u8>>::try_into)?
+                .try_into_raw(ctx)?
+                .try_to_vec()
                 .map(RawSerialFrame::Data),
             SerialFrame::Raw(data) => Ok(RawSerialFrame::Data(data)),
         }

@@ -1,10 +1,7 @@
 use crate::prelude::*;
 use zwave_core::prelude::*;
 
-use zwave_core::{
-    encoding::{self, validate},
-    impl_vec_conversion_for, impl_vec_parsing_for, impl_vec_serializing_for,
-};
+use zwave_core::encoding::{self, validate};
 
 use crate::{frame::SerialControlByte, util::hex_fmt};
 use cookie_factory as cf;
@@ -109,8 +106,6 @@ impl Serializable for CommandRaw {
         }
     }
 }
-
-impl_vec_conversion_for!(CommandRaw);
 
 #[test]
 fn test_parse_invalid_checksum() {
