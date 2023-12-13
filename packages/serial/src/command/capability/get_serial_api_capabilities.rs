@@ -46,7 +46,7 @@ impl CommandRequest for GetSerialApiCapabilitiesRequest {
 }
 
 impl CommandParsable for GetSerialApiCapabilitiesRequest {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
         // No payload
         Ok((i, Self {}))
     }
@@ -89,7 +89,7 @@ impl CommandId for GetSerialApiCapabilitiesResponse {
 impl CommandBase for GetSerialApiCapabilitiesResponse {}
 
 impl CommandParsable for GetSerialApiCapabilitiesResponse {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
         let (i, firmware_version) = map(tuple((be_u8, be_u8)), |(major, minor)| Version {
             major,
             minor,

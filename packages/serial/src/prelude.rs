@@ -1,5 +1,5 @@
 pub use crate::command::{
-    Command, CommandBase, CommandId, CommandParsable, CommandParseContext, CommandRequest,
+    Command, CommandBase, CommandId, CommandParsable, CommandEncodingContext, CommandRequest,
 };
 pub use crate::command_raw::CommandRaw;
 

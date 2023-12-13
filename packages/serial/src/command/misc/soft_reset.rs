@@ -33,7 +33,7 @@ impl CommandRequest for SoftResetRequest {
 }
 
 impl CommandParsable for SoftResetRequest {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
         // No payload
         Ok((i, Self {}))
     }

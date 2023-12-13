@@ -44,7 +44,7 @@ impl CommandRequest for GetControllerIdRequest {
 impl CommandParsable for GetControllerIdRequest {
     fn parse<'a>(
         i: encoding::Input<'a>,
-        ctx: &CommandParseContext,
+        ctx: &CommandEncodingContext,
     ) -> encoding::ParseResult<'a, Self> {
         // No payload
         Ok((i, Self {}))
@@ -62,7 +62,7 @@ impl Serializable for GetControllerIdRequest {
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetControllerIdResponse {
     pub home_id: u32,
-    pub own_node_id: u16,
+    pub own_node_id: NodeId,
 }
 
 impl CommandId for GetControllerIdResponse {
@@ -84,17 +84,16 @@ impl CommandBase for GetControllerIdResponse {}
 impl CommandParsable for GetControllerIdResponse {
     fn parse<'a>(
         i: encoding::Input<'a>,
-        ctx: &CommandParseContext,
+        ctx: &CommandEncodingContext,
     ) -> encoding::ParseResult<'a, Self> {
         let (i, home_id) = be_u32(i)?;
-        // FIXME: Support parsing 16-bit node IDs
-        let (i, own_node_id) = be_u8(i)?;
+        let (i, own_node_id) = NodeId::parse(i, ctx.node_id_type)?;
 
         Ok((
             i,
             Self {
                 home_id,
-                own_node_id: own_node_id as u16,
+                own_node_id,
             },
         ))
     }
@@ -102,7 +101,11 @@ impl CommandParsable for GetControllerIdResponse {
 
 impl Serializable for GetControllerIdResponse {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u32, bytes::be_u8, sequence::tuple};
-        tuple((be_u32(self.home_id), be_u8(self.own_node_id as u8)))
+        use cf::{bytes::be_u32, sequence::tuple};
+        // FIXME: Support serializing 16-bit node IDs
+        tuple((
+            be_u32(self.home_id),
+            self.own_node_id.serialize(NodeIdType::NodeId8Bit),
+        ))
     }
 }

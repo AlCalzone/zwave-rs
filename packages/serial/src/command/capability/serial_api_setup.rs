@@ -202,7 +202,10 @@ impl CommandRequest for SerialApiSetupRequest {
 }
 
 impl CommandParsable for SerialApiSetupRequest {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(
+        i: encoding::Input<'a>,
+        _ctx: &CommandEncodingContext,
+    ) -> encoding::ParseResult<'a, Self> {
         parser_not_implemented(i, "ERROR: SerialApiSetupRequest::parse() not implemented")
         // Ok((i, Self {}))
     }
@@ -266,8 +269,8 @@ fn test_round() {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SerialApiSetupResponse {
-    command: SerialApiSetupCommand,
-    payload: SerialApiSetupResponsePayload,
+    pub command: SerialApiSetupCommand,
+    pub payload: SerialApiSetupResponsePayload,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -333,7 +336,10 @@ impl CommandId for SerialApiSetupResponse {
 impl CommandBase for SerialApiSetupResponse {}
 
 impl CommandParsable for SerialApiSetupResponse {
-    fn parse<'a>(i: encoding::Input<'a>, ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(
+        i: encoding::Input<'a>,
+        ctx: &CommandEncodingContext,
+    ) -> encoding::ParseResult<'a, Self> {
         let (i, command) = map(be_u8, |x| SerialApiSetupCommand::try_from(x).unwrap())(i)?;
         let (i, payload) = match command {
             SerialApiSetupCommand::Unsupported => {
@@ -348,11 +354,12 @@ impl CommandParsable for SerialApiSetupResponse {
                     // According to the Host API specification, the first bit (bit 0) should be GetSupportedCommands
                     // However, in Z-Wave SDK < 7.19.1, the entire bitmask is shifted by 1 bit and
                     // GetSupportedCommands is encoded in the second bit (bit 1)
-                    let start_value = if ctx.sdk_version < Some(Version::from("7.19.1")) {
-                        SerialApiSetupCommand::Unsupported
-                    } else {
-                        SerialApiSetupCommand::GetSupportedCommands
-                    };
+                    let start_value =
+                        if ctx.sdk_version < Some(Version::try_from("7.19.1").unwrap()) {
+                            SerialApiSetupCommand::Unsupported
+                        } else {
+                            SerialApiSetupCommand::GetSupportedCommands
+                        };
 
                     let (i, commands) = fixed_length_bitmask_u8(i, start_value as u8, i.len())?;
                     let commands: Vec<SerialApiSetupCommand> = commands
@@ -486,7 +493,6 @@ impl CommandParsable for SerialApiSetupResponse {
 
 impl Serializable for SerialApiSetupResponse {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        
         move |_out| todo!("ERROR: SerialApiSetupResponse::serialize() not implemented")
     }
 }

@@ -1,19 +1,22 @@
 use crate::submodule;
 
 submodule!(chip_type);
-submodule!(controller_role);
-submodule!(command_type);
 submodule!(command_classes);
+submodule!(command_type);
+submodule!(controller_role);
 submodule!(data_rate);
-submodule!(function_type);
+submodule!(device_fingerprint);
 submodule!(frame_info);
+submodule!(function_type);
 submodule!(message_origin);
-submodule!(node_type);
 submodule!(node_id_type);
+submodule!(node_id);
+submodule!(node_type);
 submodule!(protocol_type);
 submodule!(rf_region);
 submodule!(routing_scheme);
 submodule!(rssi);
+submodule!(sdk_version);
 submodule!(serial_api_wakeup_reason);
 submodule!(transmit_options);
 submodule!(transmit_report);

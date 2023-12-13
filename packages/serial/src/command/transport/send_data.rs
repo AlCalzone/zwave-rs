@@ -10,7 +10,7 @@ use zwave_core::encoding;
 #[builder(pattern = "owned")]
 #[builder(build_fn(error = "crate::error::Error"))]
 pub struct SendDataRequest {
-    node_id: u16,
+    node_id: NodeId,
     #[builder(setter(skip))]
     callback_id: Option<u8>,
     transmit_options: TransmitOptions,
@@ -62,8 +62,8 @@ impl CommandRequest for SendDataRequest {
 }
 
 impl CommandParsable for SendDataRequest {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
-        let (i, node_id) = be_u8(i)?; // FIXME: This needs to depend on the controller's node ID type
+    fn parse<'a>(i: encoding::Input<'a>, ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
+        let (i, node_id) = NodeId::parse(i, ctx.node_id_type)?;
         let (i, payload_len) = be_u8(i)?;
         let (i, payload) = take(payload_len)(i)?;
         let (i, transmit_options) = TransmitOptions::parse(i)?;
@@ -72,7 +72,7 @@ impl CommandParsable for SendDataRequest {
         Ok((
             i,
             Self {
-                node_id: node_id as u16,
+                node_id,
                 callback_id: Some(callback_id),
                 transmit_options,
                 payload: payload.to_vec(),
@@ -85,7 +85,7 @@ impl Serializable for SendDataRequest {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
         use cf::{bytes::be_u8, combinator::slice, sequence::tuple};
         tuple((
-            be_u8(self.node_id as u8), // FIXME: This needs to depend on the controller's node ID type
+            self.node_id.serialize(NodeIdType::NodeId8Bit), // FIXME: This needs to depend on the controller's node ID type
             be_u8(self.payload.len() as u8),
             slice(&self.payload), // FIXME: This must be the serialized CC
             self.transmit_options.serialize(),
@@ -120,7 +120,7 @@ impl CommandId for SendDataResponse {
 }
 
 impl CommandParsable for SendDataResponse {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
         let (i, was_sent) = map(be_u8, |x| x > 0)(i)?;
         Ok((i, Self { was_sent }))
     }
@@ -165,7 +165,7 @@ impl CommandId for SendDataCallback {
 }
 
 impl CommandParsable for SendDataCallback {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
         let (i, callback_id) = be_u8(i)?;
         let (i, transmit_status) = TransmitStatus::parse(i)?;
         let (i, transmit_report) =

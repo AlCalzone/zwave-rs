@@ -6,12 +6,15 @@ use encoding::{Parsable, Serializable};
 use nom::{combinator::map, number::complete::be_u8};
 use std::fmt::Display;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum NodeIdType {
+    #[default]
     NodeId8Bit = 0x01,
     NodeId16Bit = 0x02,
 }
+
+
 
 impl Display for NodeIdType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -68,7 +68,7 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
         let command_name = c.command_name;
         quote! {
             impl_vec_serializing_for!(#command_name);
-            impl_vec_parsing_with_context_for!(#command_name, &CommandParseContext);
+            impl_vec_parsing_with_context_for!(#command_name, &CommandEncodingContext);
         }
     });
 
@@ -132,7 +132,7 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
 
         impl Command {
             // Implement conversion from a raw command to the correct variant
-            pub fn try_from_raw(raw: CommandRaw, ctx: &CommandParseContext) -> std::result::Result<Self, EncodingError> {
+            pub fn try_from_raw(raw: CommandRaw, ctx: &CommandEncodingContext) -> std::result::Result<Self, EncodingError> {
                 let command_type = raw.command_type;
                 let function_type = raw.function_type;
                 // We parse commands that are sent by the controller

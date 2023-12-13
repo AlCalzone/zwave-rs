@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use derive_builder::Builder;
 use zwave_core::{encoding::Input, prelude::*, submodule};
 
 use crate::{frame::SerialFrame, util::hex_fmt};
@@ -12,17 +13,33 @@ submodule!(misc);
 submodule!(transport);
 
 #[derive(Default, Debug, Clone, PartialEq)]
-pub struct CommandParseContext {
+#[derive(Builder)]
+#[builder(pattern = "owned")]
+#[builder(default)]
+pub struct CommandEncodingContext {
     sdk_version: Option<Version>,
+    node_id_type: NodeIdType,
+}
+
+impl CommandEncodingContext {
+    pub fn builder() -> CommandEncodingContextBuilder {
+        CommandEncodingContextBuilder::default()
+    }
 }
 
 pub trait CommandParsable
 where
     Self: Sized + CommandBase,
 {
-    fn parse<'a>(i: Input<'a>, ctx: &CommandParseContext) -> ParseResult<'a, Self>;
+    fn parse<'a>(i: Input<'a>, ctx: &CommandEncodingContext) -> ParseResult<'a, Self>;
 }
 
+pub trait CommandSerializable
+where
+    Self: Sized,
+{
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, ctx: &CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a;
+}
 #[enum_dispatch(Command)]
 /// Command-specific functionality that may need to be implemented for each command
 pub trait CommandBase: std::fmt::Debug + Sync + Send {

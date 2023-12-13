@@ -12,6 +12,7 @@ use zwave_serial::frame::{ControlFlow, RawSerialFrame, SerialFrame};
 use zwave_serial::serialport::SerialPort;
 
 use crate::error::{Error, Result};
+use crate::Controller;
 
 use tokio::sync::{broadcast, mpsc, oneshot, Notify};
 use tokio::task::JoinHandle;
@@ -24,10 +25,10 @@ use self::serial_api_machine::{
 pub use serial_api_machine::SerialApiMachineResult;
 
 mod awaited;
-mod identify_controller;
+mod interview_controller;
 mod serial_api_machine;
 
-submodule!(exec_controller_command);
+submodule!(controller_commands);
 
 type TaskCommandSender<T> = mpsc::Sender<T>;
 type TaskCommandReceiver<T> = mpsc::Receiver<T>;
@@ -47,6 +48,14 @@ pub struct Driver {
     serial_task_shutdown: Arc<Notify>,
 
     callback_id_gen: WrappingCounter<u8>,
+
+    controller: Option<Controller>,
+    state: DriverState,
+}
+
+#[derive(Default)]
+struct DriverState {
+    node_id_type: NodeIdType,
 }
 
 impl Driver {
@@ -95,6 +104,8 @@ impl Driver {
             serial_task_shutdown,
             serial_listener: serial_listener_rx,
             callback_id_gen,
+            controller: None,
+            state: DriverState::default(),
         }
     }
 
@@ -107,8 +118,8 @@ impl Driver {
         )?;
 
         // TODO: Interview controller
-        let controller_info = self.identify_controller().await.unwrap();
-        println!("Controller info: {:#?}", controller_info);
+        self.controller = Some(self.interview_controller().await.unwrap());
+        println!("Controller info: {:#?}", &self.controller);
 
         Ok(())
     }
@@ -503,13 +514,23 @@ async fn main_loop_handle_frame(
 }
 
 define_task_commands!(SerialTaskCommand {
+    // Send the given frame to the serial port
     SendFrame -> () {
         frame: SerialFrame
+    },
+    // Use the given node ID type for parsing frames
+    UseNodeIDType -> () {
+        node_id_type: NodeIdType
     }
 });
 
 type SerialTaskCommandSender = TaskCommandSender<SerialTaskCommand>;
 type SerialTaskCommandReceiver = TaskCommandReceiver<SerialTaskCommand>;
+
+#[derive(Default)]
+struct SerialLoopState {
+    node_id_type: NodeIdType,
+}
 
 async fn serial_loop(
     mut port: SerialPort,
@@ -517,32 +538,49 @@ async fn serial_loop(
     shutdown: Arc<Notify>,
     frame_emitter: SerialFrameEmitter,
 ) {
+    let mut state = SerialLoopState::default();
     loop {
         // Whatever happens first gets handled first.
         tokio::select! {
+            // Make sure we don't read from the serial port if there is a command to be handled
+            biased;
+
             // We received a shutdown signal
             _ = shutdown.notified() => break,
 
             // We received a command from the outside
-            Some(cmd) = cmd_rx.recv() => serial_loop_handle_command(&mut port, cmd).await,
+            Some(cmd) = cmd_rx.recv() => serial_loop_handle_command(&mut state, &mut port, cmd).await,
 
             // We received a frame from the serial port
-            Some(frame) = port.read() => serial_loop_handle_frame(&mut port, frame, &frame_emitter).await
+            Some(frame) = port.read() => serial_loop_handle_frame(&state, &mut port, frame, &frame_emitter).await
         }
     }
 
     println!("serial task stopped")
 }
 
-async fn serial_loop_handle_command(port: &mut SerialPort, cmd: SerialTaskCommand) {
-    #[allow(irrefutable_let_patterns)]
-    if let SerialTaskCommand::SendFrame(SendFrame { frame, callback }) = cmd {
-        port.write(frame.try_into().unwrap()).await.unwrap();
-        callback.send(()).unwrap();
+async fn serial_loop_handle_command(
+    state: &mut SerialLoopState,
+    port: &mut SerialPort,
+    cmd: SerialTaskCommand,
+) {
+    match cmd {
+        SerialTaskCommand::SendFrame(SendFrame { frame, callback }) => {
+            port.write(frame.try_into().unwrap()).await.unwrap();
+            callback.send(()).unwrap();
+        }
+        SerialTaskCommand::UseNodeIDType(UseNodeIDType {
+            node_id_type,
+            callback,
+        }) => {
+            state.node_id_type = node_id_type;
+            callback.send(()).unwrap();
+        }
     }
 }
 
 async fn serial_loop_handle_frame(
+    state: &SerialLoopState,
     port: &mut SerialPort,
     frame: RawSerialFrame,
     frame_emitter: &SerialFrameEmitter,
@@ -559,7 +597,10 @@ async fn serial_loop_handle_frame(
                         .unwrap();
 
                     // Now try to convert it into an actual command
-                    let ctx = CommandParseContext::default();
+                    let ctx = CommandEncodingContext::builder()
+                        .node_id_type(state.node_id_type)
+                        .build()
+                        .unwrap();
                     match zwave_serial::command::Command::try_from_raw(raw, &ctx) {
                         Ok(cmd) => {
                             println!("{} received {:#?}", now(), cmd);
@@ -606,12 +647,12 @@ macro_rules! exec_background_task {
         {
             let (cmd, rx) = $variant::new($($new_args)*);
             let cmd = $command_type::$variant(cmd);
-            $command_sender.send(cmd).await.map_err(|_| Error::Internal)?;
-            rx.await.map_err(|_| Error::Internal)
+            $command_sender.send(cmd).await.map_err(|_| $crate::error::Error::Internal)?;
+            rx.await.map_err(|_| $crate::error::Error::Internal)
         }
     };
 }
-use exec_background_task;
+pub(crate) use exec_background_task;
 
 impl Drop for Driver {
     fn drop(&mut self) {

@@ -34,7 +34,7 @@ impl CommandRequest for GetBackgroundRssiRequest {
 }
 
 impl CommandParsable for GetBackgroundRssiRequest {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
         // No payload
         Ok((i, Self {}))
     }
@@ -71,7 +71,7 @@ impl CommandId for GetBackgroundRssiResponse {
 impl CommandBase for GetBackgroundRssiResponse {}
 
 impl CommandParsable for GetBackgroundRssiResponse {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandParseContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
         let (i, rssi0) = RSSI::parse(i)?;
         let (i, rssi1) = RSSI::parse(i)?;
         let (i, rssi2) = opt(RSSI::parse)(i)?;

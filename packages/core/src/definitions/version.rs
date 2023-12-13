@@ -1,5 +1,7 @@
 use std::fmt;
 
+use crate::encoding::SimpleParseError;
+
 #[derive(Clone, Copy, Eq, PartialOrd)]
 pub struct Version {
     pub major: u8,
@@ -25,18 +27,38 @@ impl std::fmt::Debug for Version {
     }
 }
 
-impl From<&str> for Version {
-    fn from(s: &str) -> Self {
-        let mut parts = s.split('.');
-        let major = parts.next().unwrap().parse().unwrap();
-        let minor = parts.next().unwrap().parse().unwrap();
-        let patch = parts.next().map(|s| s.parse().unwrap());
+// impl From<&str> for Version {
+//     fn from(s: &str) -> Self {
+//         let mut parts = s.split('.');
+//         let major = parts.next().unwrap().parse().unwrap();
+//         let minor = parts.next().unwrap().parse().unwrap();
+//         let patch = parts.next().map(|s| s.parse().unwrap());
 
-        Version {
-            major,
-            minor,
-            patch,
+//         Version {
+//             major,
+//             minor,
+//             patch,
+//         }
+//     }
+// }
+
+impl TryFrom<&str> for Version {
+    type Error = SimpleParseError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let parts: Result<Vec<_>, _> = value.split('.').take(3).map(|s| s.parse::<u8>()).collect();
+        let parts =
+            parts.map_err(|_| SimpleParseError(Some(format!("Invalid version {}", value))))?;
+        if parts.len() < 2 {
+            return Err(SimpleParseError(Some(format!("Invalid version {}", value))));
         }
+
+        Ok(Version {
+            #[allow(clippy::get_first)]
+            major: *parts.get(0).unwrap(),
+            minor: *parts.get(1).unwrap(),
+            patch: parts.get(2).copied(),
+        })
     }
 }
 
