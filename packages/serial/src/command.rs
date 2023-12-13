@@ -5,7 +5,6 @@ use zwave_core::{encoding::Input, prelude::*, submodule};
 use crate::{frame::SerialFrame, util::hex_fmt};
 use custom_debug_derive::Debug;
 use enum_dispatch::enum_dispatch;
-use zwave_core::impl_vec_parsing_with_context_for;
 
 submodule!(application);
 submodule!(capability);
@@ -31,6 +30,10 @@ where
     Self: Sized + CommandBase,
 {
     fn parse<'a>(i: Input<'a>, ctx: &CommandEncodingContext) -> ParseResult<'a, Self>;
+
+    fn try_from_slice(data: &[u8], ctx: &CommandEncodingContext) -> Result<Self, EncodingError> {
+        Self::parse(data, ctx).into_encoding_result()
+    }
 }
 
 pub trait CommandSerializable

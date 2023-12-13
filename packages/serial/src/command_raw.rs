@@ -111,12 +111,12 @@ impl Serializable for CommandRaw {
 fn test_parse_invalid_checksum() {
     // This is an actual message with a correct checksum
     let input = hex::decode("01030002fe").unwrap();
-    let result = CommandRaw::try_from(input.as_ref());
+    let result = CommandRaw::try_from_slice(&input);
     assert!(result.is_ok());
 
     // Now it is wrong
     let input = hex::decode("01030002ff").unwrap();
-    let result = CommandRaw::try_from(input.as_ref());
+    let result = CommandRaw::try_from_slice(&input);
     match result {
         Ok(_) => panic!("Expected an error"),
         Err(EncodingError::Parse(_)) => (),

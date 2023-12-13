@@ -64,13 +64,6 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
         }
     });
 
-    let vec_conversion_impls = commands.iter().map(|c| {
-        let command_name = c.command_name;
-        quote! {
-            impl_vec_parsing_with_context_for!(#command_name, &CommandEncodingContext);
-        }
-    });
-
     let impl_try_from_command_raw_match_arms = commands.iter().map(|c| {
         let command_name = c.command_name;
         let command_type = c.command_type;
@@ -78,7 +71,7 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
         let origin = c.origin;
         quote! {
             (#command_type, #function_type, #origin) => {
-                #command_name::try_from((raw.payload.as_slice(), ctx)).map(Self::#command_name)
+                #command_name::try_from_slice(raw.payload.as_slice(), &ctx).map(Self::#command_name)
             }
         }
     });
@@ -86,15 +79,6 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
     let command_raw_serial_frame_conversions = commands.iter().map(|c| {
         let command_name = c.command_name;
         quote! {
-            // impl TryInto<CommandRaw> for #command_name {
-            //     type Error = EncodingError;
-
-            //     fn try_into(self) -> std::result::Result<CommandRaw, Self::Error> {
-            //         let cmd: Command = self.into();
-            //         cmd.try_into()
-            //     }
-            // }
-
             impl From<#command_name> for SerialFrame {
                 fn from(val: #command_name) -> Self {
                     SerialFrame::Command(val.into())
@@ -122,9 +106,6 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
                 }
             }
         }
-
-        // Implement the default TryFrom<&[u8]>/TryInto<Vec<u8>> conversions for each variant
-        #( #vec_conversion_impls )*
 
         // Implement shortcuts from each variant to CommandRaw / SerialFrame
         #( #command_raw_serial_frame_conversions )*

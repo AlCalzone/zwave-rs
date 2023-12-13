@@ -199,6 +199,10 @@ where
     Self: Sized,
 {
     fn parse(i: Input) -> ParseResult<Self>;
+
+    fn try_from_slice(data: &[u8]) -> Result<Self, EncodingError> {
+        Self::parse(data).into_encoding_result()
+    }
 }
 
 pub trait BitParsable
@@ -274,20 +278,6 @@ impl BitSerializable for bool {
     fn write(&self, b: &mut BitOutput) {
         b.push(*self);
     }
-}
-
-#[macro_export]
-macro_rules! impl_vec_parsing_with_context_for {
-    ($struct_name:ident, $context_type:ty) => {
-        // FIXME: This is awkward and should probably be a different trait instead
-        impl TryFrom<(&[u8], $context_type)> for $struct_name {
-            type Error = EncodingError;
-
-            fn try_from(value: (&[u8], $context_type)) -> EncodingResult<Self> {
-                Self::parse(value.0, value.1).into_encoding_result()
-            }
-        }
-    };
 }
 
 impl<T> Serializable for Option<T>
