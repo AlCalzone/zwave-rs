@@ -1,19 +1,27 @@
 use crate::{driver::ControllerCommandError, ControllerCommandResult, Driver};
-use crate::{expect_controller_command_result, Controller};
+use crate::{Controller, ExecControllerCommandOptions};
 
 use zwave_core::definitions::{
     parse_libary_version, protocol_version_to_sdk_version, DeviceFingerprint, FunctionType,
     NodeIdType,
 };
-use zwave_serial::command::{Command, GetControllerIdRequest, SerialApiSetupCommand};
+use zwave_serial::command::SerialApiSetupCommand;
 
 impl Driver {
     pub(crate) async fn interview_controller(&mut self) -> ControllerCommandResult<Controller> {
+        // We execute some of these commands before knowing the controller capabilities, so
+        // we disable enforcing that the controller supports the commands.
+        let command_options = ExecControllerCommandOptions::builder()
+            .enforce_support(false)
+            .build()
+            .unwrap();
+        let command_options = Some(&command_options);
+
         // TODO: Log results
-        let api_capabilities = self.get_serial_api_capabilities().await?;
-        let init_data = self.get_serial_api_init_data().await?;
-        let version_info = self.get_controller_version().await?;
-        let capabilities = self.get_controller_capabilities().await?;
+        let api_capabilities = self.get_serial_api_capabilities(command_options).await?;
+        let init_data = self.get_serial_api_init_data(command_options).await?;
+        let version_info = self.get_controller_version(command_options).await?;
+        let capabilities = self.get_controller_capabilities(command_options).await?;
 
         // GetProtocolVersion includes the patch version, GetControllerVersion does not.
         // We prefer having this information, so query it if supported.
@@ -21,7 +29,7 @@ impl Driver {
             .supported_function_types
             .contains(&FunctionType::GetProtocolVersion)
         {
-            self.get_protocol_version().await?.version
+            self.get_protocol_version(command_options).await?.version
         } else {
             parse_libary_version(&version_info.library_version).map_err(|e| {
                 ControllerCommandError::Unexpected(format!("Failed to parse library version: {e}"))
@@ -32,7 +40,8 @@ impl Driver {
             .supported_function_types
             .contains(&FunctionType::SerialApiSetup)
         {
-            self.get_supported_serial_api_setup_commands().await?
+            self.get_supported_serial_api_setup_commands(command_options)
+                .await?
         } else {
             vec![]
         };
@@ -40,12 +49,14 @@ impl Driver {
         // Switch to 16 bit node IDs if supported. We need to do this here, as a controller may still be
         // in 16 bit mode when Z-Wave starts up. This would lead to an invalid node ID being reported.
         if supported_serial_api_setup_commands.contains(&SerialApiSetupCommand::SetNodeIDType) {
-            let _ = self.set_node_id_type(NodeIdType::NodeId16Bit).await?;
+            let _ = self
+                .set_node_id_type(NodeIdType::NodeId16Bit, command_options)
+                .await;
         }
 
         // Afterwards, execute the commands that parse node IDs
-        let ids = self.get_controller_id().await?;
-        let suc_node_id = self.get_suc_node_id().await?;
+        let ids = self.get_controller_id(command_options).await?;
+        let suc_node_id = self.get_suc_node_id(command_options).await?;
 
         let controller = Controller::builder()
             .home_id(ids.home_id)

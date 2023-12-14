@@ -6,6 +6,7 @@ use crate::exec_background_task;
 use crate::Driver;
 use crate::SerialApiMachineResult;
 
+use derive_builder::Builder;
 use thiserror::Error;
 use zwave_core::definitions::NodeId;
 use zwave_core::definitions::NodeIdType;
@@ -22,7 +23,6 @@ use zwave_serial::command::GetSerialApiCapabilitiesResponse;
 use zwave_serial::command::GetSerialApiInitDataRequest;
 use zwave_serial::command::GetSerialApiInitDataResponse;
 use zwave_serial::command::GetSucNodeIdRequest;
-use zwave_serial::command::GetSucNodeIdResponse;
 use zwave_serial::command::SerialApiSetupCommand;
 use zwave_serial::command::SerialApiSetupRequest;
 use zwave_serial::command::SerialApiSetupResponsePayload;
@@ -31,13 +31,16 @@ use zwave_serial::{
     frame::SerialFrame,
 };
 
+// FIXME: Having a wrapper for this with the correct command options set would be nicer API-wise
+
 impl Driver {
     pub async fn get_serial_api_capabilities(
         &mut self,
+        options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetSerialApiCapabilitiesResponse> {
         println!("Querying Serial API capabilities...");
         let response = self
-            .exec_controller_command(GetSerialApiCapabilitiesRequest::default(), None)
+            .exec_controller_command(GetSerialApiCapabilitiesRequest::default(), options)
             .await;
 
         let capabilities =
@@ -50,10 +53,11 @@ impl Driver {
 
     pub async fn get_serial_api_init_data(
         &mut self,
+        options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetSerialApiInitDataResponse> {
         println!("Querying Serial API init data...");
         let response = self
-            .exec_controller_command(GetSerialApiInitDataRequest::default(), None)
+            .exec_controller_command(GetSerialApiInitDataRequest::default(), options)
             .await;
 
         let init_data = expect_controller_command_result!(response, GetSerialApiInitDataResponse);
@@ -65,10 +69,11 @@ impl Driver {
 
     pub async fn get_controller_capabilities(
         &mut self,
+        options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetControllerCapabilitiesResponse> {
         println!("Querying controller capabilities...");
         let response = self
-            .exec_controller_command(GetControllerCapabilitiesRequest::default(), None)
+            .exec_controller_command(GetControllerCapabilitiesRequest::default(), options)
             .await;
 
         let capabilities =
@@ -81,10 +86,11 @@ impl Driver {
 
     pub async fn get_controller_version(
         &mut self,
+        options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetControllerVersionResponse> {
         println!("Querying version info...");
         let response = self
-            .exec_controller_command(GetControllerVersionRequest::default(), None)
+            .exec_controller_command(GetControllerVersionRequest::default(), options)
             .await;
 
         let version_info =
@@ -97,10 +103,11 @@ impl Driver {
 
     pub async fn get_controller_id(
         &mut self,
+        options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetControllerIdResponse> {
         println!("Querying controller ID...");
         let response = self
-            .exec_controller_command(GetControllerIdRequest::default(), None)
+            .exec_controller_command(GetControllerIdRequest::default(), options)
             .await;
 
         let ids = expect_controller_command_result!(response, GetControllerIdResponse);
@@ -112,10 +119,11 @@ impl Driver {
 
     pub async fn get_protocol_version(
         &mut self,
+        options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetProtocolVersionResponse> {
         println!("Querying protocol version...");
         let response = self
-            .exec_controller_command(GetProtocolVersionRequest::default(), None)
+            .exec_controller_command(GetProtocolVersionRequest::default(), options)
             .await;
 
         let protocol_version =
@@ -126,10 +134,13 @@ impl Driver {
         Ok(protocol_version)
     }
 
-    pub async fn get_suc_node_id(&mut self) -> ControllerCommandResult<Option<NodeId>> {
+    pub async fn get_suc_node_id(
+        &mut self,
+        options: Option<&ExecControllerCommandOptions>,
+    ) -> ControllerCommandResult<Option<NodeId>> {
         println!("Querying SUC node ID...");
         let response = self
-            .exec_controller_command(GetSucNodeIdRequest::default(), None)
+            .exec_controller_command(GetSucNodeIdRequest::default(), options)
             .await;
 
         let suc_node_id =
@@ -142,10 +153,11 @@ impl Driver {
 
     pub async fn get_supported_serial_api_setup_commands(
         &mut self,
+        options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<Vec<SerialApiSetupCommand>> {
         println!("Querying supported Serial API setup commands...");
         let response = self
-            .exec_controller_command(SerialApiSetupRequest::get_supported_commands(), None)
+            .exec_controller_command(SerialApiSetupRequest::get_supported_commands(), options)
             .await;
         let response = expect_controller_command_result!(response, SerialApiSetupResponse);
 
@@ -159,10 +171,14 @@ impl Driver {
     pub async fn set_node_id_type(
         &mut self,
         node_id_type: NodeIdType,
+        options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<bool> {
         println!("Switching serial API to {} node IDs...", node_id_type);
         let response = self
-            .exec_controller_command(SerialApiSetupRequest::set_node_id_type(node_id_type), None)
+            .exec_controller_command(
+                SerialApiSetupRequest::set_node_id_type(node_id_type),
+                options,
+            )
             .await;
         let response = expect_controller_command_result!(response, SerialApiSetupResponse);
 
@@ -192,12 +208,28 @@ impl Driver {
     pub async fn exec_controller_command<C>(
         &mut self,
         command: C,
-        _options: Option<ExecControllerCommandOptions>,
+        options: Option<&ExecControllerCommandOptions>,
     ) -> ExecControllerCommandResult<Option<Command>>
     where
         C: CommandRequest + Clone + 'static,
         SerialFrame: From<C>,
     {
+        let options = match options {
+            Some(options) => options.clone(),
+            None => Default::default(),
+        };
+
+        let supported = self
+            .controller
+            .as_ref()
+            .is_some_and(|c| c.supports_function(command.function_type()));
+        if options.enforce_support && !supported {
+            return Err(ExecControllerCommandError::Unsupported(format!(
+                "{:?}",
+                command.function_type()
+            )));
+        }
+
         let result = self.execute_serial_api_command(command).await;
         // TODO: Handle retrying etc.
         match result {
@@ -210,7 +242,18 @@ impl Driver {
     }
 }
 
-pub struct ExecControllerCommandOptions {}
+#[derive(Builder, Default, Clone)]
+#[builder(setter(into, strip_option), default)]
+pub struct ExecControllerCommandOptions {
+    #[builder(default = "true")]
+    enforce_support: bool,
+}
+
+impl ExecControllerCommandOptions {
+    pub fn builder() -> ExecControllerCommandOptionsBuilder {
+        ExecControllerCommandOptionsBuilder::default()
+    }
+}
 
 /// The low-level result of a controller command execution.
 pub type ExecControllerCommandResult<T> = Result<T, ExecControllerCommandError>;
@@ -232,6 +275,8 @@ pub enum ExecControllerCommandError {
     CallbackTimeout,
     #[error("The callback indicated an error")]
     CallbackNOK(Command),
+    #[error("Command not supported: {0}")]
+    Unsupported(String),
     #[error("Unexpected error: {0}")]
     Unexpected(String),
 }
@@ -281,6 +326,7 @@ impl From<ExecControllerCommandError> for ControllerCommandError {
             | ExecControllerCommandError::CallbackTimeout => ControllerCommandError::Failure,
             ExecControllerCommandError::ResponseNOK(_)
             | ExecControllerCommandError::CallbackNOK(_) => ControllerCommandError::Unsuccessful,
+            ExecControllerCommandError::Unsupported(s) => ControllerCommandError::Unsupported(s),
             ExecControllerCommandError::Unexpected(s) => ControllerCommandError::Unexpected(s),
         }
     }
