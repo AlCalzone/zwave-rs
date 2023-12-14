@@ -2,6 +2,7 @@ use crate::driver::SerialTaskCommand;
 use crate::driver::UseNodeIDType;
 use crate::exec_background_task;
 use crate::Driver;
+use crate::Ready;
 use crate::SerialApiMachineResult;
 
 use derive_builder::Builder;
@@ -10,6 +11,7 @@ use zwave_core::definitions::NodeId;
 use zwave_core::definitions::NodeIdType;
 use zwave_core::definitions::Powerlevel;
 use zwave_core::definitions::RfRegion;
+use zwave_serial::command::CommandBase;
 use zwave_serial::command::GetControllerCapabilitiesRequest;
 use zwave_serial::command::GetControllerCapabilitiesResponse;
 use zwave_serial::command::GetControllerIdRequest;
@@ -26,6 +28,7 @@ use zwave_serial::command::GetSucNodeIdRequest;
 use zwave_serial::command::SerialApiSetupCommand;
 use zwave_serial::command::SerialApiSetupRequest;
 use zwave_serial::command::SerialApiSetupResponsePayload;
+use zwave_serial::command::SetSucNodeIdRequest;
 use zwave_serial::{
     command::{Command, CommandRequest},
     frame::SerialFrame,
@@ -33,6 +36,7 @@ use zwave_serial::{
 
 // FIXME: Having a wrapper for this with the correct command options set would be nicer API-wise
 
+// Define the commands that can be executed in any phase
 impl<P> Driver<P>
 where
     P: DriverPhase,
@@ -207,7 +211,10 @@ where
 
         Ok(success)
     }
+}
 
+// Define the commands that require the driver to be ready
+impl Driver<Ready> {
     pub async fn get_rf_region(
         &mut self,
         options: Option<&ExecControllerCommandOptions>,
@@ -222,6 +229,8 @@ where
             response.payload,
             SerialApiSetupResponsePayload::GetRFRegion { region } => region
         )?;
+
+        self.controller_mut().set_rf_region(Some(rf_region));
 
         println!("The controller is using RF region {}", rf_region);
 
@@ -243,9 +252,79 @@ where
             SerialApiSetupResponsePayload::GetPowerlevel { powerlevel } => powerlevel
         )?;
 
+        self.controller_mut().set_powerlevel(Some(powerlevel));
+
         println!("The controller is using powerlevel {}", powerlevel);
 
         Ok(powerlevel)
+    }
+
+    pub async fn set_tx_status_report(
+        &mut self,
+        enabled: bool,
+        options: Option<&ExecControllerCommandOptions>,
+    ) -> ControllerCommandResult<bool> {
+        println!(
+            "{} TX status reports...",
+            if enabled { "Enabling" } else { "Disabling" }
+        );
+        let response = self
+            .exec_controller_command(
+                SerialApiSetupRequest::set_tx_status_report(enabled),
+                options,
+            )
+            .await;
+        let response = expect_controller_command_result!(response, SerialApiSetupResponse);
+
+        let success = expect_serial_api_setup_result!(
+            response.payload,
+            SerialApiSetupResponsePayload::SetTxStatusReport { success } => success
+        )?;
+
+        println!(
+            "{} TX status reports {}",
+            if enabled { "Enabling" } else { "Disabling" },
+            if success { "succeeded" } else { "failed" }
+        );
+
+        Ok(success)
+    }
+
+    pub async fn set_suc_node_id(
+        &mut self,
+        node_id: NodeId,
+        enable_suc: bool,
+        enable_sis: bool,
+        options: Option<&ExecControllerCommandOptions>,
+    ) -> ControllerCommandResult<bool> {
+
+        let cmd = SetSucNodeIdRequest::builder()
+            .suc_node_id(node_id)
+            .enable_suc(enable_suc)
+            .enable_sis(enable_sis)
+            .build()
+            .unwrap();
+
+        let response = self.exec_controller_command(cmd, options).await;
+        let success = match response {
+            Ok(Some(Command::SetSucNodeIdResponse(result))) => result.is_ok(),
+            Ok(Some(Command::SetSucNodeIdCallback(result))) => result.is_ok(),
+            Ok(_) => {
+                return Err(ControllerCommandError::Unexpected(
+                    "expected SetSucNodeIdResponse or SetSucNodeIdCallback".to_string(),
+                ))
+            }
+            Err(e) => return Err(e.into()),
+        };
+
+       
+
+        if success {
+            self.controller_mut().set_suc_node_id(Some(node_id));
+            // FIXME: If we promoted ourselves also set the is_suc/is_sis/sis_present flags to true
+        }
+
+        Ok(success)
     }
 }
 

@@ -2,8 +2,8 @@ use crate::{driver::ControllerCommandError, ControllerCommandResult, Driver};
 use crate::{Controller, ExecControllerCommandOptions};
 
 use zwave_core::definitions::{
-    parse_libary_version, protocol_version_to_sdk_version, DeviceFingerprint, FunctionType,
-    NodeIdType,
+    parse_libary_version, protocol_version_to_sdk_version, ControllerRole, DeviceFingerprint,
+    FunctionType, NodeIdType,
 };
 use zwave_serial::command::SerialApiSetupCommand;
 
@@ -99,8 +99,8 @@ impl Driver<Ready> {
             .controller()
             .supports_serial_api_setup_command(SerialApiSetupCommand::GetRFRegion)
         {
-            let region = self.get_rf_region(None).await?;
-            self.controller_mut().set_rf_region(Some(region));
+            let _region = self.get_rf_region(None).await?;
+            // FIXME: set region if desired
         }
 
         // Get the currently configured powerlevel and remember it.
@@ -109,8 +109,50 @@ impl Driver<Ready> {
             .controller()
             .supports_serial_api_setup_command(SerialApiSetupCommand::GetPowerlevel)
         {
-            let powerlevel = self.get_powerlevel(None).await?;
-            self.controller_mut().set_powerlevel(Some(powerlevel));
+            let _powerlevel = self.get_powerlevel(None).await?;
+            // FIXME: set powerlevel if desired
+        }
+
+        // Enable TX status reports if supported
+        if self
+            .controller()
+            .supports_serial_api_setup_command(SerialApiSetupCommand::SetTxStatusReport)
+        {
+            self.set_tx_status_report(true, None).await?;
+        }
+
+        // There needs to be a SUC/SIS in the network.
+        // If not, we promote ourselves to SUC if all of the following conditions are met:
+        // * We are the primary controller
+        // * but we are not SUC
+        // * there is no SUC and
+        // * there is no SIS
+        let should_promote = {
+            let controller = self.controller();
+            controller.role() == ControllerRole::Primary
+                && !controller.is_suc()
+                && !controller.is_sis()
+                && controller.suc_node_id().is_none()
+        };
+
+        if should_promote {
+            println!("There is no SUC/SIS in the network - promoting ourselves...");
+            match self
+                .set_suc_node_id(self.controller().own_node_id(), true, true, None)
+                .await
+            {
+                Ok(success) => {
+                    println!(
+                        "Promotion to SUC/SIS {}",
+                        if success { "succeeded" } else { "failed" }
+                    );
+                }
+                Err(e) => {
+                    println!("PError while promoting to SUC/SIS: {:?}", e);
+                }
+            }
+        } else {
+            println!("There is a SUC/SIS in the network - not promoting ourselves");
         }
 
         Ok(())
