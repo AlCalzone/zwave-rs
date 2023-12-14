@@ -12,11 +12,8 @@ const PORT: &str = "COM5";
 
 #[tokio::main]
 async fn main() {
-    let mut driver = zwave_driver::Driver::new(PORT);
+    let mut driver = zwave_driver::Driver::new(PORT).init().await.unwrap();
     println!("driver started");
-
-    driver.init().await.unwrap();
-    println!("driver initialized");
 
     // driver
     //     .register_command_handler(Box::new(|cmd| {

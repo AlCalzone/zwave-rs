@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use crate::driver::SerialTaskCommand;
 use crate::driver::UseNodeIDType;
 use crate::exec_background_task;
@@ -10,6 +8,8 @@ use derive_builder::Builder;
 use thiserror::Error;
 use zwave_core::definitions::NodeId;
 use zwave_core::definitions::NodeIdType;
+use zwave_core::definitions::Powerlevel;
+use zwave_core::definitions::RfRegion;
 use zwave_serial::command::GetControllerCapabilitiesRequest;
 use zwave_serial::command::GetControllerCapabilitiesResponse;
 use zwave_serial::command::GetControllerIdRequest;
@@ -33,7 +33,10 @@ use zwave_serial::{
 
 // FIXME: Having a wrapper for this with the correct command options set would be nicer API-wise
 
-impl Driver {
+impl<P> Driver<P>
+where
+    P: DriverPhase,
+{
     pub async fn get_serial_api_capabilities(
         &mut self,
         options: Option<&ExecControllerCommandOptions>,
@@ -194,9 +197,9 @@ impl Driver {
         );
 
         if success {
-            self.state.node_id_type = node_id_type;
+            self.storage.node_id_type = node_id_type;
             exec_background_task!(
-                &self.serial_cmd,
+                &self.tasks.serial_cmd,
                 SerialTaskCommand::UseNodeIDType,
                 node_id_type
             )?;
@@ -205,6 +208,51 @@ impl Driver {
         Ok(success)
     }
 
+    pub async fn get_rf_region(
+        &mut self,
+        options: Option<&ExecControllerCommandOptions>,
+    ) -> ControllerCommandResult<RfRegion> {
+        println!("Querying configured RF region...");
+        let response = self
+            .exec_controller_command(SerialApiSetupRequest::get_rf_region(), options)
+            .await;
+        let response = expect_controller_command_result!(response, SerialApiSetupResponse);
+
+        let rf_region = expect_serial_api_setup_result!(
+            response.payload,
+            SerialApiSetupResponsePayload::GetRFRegion { region } => region
+        )?;
+
+        println!("The controller is using RF region {}", rf_region);
+
+        Ok(rf_region)
+    }
+
+    pub async fn get_powerlevel(
+        &mut self,
+        options: Option<&ExecControllerCommandOptions>,
+    ) -> ControllerCommandResult<Powerlevel> {
+        println!("Querying configured powerlevel...");
+        let response = self
+            .exec_controller_command(SerialApiSetupRequest::get_powerlevel(), options)
+            .await;
+        let response = expect_controller_command_result!(response, SerialApiSetupResponse);
+
+        let powerlevel = expect_serial_api_setup_result!(
+            response.payload,
+            SerialApiSetupResponsePayload::GetPowerlevel { powerlevel } => powerlevel
+        )?;
+
+        println!("The controller is using powerlevel {}", powerlevel);
+
+        Ok(powerlevel)
+    }
+}
+
+impl<P> Driver<P>
+where
+    P: DriverPhase,
+{
     pub async fn exec_controller_command<C>(
         &mut self,
         command: C,
@@ -219,10 +267,7 @@ impl Driver {
             None => Default::default(),
         };
 
-        let supported = self
-            .controller
-            .as_ref()
-            .is_some_and(|c| c.supports_function(command.function_type()));
+        let supported = self.phase.supports_function(command.function_type());
         if options.enforce_support && !supported {
             return Err(ExecControllerCommandError::Unsupported(format!(
                 "{:?}",
@@ -245,6 +290,8 @@ impl Driver {
 #[derive(Builder, Default, Clone)]
 #[builder(setter(into, strip_option), default)]
 pub struct ExecControllerCommandOptions {
+    /// If executing the command should fail when it is not supported by the controller.
+    /// Setting this to `false` is is useful if the capabilities haven't been determined yet. Default: `true`
     #[builder(default = "true")]
     enforce_support: bool,
 }
@@ -367,3 +414,5 @@ macro_rules! expect_serial_api_setup_result {
     };
 }
 pub(crate) use expect_serial_api_setup_result;
+
+use super::DriverPhase;

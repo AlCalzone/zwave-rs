@@ -36,7 +36,7 @@ impl CommandRequest for GetSucNodeIdRequest {
 impl CommandParsable for GetSucNodeIdRequest {
     fn parse<'a>(
         i: encoding::Input<'a>,
-        ctx: &CommandEncodingContext,
+        _ctx: &CommandEncodingContext,
     ) -> encoding::ParseResult<'a, Self> {
         // No payload
         Ok((i, Self {}))
@@ -46,7 +46,7 @@ impl CommandParsable for GetSucNodeIdRequest {
 impl CommandSerializable for GetSucNodeIdRequest {
     fn serialize<'a, W: std::io::Write + 'a>(
         &'a self,
-        ctx: &'a CommandEncodingContext,
+        _ctx: &'a CommandEncodingContext,
     ) -> impl cookie_factory::SerializeFn<W> + 'a {
         // No payload
         empty()

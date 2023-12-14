@@ -28,6 +28,7 @@ mod awaited;
 mod interview_controller;
 mod serial_api_machine;
 
+submodule!(driver_phase);
 submodule!(controller_commands);
 
 type TaskCommandSender<T> = mpsc::Sender<T>;
@@ -36,8 +37,16 @@ type TaskCommandReceiver<T> = mpsc::Receiver<T>;
 type SerialFrameEmitter = broadcast::Sender<SerialFrame>;
 type SerialListener = broadcast::Receiver<SerialFrame>;
 
+pub struct Driver<P: DriverPhase> {
+    tasks: DriverTasks,
+    callback_id_gen: WrappingCounter<u8>,
+
+    phase: P,
+    storage: DriverStorage,
+}
+
 #[allow(dead_code)]
-pub struct Driver {
+struct DriverTasks {
     main_task: JoinHandle<()>,
     main_cmd: MainTaskCommandSender,
     main_task_shutdown: Arc<Notify>,
@@ -46,19 +55,22 @@ pub struct Driver {
     serial_cmd: SerialTaskCommandSender,
     serial_listener: SerialListener,
     serial_task_shutdown: Arc<Notify>,
+}
 
-    callback_id_gen: WrappingCounter<u8>,
-
-    controller: Option<Controller>,
-    state: DriverState,
+impl Drop for DriverTasks {
+    fn drop(&mut self) {
+        // We need to stop the background tasks, otherwise they will stick around until the process exits
+        self.serial_task_shutdown.notify_one();
+        self.main_task_shutdown.notify_one();
+    }
 }
 
 #[derive(Default)]
-struct DriverState {
+struct DriverStorage {
     node_id_type: NodeIdType,
 }
 
-impl Driver {
+impl Driver<Init> {
     pub fn new(path: &str) -> Self {
         // The serial task owns the serial port. All communication needs to go through that task.
         let port = SerialPort::new(path).unwrap();
@@ -93,9 +105,7 @@ impl Driver {
             serial_listener_tx,
         ));
 
-        let callback_id_gen = WrappingCounter::new();
-
-        Self {
+        let tasks = DriverTasks {
             main_task,
             main_cmd: main_cmd_tx,
             main_task_shutdown,
@@ -103,27 +113,62 @@ impl Driver {
             serial_cmd: serial_cmd_tx,
             serial_task_shutdown,
             serial_listener: serial_listener_rx,
+        };
+
+        let callback_id_gen = WrappingCounter::new();
+
+        Self {
+            tasks,
             callback_id_gen,
-            controller: None,
-            state: DriverState::default(),
+            phase: Init,
+            storage: DriverStorage::default(),
         }
     }
 
-    pub async fn init(&mut self) -> Result<()> {
+    pub async fn init(mut self) -> Result<Driver<Ready>> {
         // Synchronize the serial port
         exec_background_task!(
-            self.serial_cmd,
+            self.tasks.serial_cmd,
             SerialTaskCommand::SendFrame,
             SerialFrame::ControlFlow(ControlFlow::NAK)
         )?;
 
-        // TODO: Interview controller
-        self.controller = Some(self.interview_controller().await.unwrap());
-        println!("Controller info: {:#?}", &self.controller);
+        let controller = self.interview_controller().await.unwrap();
+        println!("Controller info: {:#?}", &controller);
 
-        Ok(())
+        let mut this = Driver::<Ready> {
+            tasks: self.tasks,
+            callback_id_gen: self.callback_id_gen,
+            phase: Ready { controller },
+            storage: self.storage,
+        };
+
+        this.configure_controller().await.unwrap();
+
+        Ok(this)
     }
 
+    pub fn controller(&self) -> Option<&Controller> {
+        None
+    }
+}
+
+impl Driver<Ready> {
+    pub fn controller(&self) -> &Controller {
+        // When the driver is in the ready phase, we're sure that the controller has been initialized
+        self.phase.controller().unwrap()
+    }
+
+    pub fn controller_mut(&mut self) -> &mut Controller {
+        // When the driver is in the ready phase, we're sure that the controller has been initialized
+        self.phase.controller_mut().unwrap()
+    }
+}
+
+impl<T> Driver<T>
+where
+    T: DriverPhase,
+{
     /// Write a frame to the serial port, returning a reference to the awaited ACK frame
     pub async fn write_serial(&self, frame: SerialFrame) -> Result<AwaitedRef<ControlFlow>> {
         // Register an awaiter for the ACK frame
@@ -131,7 +176,7 @@ impl Driver {
             .await_control_flow_frame(Box::new(|_| true), Some(Duration::from_millis(1600)))
             .await;
         // ...then send the frame
-        exec_background_task!(&self.serial_cmd, SerialTaskCommand::SendFrame, frame)?;
+        exec_background_task!(&self.tasks.serial_cmd, SerialTaskCommand::SendFrame, frame)?;
 
         ret
     }
@@ -143,7 +188,7 @@ impl Driver {
     ) -> Result<AwaitedRef<ControlFlow>> {
         // To await a control frame, we first register an awaiter
         exec_background_task!(
-            self.main_cmd,
+            self.tasks.main_cmd,
             MainTaskCommand::RegisterAwaitedControlFlowFrame,
             predicate,
             timeout
@@ -157,7 +202,7 @@ impl Driver {
     ) -> Result<AwaitedRef<Command>> {
         // To await a command, we first register an awaiter
         exec_background_task!(
-            self.main_cmd,
+            self.tasks.main_cmd,
             MainTaskCommand::RegisterAwaitedCommand,
             predicate,
             timeout
@@ -415,7 +460,7 @@ define_task_commands!(MainTaskCommand {
 type MainTaskCommandSender = TaskCommandSender<MainTaskCommand>;
 type MainTaskCommandReceiver = TaskCommandReceiver<MainTaskCommand>;
 
-struct MainLoopState {
+struct MainLoopStorage {
     awaited_control_flow_frames: Arc<AwaitedRegistry<ControlFlow>>,
     awaited_commands: Arc<AwaitedRegistry<Command>>,
 }
@@ -427,7 +472,7 @@ async fn main_loop(
     mut serial_listener: SerialListener,
     // command_handlers: Arc<Mutex<Vec<CommandHandler>>>,
 ) {
-    let state = MainLoopState {
+    let storage = MainLoopStorage {
         awaited_control_flow_frames: Arc::new(AwaitedRegistry::default()),
         awaited_commands: Arc::new(AwaitedRegistry::default()),
     };
@@ -442,10 +487,10 @@ async fn main_loop(
             _ = shutdown.notified() => break,
 
             // We received a command from the outside
-            Some(cmd) = cmd_rx.recv() => main_loop_handle_command(&state, cmd, &serial_cmd).await,
+            Some(cmd) = cmd_rx.recv() => main_loop_handle_command(&storage, cmd, &serial_cmd).await,
 
             // The serial port emitted a frame
-            Ok(frame) = serial_listener.recv() => main_loop_handle_frame(&state, frame, &serial_cmd).await
+            Ok(frame) = serial_listener.recv() => main_loop_handle_frame(&storage, frame, &serial_cmd).await
         }
     }
 
@@ -453,13 +498,13 @@ async fn main_loop(
 }
 
 async fn main_loop_handle_command(
-    state: &MainLoopState,
+    storage: &MainLoopStorage,
     cmd: MainTaskCommand,
     _serial_cmd: &SerialTaskCommandSender,
 ) {
     match cmd {
         MainTaskCommand::RegisterAwaitedControlFlowFrame(ctrl) => {
-            let result = state
+            let result = storage
                 .awaited_control_flow_frames
                 .add(ctrl.predicate, ctrl.timeout);
             ctrl.callback
@@ -469,7 +514,7 @@ async fn main_loop_handle_command(
         }
 
         MainTaskCommand::RegisterAwaitedCommand(cmd) => {
-            let result = state.awaited_commands.add(cmd.predicate, cmd.timeout);
+            let result = storage.awaited_commands.add(cmd.predicate, cmd.timeout);
             cmd.callback
                 .send(result)
                 .map_err(|_| Error::Internal)
@@ -482,7 +527,7 @@ async fn main_loop_handle_command(
 }
 
 async fn main_loop_handle_frame(
-    state: &MainLoopState,
+    storage: &MainLoopStorage,
     frame: SerialFrame,
     _serial_cmd: &SerialTaskCommandSender,
 ) {
@@ -491,7 +536,7 @@ async fn main_loop_handle_frame(
         SerialFrame::ControlFlow(cf) => {
             // If the awaited control-flow-frame registry has a matching awaiter,
             // remove it and send the frame through its channel
-            if let Some(channel) = state.awaited_control_flow_frames.take_matching(cf) {
+            if let Some(channel) = storage.awaited_control_flow_frames.take_matching(cf) {
                 channel.send(*cf).unwrap();
 
                 #[allow(clippy::needless_return)]
@@ -501,7 +546,7 @@ async fn main_loop_handle_frame(
         SerialFrame::Command(cmd) => {
             // If the awaited command registry has a matching awaiter,
             // remove it and send the command through its channel
-            if let Some(channel) = state.awaited_commands.take_matching(cmd) {
+            if let Some(channel) = storage.awaited_commands.take_matching(cmd) {
                 channel.send(cmd.clone()).unwrap();
 
                 #[allow(clippy::needless_return)]
@@ -528,7 +573,7 @@ type SerialTaskCommandSender = TaskCommandSender<SerialTaskCommand>;
 type SerialTaskCommandReceiver = TaskCommandReceiver<SerialTaskCommand>;
 
 #[derive(Default)]
-struct SerialLoopState {
+struct SerialLoopStorage {
     node_id_type: NodeIdType,
 }
 
@@ -538,7 +583,7 @@ async fn serial_loop(
     shutdown: Arc<Notify>,
     frame_emitter: SerialFrameEmitter,
 ) {
-    let mut state = SerialLoopState::default();
+    let mut storage = SerialLoopStorage::default();
     loop {
         // Whatever happens first gets handled first.
         tokio::select! {
@@ -549,10 +594,10 @@ async fn serial_loop(
             _ = shutdown.notified() => break,
 
             // We received a command from the outside
-            Some(cmd) = cmd_rx.recv() => serial_loop_handle_command(&mut state, &mut port, cmd).await,
+            Some(cmd) = cmd_rx.recv() => serial_loop_handle_command(&mut storage, &mut port, cmd).await,
 
             // We received a frame from the serial port
-            Some(frame) = port.read() => serial_loop_handle_frame(&state, &mut port, frame, &frame_emitter).await
+            Some(frame) = port.read() => serial_loop_handle_frame(&storage, &mut port, frame, &frame_emitter).await
         }
     }
 
@@ -560,14 +605,14 @@ async fn serial_loop(
 }
 
 async fn serial_loop_handle_command(
-    state: &mut SerialLoopState,
+    storage: &mut SerialLoopStorage,
     port: &mut SerialPort,
     cmd: SerialTaskCommand,
 ) {
     match cmd {
         SerialTaskCommand::SendFrame(SendFrame { frame, callback }) => {
             let ctx = CommandEncodingContext::builder()
-                .node_id_type(state.node_id_type)
+                .node_id_type(storage.node_id_type)
                 .build()
                 .unwrap();
             port.write(frame.try_into_raw(&ctx).unwrap()).await.unwrap();
@@ -577,14 +622,14 @@ async fn serial_loop_handle_command(
             node_id_type,
             callback,
         }) => {
-            state.node_id_type = node_id_type;
+            storage.node_id_type = node_id_type;
             callback.send(()).unwrap();
         }
     }
 }
 
 async fn serial_loop_handle_frame(
-    state: &SerialLoopState,
+    storage: &SerialLoopStorage,
     port: &mut SerialPort,
     frame: RawSerialFrame,
     frame_emitter: &SerialFrameEmitter,
@@ -602,7 +647,7 @@ async fn serial_loop_handle_frame(
 
                     // Now try to convert it into an actual command
                     let ctx = CommandEncodingContext::builder()
-                        .node_id_type(state.node_id_type)
+                        .node_id_type(storage.node_id_type)
                         .build()
                         .unwrap();
                     match zwave_serial::command::Command::try_from_raw(raw, &ctx) {
@@ -657,11 +702,3 @@ macro_rules! exec_background_task {
     };
 }
 pub(crate) use exec_background_task;
-
-impl Drop for Driver {
-    fn drop(&mut self) {
-        // We need to stop the background tasks, otherwise they will stick around until the process exits
-        self.serial_task_shutdown.notify_one();
-        self.main_task_shutdown.notify_one();
-    }
-}

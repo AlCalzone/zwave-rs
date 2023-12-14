@@ -7,7 +7,9 @@ use zwave_core::definitions::{
 };
 use zwave_serial::command::SerialApiSetupCommand;
 
-impl Driver {
+use super::{Init, Ready};
+
+impl Driver<Init> {
     pub(crate) async fn interview_controller(&mut self) -> ControllerCommandResult<Controller> {
         // We execute some of these commands before knowing the controller capabilities, so
         // we disable enforcing that the controller supports the commands.
@@ -86,5 +88,31 @@ impl Driver {
             .unwrap();
 
         Ok(controller)
+    }
+}
+
+impl Driver<Ready> {
+    pub(crate) async fn configure_controller(&mut self) -> ControllerCommandResult<()> {
+        // Get the currently configured RF region and remember it.
+        // If it differs from the desired region, change it afterwards.
+        if self
+            .controller()
+            .supports_serial_api_setup_command(SerialApiSetupCommand::GetRFRegion)
+        {
+            let region = self.get_rf_region(None).await?;
+            self.controller_mut().set_rf_region(Some(region));
+        }
+
+        // Get the currently configured powerlevel and remember it.
+        // If it differs from the desired powerlevel, change it afterwards.
+        if self
+            .controller()
+            .supports_serial_api_setup_command(SerialApiSetupCommand::GetPowerlevel)
+        {
+            let powerlevel = self.get_powerlevel(None).await?;
+            self.controller_mut().set_powerlevel(Some(powerlevel));
+        }
+
+        Ok(())
     }
 }

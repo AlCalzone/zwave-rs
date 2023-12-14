@@ -33,10 +33,10 @@ pub struct Controller {
     supported_serial_api_setup_commands: Vec<SerialApiSetupCommand>,
     supports_timers: bool,
 
-    #[builder(setter(skip))]
-    rf_region: RfRegion,
-    #[builder(setter(skip))]
-    powerlevel: Powerlevel,
+    #[builder(setter(skip, strip_option))]
+    rf_region: Option<RfRegion>,
+    #[builder(setter(skip, strip_option))]
+    powerlevel: Option<Powerlevel>,
 }
 
 impl Controller {
@@ -52,5 +52,21 @@ impl Controller {
     /// Checks whether a given Z-Wave Serial API setup command is supported by the controller.
     pub fn supports_serial_api_setup_command(&self, command: SerialApiSetupCommand) -> bool {
         self.supported_serial_api_setup_commands.contains(&command)
+    }
+
+    pub fn rf_region(&self) -> Option<RfRegion> {
+        self.rf_region
+    }
+
+    pub(crate) fn set_rf_region(&mut self, region: Option<RfRegion>) {
+        self.rf_region = region;
+    }
+
+    pub fn powerlevel(&self) -> Option<Powerlevel> {
+        self.powerlevel
+    }
+
+    pub(crate) fn set_powerlevel(&mut self, powerlevel: Option<Powerlevel>) {
+        self.powerlevel = powerlevel;
     }
 }
