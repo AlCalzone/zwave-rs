@@ -1,8 +1,11 @@
-use crate::prelude::{Parsable, Serializable};
+use crate::{
+    encoding::NomTryFromPrimitive,
+    prelude::{Parsable, Serializable},
+};
 use derive_try_from_primitive::TryFromPrimitive;
 use enum_iterator::Sequence;
 use nom::{
-    combinator::{map, peek},
+    combinator::{map_res, peek},
     number::complete::{be_u16, be_u8},
 };
 use std::fmt::Display;
@@ -135,6 +138,14 @@ pub enum CommandClasses {
     ZWavePlusInfo = 0x5e,
     // Internal CC which is not used directly by applications
     ZWaveProtocol = 0x01,
+}
+
+impl NomTryFromPrimitive for CommandClasses {
+    type Repr = u16;
+
+    fn format_error(repr: Self::Repr) -> String {
+        format!("Unknown command class: {:#06x}", repr)
+    }
 }
 
 impl CommandClasses {
@@ -525,9 +536,9 @@ impl Parsable for CommandClasses {
         let (i, cc_id) = peek(be_u8)(i)?;
         // FIXME: Support unknown CCs
         let (i, cc) = if CommandClasses::is_extended(cc_id) {
-            map(be_u16, |x| CommandClasses::try_from(x).unwrap())(i)?
+            map_res(be_u16, CommandClasses::try_from_primitive)(i)?
         } else {
-            map(be_u8, |x| CommandClasses::try_from(x as u16).unwrap())(i)?
+            map_res(be_u8, |x| CommandClasses::try_from_primitive(x as u16))(i)?
         };
         Ok((i, cc))
     }

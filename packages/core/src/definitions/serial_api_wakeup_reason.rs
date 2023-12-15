@@ -1,37 +1,37 @@
 use std::fmt::Display;
 
-use crate::encoding::{self, Parsable, Serializable};
+use crate::encoding::{self, NomTryFromPrimitive, Parsable, Serializable};
 
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
 use derive_try_from_primitive::*;
-use nom::{combinator::map, error::context, number::complete::be_u8};
+use nom::{combinator::map_res, error::context, number::complete::be_u8};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum SerialApiWakeUpReason {
-	/// The Z-Wave API Module has been woken up by reset or external interrupt.
-	Reset = 0x00,
-	/// The Z-Wave API Module has been woken up by a timer.
-	Timer = 0x01,
-	/// The Z-Wave API Module has been woken up by a Wake Up Beam.
-	WakeUpBeam = 0x02,
-	/// The Z-Wave API Module has been woken up by a reset triggered by the watchdog.
-	WatchdogReset = 0x03,
-	/// The Z-Wave API Module has been woken up by an external interrupt.
-	ExternalInterrupt = 0x04,
-	/// The Z-Wave API Module has been woken up by a powering up.
-	PowerUp = 0x05,
-	/// The Z-Wave API Module has been woken up by USB Suspend.
-	USBSuspend = 0x06,
-	/// The Z-Wave API Module has been woken up by a reset triggered by software.
-	SoftwareReset = 0x07,
-	/// The Z-Wave API Module has been woken up by an emergency watchdog reset.
-	EmergencyWatchdogReset = 0x08,
-	/// The Z-Wave API Module has been woken up by a reset triggered by brownout circuit.
-	BrownoutCircuit = 0x09,
-	/// The Z-Wave API Module has been woken up by an unknown reason.
-	Unknown = 0xff,
+    /// The Z-Wave API Module has been woken up by reset or external interrupt.
+    Reset = 0x00,
+    /// The Z-Wave API Module has been woken up by a timer.
+    Timer = 0x01,
+    /// The Z-Wave API Module has been woken up by a Wake Up Beam.
+    WakeUpBeam = 0x02,
+    /// The Z-Wave API Module has been woken up by a reset triggered by the watchdog.
+    WatchdogReset = 0x03,
+    /// The Z-Wave API Module has been woken up by an external interrupt.
+    ExternalInterrupt = 0x04,
+    /// The Z-Wave API Module has been woken up by a powering up.
+    PowerUp = 0x05,
+    /// The Z-Wave API Module has been woken up by USB Suspend.
+    USBSuspend = 0x06,
+    /// The Z-Wave API Module has been woken up by a reset triggered by software.
+    SoftwareReset = 0x07,
+    /// The Z-Wave API Module has been woken up by an emergency watchdog reset.
+    EmergencyWatchdogReset = 0x08,
+    /// The Z-Wave API Module has been woken up by a reset triggered by brownout circuit.
+    BrownoutCircuit = 0x09,
+    /// The Z-Wave API Module has been woken up by an unknown reason.
+    Unknown = 0xff,
 }
 
 impl Display for SerialApiWakeUpReason {
@@ -52,11 +52,19 @@ impl Display for SerialApiWakeUpReason {
     }
 }
 
+impl NomTryFromPrimitive for SerialApiWakeUpReason {
+    type Repr = u8;
+
+    fn format_error(repr: Self::Repr) -> String {
+        format!("Unknown wakeup reason: {:#04x}", repr)
+    }
+}
+
 impl Parsable for SerialApiWakeUpReason {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         context(
             "SerialApiWakeUpReason",
-            map(be_u8, |x| SerialApiWakeUpReason::try_from(x).unwrap()),
+            map_res(be_u8, SerialApiWakeUpReason::try_from_primitive),
         )(i)
     }
 }

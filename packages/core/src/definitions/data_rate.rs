@@ -1,10 +1,12 @@
-use crate::encoding::{self, BitParsable, BitSerializable, Parsable, Serializable, WriteLastNBits};
+use crate::encoding::{
+    self, BitParsable, BitSerializable, NomTryFromPrimitive, Parsable, Serializable, WriteLastNBits,
+};
 
 use cookie_factory as cf;
 use derive_try_from_primitive::*;
 use encoding::{EncodingError, EncodingResult};
 use nom::{
-    bits::complete::take as take_bits, combinator::map, error::context, number::complete::be_u8,
+    bits::complete::take as take_bits, combinator::map_res, error::context, number::complete::be_u8,
 };
 use std::fmt::Display;
 
@@ -40,6 +42,14 @@ impl TryFrom<u8> for ProtocolDataRate {
     }
 }
 
+impl NomTryFromPrimitive for ProtocolDataRate {
+    type Repr = u8;
+
+    fn format_error(repr: Self::Repr) -> String {
+        format!("Unknown ProtocolDataRate: {:#04x}", repr)
+    }
+}
+
 impl From<ProtocolDataRate> for u8 {
     fn from(rate: ProtocolDataRate) -> Self {
         match rate {
@@ -53,8 +63,8 @@ impl BitParsable for ProtocolDataRate {
     fn parse(i: encoding::BitInput) -> encoding::BitParseResult<Self> {
         context(
             "ProtocolDataRate",
-            map(take_bits(3usize), |x: u8| {
-                ProtocolDataRate::try_from(x).unwrap()
+            map_res(take_bits(3usize), |x: u8| {
+                ProtocolDataRate::try_from_primitive(x)
             }),
         )(i)
     }
@@ -64,7 +74,7 @@ impl Parsable for ProtocolDataRate {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         context(
             "ProtocolDataRate",
-            map(be_u8, |x| ProtocolDataRate::try_from(x).unwrap()),
+            map_res(be_u8, ProtocolDataRate::try_from_primitive),
         )(i)
     }
 }
@@ -94,9 +104,17 @@ impl Display for DataRate {
     }
 }
 
+impl NomTryFromPrimitive for DataRate {
+    type Repr = u8;
+
+    fn format_error(repr: Self::Repr) -> String {
+        format!("Unknown data rate: {:#04x}", repr)
+    }
+}
+
 impl Parsable for DataRate {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context("DataRate", map(be_u8, |x| DataRate::try_from(x).unwrap()))(i)
+        context("DataRate", map_res(be_u8, DataRate::try_from_primitive))(i)
     }
 }
 

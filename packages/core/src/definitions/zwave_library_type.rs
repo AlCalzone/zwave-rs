@@ -1,8 +1,8 @@
-use crate::encoding::{self, Parsable, Serializable};
+use crate::encoding::{self, NomTryFromPrimitive, Parsable, Serializable};
 
 use cookie_factory as cf;
 use derive_try_from_primitive::*;
-use nom::{combinator::map, error::context, number::complete::be_u8};
+use nom::{combinator::map_res, error::context, number::complete::be_u8};
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
@@ -41,11 +41,19 @@ impl Display for ZWaveLibraryType {
     }
 }
 
+impl NomTryFromPrimitive for ZWaveLibraryType {
+    type Repr = u8;
+
+    fn format_error(repr: Self::Repr) -> String {
+        format!("Unknown Z-Wave library type: {:#04x}", repr)
+    }
+}
+
 impl Parsable for ZWaveLibraryType {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         context(
             "ZWaveLibraryType",
-            map(be_u8, |x| ZWaveLibraryType::try_from(x).unwrap()),
+            map_res(be_u8, ZWaveLibraryType::try_from_primitive),
         )(i)
     }
 }

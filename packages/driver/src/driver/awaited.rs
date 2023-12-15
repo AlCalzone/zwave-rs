@@ -44,7 +44,7 @@ impl<T> AwaitedRegistry<T> {
             channel: tx,
         };
         {
-            let mut vec = self.store.lock().unwrap();
+            let mut vec = self.store.lock().expect("lock on AwaitedRegistry poisoned");
             vec.push(awaited);
         }
         AwaitedRef::new(id, self.clone(), timeout, rx)
@@ -54,20 +54,17 @@ impl<T> AwaitedRegistry<T> {
     /// that can be used to receive the value when it is available.
     /// The entry is removed from the registry.
     pub fn take_matching(self: &Arc<Self>, value: &T) -> Option<oneshot::Sender<T>> {
-        let mut vec = self.store.lock().unwrap();
+        let mut vec = self.store.lock().expect("lock on AwaitedRegistry poisoned");
         let index = vec.iter().position(|a| (a.predicate)(value));
         index.map(|i| vec.remove(i).channel)
     }
 
     /// Removes an entry from the registry using the given `AwaitedRef`.
     pub fn remove(self: &Arc<Self>, awaited: &AwaitedRef<T>) {
-        let mut vec = self.store.lock().unwrap();
+        let mut vec = self.store.lock().expect("lock on AwaitedRegistry poisoned");
         vec.retain(|a| a.id != awaited.id);
     }
 
-    // pub fn len(&self) -> usize {
-    //     self.store.lock().unwrap().len()
-    // }
 }
 
 pub struct Awaited<T> {
@@ -98,19 +95,12 @@ impl<T> AwaitedRef<T> {
         }
     }
 
-    fn take_channel(&mut self) -> oneshot::Receiver<T> {
-        self.channel.take().unwrap()
-    }
-
     /// Begins awaiting the value
     pub async fn try_await(mut self) -> Result<T> {
         let sleep = MaybeSleep::new(self.timeout);
+        let receiver = self.channel.take().expect("try_await may only be called once");
         tokio::select! {
-            // We pass the entire result including the oneshot channel to the caller,
-            // so that they can acknowledge the command when they handled it. This avoids
-            // race conditions where the driver may attempt to handle the next serial frame
-            // before it is expected.
-            result = self.take_channel() => result.map_err(|_| Error::Internal),
+            result = receiver => result.map_err(|_| Error::Internal),
             _ = sleep => Err(Error::Timeout),
         }
     }

@@ -1,9 +1,9 @@
-use crate::encoding::{self, BitParsable, BitSerializable, WriteLastNBits};
+use crate::encoding::{self, BitParsable, BitSerializable, NomTryFromPrimitive, WriteLastNBits};
 
 use cookie_factory as cf;
 use derive_try_from_primitive::*;
 use encoding::{Parsable, Serializable};
-use nom::{combinator::map, number::complete::be_u8};
+use nom::{combinator::map_res, number::complete::be_u8};
 use std::fmt::Display;
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
@@ -14,7 +14,13 @@ pub enum NodeIdType {
     NodeId16Bit = 0x02,
 }
 
+impl NomTryFromPrimitive for NodeIdType {
+    type Repr = u8;
 
+    fn format_error(repr: Self::Repr) -> String {
+        format!("Unknown node ID type: {:#04x}", repr)
+    }
+}
 
 impl Display for NodeIdType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -27,7 +33,7 @@ impl Display for NodeIdType {
 
 impl Parsable for NodeIdType {
     fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        map(be_u8, |x: u8| NodeIdType::try_from(x).unwrap())(i)
+        map_res(be_u8, NodeIdType::try_from_primitive)(i)
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use derive_try_from_primitive::TryFromPrimitive;
-use zwave_core::{encoding::parsers::fixed_length_bitmask_u8, prelude::*};
+use zwave_core::{encoding::{parsers::fixed_length_bitmask_u8, NomTryFromPrimitive}, prelude::*};
 
 use cookie_factory as cf;
 
@@ -30,6 +30,14 @@ pub enum SerialApiSetupCommand {
     GetLRMaximumPayloadSize = 0x11,
     SetPowerlevel16Bit = 0x12,
     GetPowerlevel16Bit = 0x13,
+}
+
+impl NomTryFromPrimitive for SerialApiSetupCommand {
+    type Repr = u8;
+
+    fn format_error(repr: Self::Repr) -> String {
+        format!("Unknown SerialApiSetupCommand: {:#04x}", repr)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

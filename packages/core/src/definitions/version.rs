@@ -27,21 +27,6 @@ impl std::fmt::Debug for Version {
     }
 }
 
-// impl From<&str> for Version {
-//     fn from(s: &str) -> Self {
-//         let mut parts = s.split('.');
-//         let major = parts.next().unwrap().parse().unwrap();
-//         let minor = parts.next().unwrap().parse().unwrap();
-//         let patch = parts.next().map(|s| s.parse().unwrap());
-
-//         Version {
-//             major,
-//             minor,
-//             patch,
-//         }
-//     }
-// }
-
 impl TryFrom<&str> for Version {
     type Error = SimpleParseError;
 

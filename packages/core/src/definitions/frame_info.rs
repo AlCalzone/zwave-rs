@@ -1,10 +1,10 @@
-use crate::encoding::{self, BitParsable, BitSerializable, Parsable, WriteLastNBits};
+use crate::encoding::{self, BitParsable, BitSerializable, Parsable, WriteLastNBits, NomTryFromPrimitive};
 
 
 use custom_debug_derive::Debug;
 use derive_try_from_primitive::*;
 use nom::{
-    bits, bits::complete::take as take_bits, combinator::map, complete::bool, error::context,
+    bits, bits::complete::take as take_bits, combinator::{map_res}, complete::bool, error::context,
     sequence::tuple,
 };
 use ux::u1;
@@ -17,12 +17,20 @@ pub enum FrameAddressing {
     Multicast = 0b10,
 }
 
+impl NomTryFromPrimitive for FrameAddressing {
+    type Repr = u8;
+
+    fn format_error(repr: Self::Repr) -> String {
+        format!("Unknown frame addressing: {:#04x}", repr)
+    }
+}
+
 impl BitParsable for FrameAddressing {
     fn parse(i: encoding::BitInput) -> encoding::BitParseResult<Self> {
         context(
             "FrameType",
-            map(take_bits(2usize), |x: u8| {
-                FrameAddressing::try_from(x).unwrap()
+            map_res(take_bits(2usize), |x: u8| {
+                FrameAddressing::try_from_primitive(x)
             }),
         )(i)
     }

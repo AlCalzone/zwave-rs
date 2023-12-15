@@ -1,9 +1,9 @@
-use crate::encoding::{self};
+use crate::encoding::{self, NomTryFromPrimitive};
 
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
 use derive_try_from_primitive::*;
-use nom::{combinator::map, error::context, number::complete::be_u8};
+use nom::{combinator::map_res, error::context, number::complete::be_u8};
 
 /// Complete list of function IDs for data messages.
 /// IDs starting with FUNC_ID are straight from OZW and not implemented here yet.
@@ -186,11 +186,19 @@ pub enum FunctionType {
     UNKNOWN_FUNC_ZMESerialApiOptions = 0xf8,
 }
 
+impl NomTryFromPrimitive for FunctionType {
+    type Repr = u8;
+
+    fn format_error(repr: Self::Repr) -> String {
+        format!("Unknown FunctionType: {:#04x}", repr)
+    }
+}
+
 impl FunctionType {
     pub fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
         context(
             "FunctionType",
-            map(be_u8, |x| FunctionType::try_from(x).unwrap()),
+            map_res(be_u8, FunctionType::try_from_primitive),
         )(i)
     }
 
