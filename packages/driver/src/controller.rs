@@ -54,6 +54,10 @@ impl Controller {
         self.supported_serial_api_setup_commands.contains(&command)
     }
 
+    pub fn home_id(&self) -> u32 {
+        self.home_id
+    }
+
     pub fn own_node_id(&self) -> NodeId {
         self.own_node_id
     }

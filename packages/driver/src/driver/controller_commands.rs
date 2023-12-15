@@ -292,6 +292,7 @@ impl Driver<Ready> {
 
     pub async fn set_suc_node_id(
         &mut self,
+        own_node_id: NodeId,
         node_id: NodeId,
         enable_suc: bool,
         enable_sis: bool,
@@ -299,6 +300,7 @@ impl Driver<Ready> {
     ) -> ControllerCommandResult<bool> {
 
         let cmd = SetSucNodeIdRequest::builder()
+            .own_node_id(own_node_id)
             .suc_node_id(node_id)
             .enable_suc(enable_suc)
             .enable_sis(enable_sis)

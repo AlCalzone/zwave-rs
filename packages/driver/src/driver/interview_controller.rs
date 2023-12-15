@@ -138,7 +138,13 @@ impl Driver<Ready> {
         if should_promote {
             println!("There is no SUC/SIS in the network - promoting ourselves...");
             match self
-                .set_suc_node_id(self.controller().own_node_id(), true, true, None)
+                .set_suc_node_id(
+                    self.controller().own_node_id(),
+                    self.controller().own_node_id(),
+                    true,
+                    true,
+                    None,
+                )
                 .await
             {
                 Ok(success) => {
@@ -148,7 +154,7 @@ impl Driver<Ready> {
                     );
                 }
                 Err(e) => {
-                    println!("PError while promoting to SUC/SIS: {:?}", e);
+                    println!("Error while promoting to SUC/SIS: {:?}", e);
                 }
             }
         } else {

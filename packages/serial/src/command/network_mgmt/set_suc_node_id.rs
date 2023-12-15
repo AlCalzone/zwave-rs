@@ -13,6 +13,8 @@ use zwave_core::encoding::{self, parser_not_implemented};
 #[builder(pattern = "owned")]
 #[builder(build_fn(error = "crate::error::Error"))]
 pub struct SetSucNodeIdRequest {
+    // Needed for knowing whether a callback is expected
+    own_node_id: NodeId,
     suc_node_id: NodeId,
     enable_suc: bool,
     enable_sis: bool,
@@ -53,7 +55,7 @@ impl CommandRequest for SetSucNodeIdRequest {
     }
 
     fn expects_callback(&self) -> bool {
-        self.suc_node_id == NodeId::new(1u8) // FIXME: This must be compared with our OWN node ID
+        self.suc_node_id == self.own_node_id
     }
 
     fn needs_callback_id(&self) -> bool {

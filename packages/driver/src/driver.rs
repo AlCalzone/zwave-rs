@@ -165,9 +165,9 @@ impl Driver<Ready> {
     }
 }
 
-impl<T> Driver<T>
+impl<P> Driver<P>
 where
-    T: DriverPhase,
+    P: DriverPhase,
 {
     /// Write a frame to the serial port, returning a reference to the awaited ACK frame
     pub async fn write_serial(&self, frame: SerialFrame) -> Result<AwaitedRef<ControlFlow>> {
