@@ -7,11 +7,6 @@ pub enum Error {
     Serialport(#[from] serialport::Error),
     #[error(transparent)]
     IO(#[from] tokio::io::Error),
-
-    // FIXME: This is relevant only for creating command instances.
-    // It should be moved to a separate error type.
-    #[error("Missing argument: {0}")]
-    MissingArgument(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

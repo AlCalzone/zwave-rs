@@ -71,9 +71,10 @@ struct DriverStorage {
 }
 
 impl Driver<Init> {
-    pub fn new(path: &str) -> Self {
+    pub fn new(path: &str) -> Result<Self> {
         // The serial task owns the serial port. All communication needs to go through that task.
-        let port = SerialPort::new(path).unwrap();
+        let port = SerialPort::new(path)?;
+
         // To control it, we send a thread command along with a "callback" oneshot channel to the task.
         let (serial_cmd_tx, serial_cmd_rx) = mpsc::channel::<SerialTaskCommand>(100);
         // The listener is used to receive frames from the serial port
@@ -117,12 +118,12 @@ impl Driver<Init> {
 
         let callback_id_gen = WrappingCounter::new();
 
-        Self {
+        Ok(Self {
             tasks,
             callback_id_gen,
             phase: Init,
             storage: DriverStorage::default(),
-        }
+        })
     }
 
     pub async fn init(mut self) -> Result<Driver<Ready>> {
@@ -131,9 +132,9 @@ impl Driver<Init> {
             self.tasks.serial_cmd,
             SerialTaskCommand::SendFrame,
             SerialFrame::ControlFlow(ControlFlow::NAK)
-        )?;
+        )??;
 
-        let controller = self.interview_controller().await.unwrap();
+        let controller = self.interview_controller().await?;
         println!("Controller info: {:#?}", &controller);
 
         let mut this = Driver::<Ready> {
@@ -143,7 +144,7 @@ impl Driver<Init> {
             storage: self.storage,
         };
 
-        this.configure_controller().await.unwrap();
+        this.configure_controller().await?;
 
         Ok(this)
     }
@@ -176,7 +177,7 @@ where
             .await_control_flow_frame(Box::new(|_| true), Some(Duration::from_millis(1600)))
             .await;
         // ...then send the frame
-        exec_background_task!(&self.tasks.serial_cmd, SerialTaskCommand::SendFrame, frame)?;
+        exec_background_task!(&self.tasks.serial_cmd, SerialTaskCommand::SendFrame, frame)??;
 
         ret
     }
@@ -509,16 +510,14 @@ async fn main_loop_handle_command(
                 .add(ctrl.predicate, ctrl.timeout);
             ctrl.callback
                 .send(result)
-                .map_err(|_| Error::Internal)
-                .unwrap();
+                .expect("invoking the callback of a MainTaskCommand should not fail");
         }
 
         MainTaskCommand::RegisterAwaitedCommand(cmd) => {
             let result = storage.awaited_commands.add(cmd.predicate, cmd.timeout);
             cmd.callback
                 .send(result)
-                .map_err(|_| Error::Internal)
-                .unwrap();
+                .expect("invoking the callback of a MainTaskCommand should not fail");
         }
 
         #[allow(unreachable_patterns)]
@@ -537,7 +536,9 @@ async fn main_loop_handle_frame(
             // If the awaited control-flow-frame registry has a matching awaiter,
             // remove it and send the frame through its channel
             if let Some(channel) = storage.awaited_control_flow_frames.take_matching(cf) {
-                channel.send(*cf).unwrap();
+                channel
+                    .send(*cf)
+                    .expect("invoking the callback of an Awaited should not fail");
 
                 #[allow(clippy::needless_return)]
                 return;
@@ -547,7 +548,9 @@ async fn main_loop_handle_frame(
             // If the awaited command registry has a matching awaiter,
             // remove it and send the command through its channel
             if let Some(channel) = storage.awaited_commands.take_matching(cmd) {
-                channel.send(cmd.clone()).unwrap();
+                channel
+                    .send(cmd.clone())
+                    .expect("invoking the callback of an Awaited should not fail");
 
                 #[allow(clippy::needless_return)]
                 return;
@@ -560,7 +563,7 @@ async fn main_loop_handle_frame(
 
 define_task_commands!(SerialTaskCommand {
     // Send the given frame to the serial port
-    SendFrame -> () {
+    SendFrame -> Result<()> {
         frame: SerialFrame
     },
     // Use the given node ID type for parsing frames
@@ -614,15 +617,28 @@ async fn serial_loop_handle_command(
             let ctx = CommandEncodingContext::builder()
                 .node_id_type(storage.node_id_type)
                 .build();
-            port.write(frame.try_into_raw(&ctx).unwrap()).await.unwrap();
-            callback.send(()).unwrap();
+
+            // Try encoding the frame // TODO: Expose encoding errors
+            let result = frame.try_into_raw(&ctx).map_err(|_| Error::Internal);
+
+            let result = if let Ok(raw) = result {
+                port.write(raw).await.map_err(|e| e.into())
+            } else {
+                result.map(|_| ())
+            };
+
+            callback
+                .send(result)
+                .expect("invoking the callback of a SerialTaskCommand should not fail");
         }
         SerialTaskCommand::UseNodeIDType(UseNodeIDType {
             node_id_type,
             callback,
         }) => {
             storage.node_id_type = node_id_type;
-            callback.send(()).unwrap();
+            callback
+                .send(())
+                .expect("invoking the callback of a SerialTaskCommand should not fail");
         }
     }
 }
@@ -685,7 +701,7 @@ async fn serial_loop_handle_frame(
     };
 
     if let Some(frame) = emit {
-        frame_emitter.send(frame).unwrap();
+        let _ = frame_emitter.send(frame);
     }
 }
 

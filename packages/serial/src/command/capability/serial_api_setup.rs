@@ -1,12 +1,15 @@
 use crate::prelude::*;
 use derive_try_from_primitive::TryFromPrimitive;
-use zwave_core::{encoding::{parsers::fixed_length_bitmask_u8, NomTryFromPrimitive}, prelude::*};
+use zwave_core::{
+    encoding::{parsers::fixed_length_bitmask_u8, NomTryFromPrimitive},
+    prelude::*,
+};
 
 use cookie_factory as cf;
 
 use nom::{
     bytes::complete::take,
-    combinator::map,
+    combinator::{map, map_res},
     number::complete::{be_i16, be_i8, be_u8},
 };
 use zwave_core::encoding::{self, encoders::empty, parser_not_implemented};
@@ -335,7 +338,7 @@ impl CommandParsable for SerialApiSetupResponse {
         i: encoding::Input<'a>,
         ctx: &CommandEncodingContext,
     ) -> encoding::ParseResult<'a, Self> {
-        let (i, command) = map(be_u8, |x| SerialApiSetupCommand::try_from(x).unwrap())(i)?;
+        let (i, command) = map_res(be_u8, SerialApiSetupCommand::try_from_primitive)(i)?;
         let (i, payload) = match command {
             SerialApiSetupCommand::Unsupported => {
                 (i, SerialApiSetupResponsePayload::Unsupported(command))
@@ -356,11 +359,14 @@ impl CommandParsable for SerialApiSetupResponse {
                             SerialApiSetupCommand::GetSupportedCommands
                         };
 
-                    let (i, commands) = fixed_length_bitmask_u8(i, start_value as u8, i.len())?;
-                    let commands: Vec<SerialApiSetupCommand> = commands
-                        .iter()
-                        .map(|x| SerialApiSetupCommand::try_from(*x).unwrap())
-                        .collect();
+                    let (i, commands) = map_res(
+                        |i| fixed_length_bitmask_u8(i, start_value as u8, i.len()),
+                        |x| {
+                            x.iter()
+                                .map(|x| SerialApiSetupCommand::try_from_primitive(*x))
+                                .collect::<Result<Vec<_>, _>>()
+                        },
+                    )(i)?;
 
                     (i, commands)
                 } else {

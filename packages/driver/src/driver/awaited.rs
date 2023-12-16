@@ -1,4 +1,5 @@
 use crate::error::{Error, Result};
+use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::oneshot;
@@ -64,7 +65,6 @@ impl<T> AwaitedRegistry<T> {
         let mut vec = self.store.lock().expect("lock on AwaitedRegistry poisoned");
         vec.retain(|a| a.id != awaited.id);
     }
-
 }
 
 pub struct Awaited<T> {
@@ -98,11 +98,20 @@ impl<T> AwaitedRef<T> {
     /// Begins awaiting the value
     pub async fn try_await(mut self) -> Result<T> {
         let sleep = MaybeSleep::new(self.timeout);
-        let receiver = self.channel.take().expect("try_await may only be called once");
+        let receiver = self
+            .channel
+            .take()
+            .expect("try_await may only be called once");
         tokio::select! {
             result = receiver => result.map_err(|_| Error::Internal),
             _ = sleep => Err(Error::Timeout),
         }
+    }
+}
+
+impl<T> Debug for AwaitedRef<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AwaitedRef").field("id", &self.id).finish()
     }
 }
 
