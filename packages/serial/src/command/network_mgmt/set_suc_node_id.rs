@@ -2,31 +2,21 @@ use crate::prelude::*;
 use zwave_core::prelude::*;
 
 use cookie_factory as cf;
-use derive_builder::Builder;
-use nom::{
-    combinator::map,
-    number::complete::be_u8,
-};
+use nom::{combinator::map, number::complete::be_u8};
+use typed_builder::TypedBuilder;
 use zwave_core::encoding::{self, parser_not_implemented};
 
-#[derive(Default, Debug, Clone, PartialEq, Builder)]
-#[builder(pattern = "owned")]
-#[builder(build_fn(error = "crate::error::Error"))]
+#[derive(Default, Debug, Clone, PartialEq, TypedBuilder)]
 pub struct SetSucNodeIdRequest {
     // Needed for knowing whether a callback is expected
     own_node_id: NodeId,
     suc_node_id: NodeId,
     enable_suc: bool,
     enable_sis: bool,
-    #[builder(setter(skip))]
+    #[builder(setter(skip), default)]
     callback_id: Option<u8>,
+    #[builder(default)]
     transmit_options: TransmitOptions,
-}
-
-impl SetSucNodeIdRequest {
-    pub fn builder() -> SetSucNodeIdRequestBuilder {
-        SetSucNodeIdRequestBuilder::default()
-    }
 }
 
 impl CommandId for SetSucNodeIdRequest {
@@ -193,7 +183,6 @@ impl CommandSerializable for SetSucNodeIdCallback {
         &'a self,
         _ctx: &'a CommandEncodingContext,
     ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        
         move |_out| todo!("ERROR: SetSucNodeIdCallback::serialize() not implemented")
     }
 }

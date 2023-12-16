@@ -14,12 +14,6 @@ pub enum Error {
     MissingArgument(String),
 }
 
-impl From<derive_builder::UninitializedFieldError> for Error {
-    fn from(e: derive_builder::UninitializedFieldError) -> Self {
-        Self::MissingArgument(e.field_name().to_string())
-    }
-}
-
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Provides a way to convert custom results into this library's result type

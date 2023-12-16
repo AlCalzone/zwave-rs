@@ -15,8 +15,7 @@ impl Driver<Init> {
         // we disable enforcing that the controller supports the commands.
         let command_options = ExecControllerCommandOptions::builder()
             .enforce_support(false)
-            .build()
-            .unwrap();
+            .build();
         let command_options = Some(&command_options);
 
         // TODO: Log results
@@ -84,8 +83,7 @@ impl Driver<Init> {
             .supported_function_types(api_capabilities.supported_function_types)
             .supported_serial_api_setup_commands(supported_serial_api_setup_commands)
             .supports_timers(init_data.supports_timers)
-            .build()
-            .unwrap();
+            .build();
 
         Ok(controller)
     }

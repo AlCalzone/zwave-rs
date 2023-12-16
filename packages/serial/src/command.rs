@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use derive_builder::Builder;
+use typed_builder::TypedBuilder;
 use zwave_core::{encoding::Input, prelude::*, submodule};
 
 use crate::{frame::SerialFrame, util::hex_fmt};
@@ -12,18 +12,12 @@ submodule!(misc);
 submodule!(transport);
 submodule!(network_mgmt);
 
-#[derive(Default, Debug, Clone, PartialEq, Builder)]
-#[builder(pattern = "owned")]
-#[builder(default)]
+#[derive(Default, Debug, Clone, PartialEq, TypedBuilder)]
+#[builder(field_defaults(default))]
 pub struct CommandEncodingContext {
+    #[builder(setter(strip_option))]
     sdk_version: Option<Version>,
     node_id_type: NodeIdType,
-}
-
-impl CommandEncodingContext {
-    pub fn builder() -> CommandEncodingContextBuilder {
-        CommandEncodingContextBuilder::default()
-    }
 }
 
 pub trait CommandParsable

@@ -2,22 +2,14 @@ use crate::prelude::*;
 use zwave_core::prelude::*;
 
 use cookie_factory as cf;
-use derive_builder::Builder;
+use typed_builder::TypedBuilder;
 use nom::{combinator::map, number::complete::be_u8};
 use zwave_core::encoding::{self};
 
-#[derive(Default, Debug, Clone, PartialEq, Builder)]
-#[builder(pattern = "owned")]
-#[builder(build_fn(error = "crate::error::Error"))]
+#[derive(Default, Debug, Clone, PartialEq, TypedBuilder)]
 pub struct SetRfReceiveModeRequest {
     // Whether the Z-Wave module's RF receiver should be enabled
     enabled: bool,
-}
-
-impl SetRfReceiveModeRequest {
-    pub fn builder() -> SetRfReceiveModeRequestBuilder {
-        SetRfReceiveModeRequestBuilder::default()
-    }
 }
 
 impl CommandId for SetRfReceiveModeRequest {

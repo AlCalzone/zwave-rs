@@ -1,13 +1,12 @@
 use custom_debug_derive::Debug;
-use derive_builder::Builder;
+use typed_builder::TypedBuilder;
 use zwave_core::definitions::{
     ControllerRole, DeviceFingerprint, FunctionType, NodeId, NodeType, Powerlevel, RfRegion,
     Version, ZWaveApiVersion, ZWaveLibraryType,
 };
 use zwave_serial::command::SerialApiSetupCommand;
 
-#[derive(Debug, Clone, PartialEq, Builder)]
-#[builder(pattern = "owned")]
+#[derive(Debug, Clone, PartialEq, TypedBuilder)]
 pub struct Controller {
     #[debug(format = "0x{:08x}")]
     home_id: u32,
@@ -33,17 +32,13 @@ pub struct Controller {
     supported_serial_api_setup_commands: Vec<SerialApiSetupCommand>,
     supports_timers: bool,
 
-    #[builder(setter(skip, strip_option))]
+    #[builder(setter(skip), default)]
     rf_region: Option<RfRegion>,
-    #[builder(setter(skip, strip_option))]
+    #[builder(setter(skip), default)]
     powerlevel: Option<Powerlevel>,
 }
 
 impl Controller {
-    pub fn builder() -> ControllerBuilder {
-        ControllerBuilder::default()
-    }
-
     /// Checks whether a given Z-Wave function type is supported by the controller.
     pub fn supports_function(&self, function_type: FunctionType) -> bool {
         self.supported_function_types.contains(&function_type)

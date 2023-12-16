@@ -7,7 +7,6 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-derive_builder.workspace = true
 custom_debug_derive.workspace = true
 hex.workspace = true
 thiserror.workspace = true
@@ -18,4 +17,5 @@ paste.workspace = true
 pin-project.workspace = true
 unique_id.workspace = true
 time.workspace = true
+typed-builder.workspace = true
 enum_dispatch.workspace = true

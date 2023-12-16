@@ -18,7 +18,6 @@ bitvec = "1.0.1"
 bytes = "1.5.0"
 cookie-factory = "0.3.2"
 custom_debug_derive = "0.5.1"
-derive_builder = "0.12.0"
 derive-try-from-primitive = "1.0.0"
 enum_dispatch = "0.3.12"
 enum-iterator = "1.4.1"
@@ -39,6 +38,7 @@ tokio = { version = "1.33.0", features = [
 ] }
 tokio-serial = "5.4.4"
 tokio-util = { version = "0.7.10", features = ["codec"] }
+typed-builder = "0.18.0"
 unique_id = "0.1.5"
 ux = "0.1.5"
 proc-macros = { path = "packages/proc-macros" }

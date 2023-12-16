@@ -5,8 +5,8 @@ use crate::Driver;
 use crate::Ready;
 use crate::SerialApiMachineResult;
 
-use derive_builder::Builder;
 use thiserror::Error;
+use typed_builder::TypedBuilder;
 use zwave_core::definitions::NodeId;
 use zwave_core::definitions::NodeIdType;
 use zwave_core::definitions::Powerlevel;
@@ -298,14 +298,12 @@ impl Driver<Ready> {
         enable_sis: bool,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<bool> {
-
         let cmd = SetSucNodeIdRequest::builder()
             .own_node_id(own_node_id)
             .suc_node_id(node_id)
             .enable_suc(enable_suc)
             .enable_sis(enable_sis)
-            .build()
-            .unwrap();
+            .build();
 
         let response = self.exec_controller_command(cmd, options).await;
         let success = match response {
@@ -318,8 +316,6 @@ impl Driver<Ready> {
             }
             Err(e) => return Err(e.into()),
         };
-
-       
 
         if success {
             self.controller_mut().set_suc_node_id(Some(node_id));
@@ -368,19 +364,12 @@ where
     }
 }
 
-#[derive(Builder, Default, Clone)]
-#[builder(setter(into, strip_option), default)]
+#[derive(TypedBuilder, Default, Clone)]
 pub struct ExecControllerCommandOptions {
     /// If executing the command should fail when it is not supported by the controller.
     /// Setting this to `false` is is useful if the capabilities haven't been determined yet. Default: `true`
-    #[builder(default = "true")]
+    #[builder(default = true)]
     enforce_support: bool,
-}
-
-impl ExecControllerCommandOptions {
-    pub fn builder() -> ExecControllerCommandOptionsBuilder {
-        ExecControllerCommandOptionsBuilder::default()
-    }
 }
 
 /// The low-level result of a controller command execution.

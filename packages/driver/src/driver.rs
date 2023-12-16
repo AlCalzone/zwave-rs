@@ -613,8 +613,7 @@ async fn serial_loop_handle_command(
         SerialTaskCommand::SendFrame(SendFrame { frame, callback }) => {
             let ctx = CommandEncodingContext::builder()
                 .node_id_type(storage.node_id_type)
-                .build()
-                .unwrap();
+                .build();
             port.write(frame.try_into_raw(&ctx).unwrap()).await.unwrap();
             callback.send(()).unwrap();
         }
@@ -648,8 +647,7 @@ async fn serial_loop_handle_frame(
                     // Now try to convert it into an actual command
                     let ctx = CommandEncodingContext::builder()
                         .node_id_type(storage.node_id_type)
-                        .build()
-                        .unwrap();
+                        .build();
                     match zwave_serial::command::Command::try_from_raw(raw, &ctx) {
                         Ok(cmd) => {
                             println!("{} received {:#?}", now(), cmd);

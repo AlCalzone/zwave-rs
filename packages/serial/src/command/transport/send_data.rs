@@ -2,25 +2,18 @@ use crate::prelude::*;
 use zwave_core::prelude::*;
 
 use cookie_factory as cf;
-use derive_builder::Builder;
 use nom::{bytes::complete::take, combinator::map, number::complete::be_u8};
+use typed_builder::TypedBuilder;
 use zwave_core::encoding;
 
-#[derive(Default, Debug, Clone, PartialEq, Builder)]
-#[builder(pattern = "owned")]
-#[builder(build_fn(error = "crate::error::Error"))]
+#[derive(Default, Debug, Clone, PartialEq, TypedBuilder)]
 pub struct SendDataRequest {
     node_id: NodeId,
-    #[builder(setter(skip))]
+    #[builder(setter(skip), default)]
     callback_id: Option<u8>,
+    #[builder(default)]
     transmit_options: TransmitOptions,
     payload: Vec<u8>, // FIXME: This should be a CommandClass
-}
-
-impl SendDataRequest {
-    pub fn builder() -> SendDataRequestBuilder {
-        SendDataRequestBuilder::default()
-    }
 }
 
 impl CommandId for SendDataRequest {
