@@ -48,6 +48,8 @@ zwave-driver = { path = "packages/driver" }
 zwave-serial = { path = "packages/serial" }
 
 [profile.release]
-strip = true
+incremental = true
+# consider objcopy --compress-debug-sections to reduce binary size
 lto = true
-# debug = true
+# Include minimal debug symbols for better backtraces.
+debug = 1
