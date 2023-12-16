@@ -7,7 +7,6 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitvec.workspace = true
 bytes.workspace = true
 cookie-factory.workspace = true
 custom_debug_derive.workspace = true
@@ -16,11 +15,9 @@ enum_dispatch.workspace = true
 futures.workspace = true
 hex.workspace = true
 nom.workspace = true
-paste.workspace = true
 proc-macros.workspace = true
 serialport.workspace = true
 thiserror.workspace = true
-time.workspace = true
 tokio-serial.workspace = true
 tokio-util.workspace = true
 tokio.workspace = true

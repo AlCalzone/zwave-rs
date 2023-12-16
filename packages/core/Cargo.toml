@@ -7,13 +7,11 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitflags.workspace = true
 bitvec.workspace = true
 cookie-factory.workspace = true
 custom_debug_derive.workspace = true
 derive-try-from-primitive.workspace = true
 enum-iterator.workspace = true
-hex.workspace = true
 nom.workspace = true
 num-traits.workspace = true
 paste.workspace = true

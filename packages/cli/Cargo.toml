@@ -6,7 +6,6 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hex.workspace = true
 tokio.workspace = true
 zwave-core.workspace = true
 zwave-driver.workspace = true
