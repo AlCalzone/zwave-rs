@@ -28,7 +28,7 @@ mod awaited;
 mod interview_controller;
 mod serial_api_machine;
 
-submodule!(driver_phase);
+submodule!(driver_state);
 submodule!(controller_commands);
 
 type TaskCommandSender<T> = mpsc::Sender<T>;
@@ -37,11 +37,11 @@ type TaskCommandReceiver<T> = mpsc::Receiver<T>;
 type SerialFrameEmitter = broadcast::Sender<SerialFrame>;
 type SerialListener = broadcast::Receiver<SerialFrame>;
 
-pub struct Driver<P: DriverPhase> {
+pub struct Driver<S: DriverState> {
     tasks: DriverTasks,
     callback_id_gen: WrappingCounter<u8>,
 
-    phase: P,
+    state: S,
     storage: DriverStorage,
 }
 
@@ -121,7 +121,7 @@ impl Driver<Init> {
         Ok(Self {
             tasks,
             callback_id_gen,
-            phase: Init,
+            state: Init,
             storage: DriverStorage::default(),
         })
     }
@@ -140,7 +140,7 @@ impl Driver<Init> {
         let mut this = Driver::<Ready> {
             tasks: self.tasks,
             callback_id_gen: self.callback_id_gen,
-            phase: Ready { controller },
+            state: Ready { controller },
             storage: self.storage,
         };
 
@@ -156,19 +156,19 @@ impl Driver<Init> {
 
 impl Driver<Ready> {
     pub fn controller(&self) -> &Controller {
-        // When the driver is in the ready phase, we're sure that the controller has been initialized
-        self.phase.controller().unwrap()
+        // When the driver is in the ready state, we're sure that the controller has been initialized
+        self.state.controller().unwrap()
     }
 
     pub fn controller_mut(&mut self) -> &mut Controller {
-        // When the driver is in the ready phase, we're sure that the controller has been initialized
-        self.phase.controller_mut().unwrap()
+        // When the driver is in the ready state, we're sure that the controller has been initialized
+        self.state.controller_mut().unwrap()
     }
 }
 
-impl<P> Driver<P>
+impl<S> Driver<S>
 where
-    P: DriverPhase,
+    S: DriverState,
 {
     /// Write a frame to the serial port, returning a reference to the awaited ACK frame
     pub async fn write_serial(&self, frame: SerialFrame) -> Result<AwaitedRef<ControlFlow>> {

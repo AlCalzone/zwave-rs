@@ -37,9 +37,9 @@ use zwave_serial::{
 // FIXME: Having a wrapper for this with the correct command options set would be nicer API-wise
 
 // Define the commands that can be executed in any phase
-impl<P> Driver<P>
+impl<S> Driver<S>
 where
-    P: DriverPhase,
+    S: DriverState,
 {
     pub async fn get_serial_api_capabilities(
         &mut self,
@@ -326,9 +326,9 @@ impl Driver<Ready> {
     }
 }
 
-impl<P> Driver<P>
+impl<S> Driver<S>
 where
-    P: DriverPhase,
+    S: DriverState,
 {
     pub async fn exec_controller_command<C>(
         &mut self,
@@ -344,7 +344,7 @@ where
             None => Default::default(),
         };
 
-        let supported = self.phase.supports_function(command.function_type());
+        let supported = self.state.supports_function(command.function_type());
         if options.enforce_support && !supported {
             return Err(ExecControllerCommandError::Unsupported(format!(
                 "{:?}",
@@ -485,4 +485,4 @@ macro_rules! expect_serial_api_setup_result {
 }
 pub(crate) use expect_serial_api_setup_result;
 
-use super::DriverPhase;
+use super::DriverState;

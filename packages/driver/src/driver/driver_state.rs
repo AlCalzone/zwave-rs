@@ -2,8 +2,8 @@ use zwave_core::definitions::FunctionType;
 
 use crate::Controller;
 
-/// The driver can be in one of multiple phases. Each phase has a different set of capabilities.
-pub trait DriverPhase {
+/// The driver can be in one of multiple states, each of which has a different set of capabilities.
+pub trait DriverState {
     /// An immutable reference to the controller, if available
     fn controller(&self) -> Option<&Controller>;
 
@@ -18,9 +18,10 @@ pub trait DriverPhase {
     }
 }
 
+/// The driver isn't fully initialized yet
 pub struct Init;
 
-impl DriverPhase for Init {
+impl DriverState for Init {
     fn controller(&self) -> Option<&Controller> {
         None
     }
@@ -30,11 +31,12 @@ impl DriverPhase for Init {
     }
 }
 
+/// The driver is ready to use normally
 pub struct Ready {
     pub(crate) controller: Controller,
 }
 
-impl DriverPhase for Ready {
+impl DriverState for Ready {
     fn controller(&self) -> Option<&Controller> {
         Some(&self.controller)
     }
@@ -45,17 +47,5 @@ impl DriverPhase for Ready {
 
     fn supports_function(&self, function_type: FunctionType) -> bool {
         self.controller.supports_function(function_type)
-    }
-}
-
-pub struct Destroyed;
-
-impl DriverPhase for Destroyed {
-    fn controller(&self) -> Option<&Controller> {
-        None
-    }
-
-    fn controller_mut(&mut self) -> Option<&mut Controller> {
-        None
     }
 }
