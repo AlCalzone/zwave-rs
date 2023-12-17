@@ -337,6 +337,12 @@ pub enum EncodingError {
     NotImplemented(&'static str),
 }
 
+impl<I> FromExternalError<I, EncodingError> for NomError<I> {
+    fn from_external_error(input: I, _kind: nom::error::ErrorKind, e: EncodingError) -> Self {
+        NomError::validation_failure(input, e.to_string())
+    }
+}
+
 /// A simple result type concerning conversion from and to binary data
 pub type SimpleParseResult<T> = std::result::Result<T, SimpleParseError>;
 

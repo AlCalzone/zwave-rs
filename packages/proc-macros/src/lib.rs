@@ -1,46 +1,22 @@
 #![feature(proc_macro_diagnostic)]
 
-use std::path::Path;
-
+use impl_cc_enum::{CCInfo, CCInfoExtractor};
+use impl_command_enum::{CommandInfo, CommandInfoExtractor};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::visit::{self, Visit};
-use syn::{Expr, ExprPath, File, Ident};
-use syn::{ImplItemFn, ItemImpl};
-use walkdir::WalkDir;
+use syn::visit;
+use util::{parse_dirname_from_macro_input, parse_files_in_dir};
+
+mod impl_cc_enum;
+mod impl_command_enum;
+mod util;
 
 #[proc_macro]
 pub fn impl_command_enum(input: TokenStream) -> TokenStream {
-    let _ = input;
-
     // Figure out which files to look at
-    let mut dirname = input.to_string();
-    if !dirname.starts_with('"') || !dirname.ends_with('"') {
-        panic!("Expected the directory for command implementations to be a string literal");
-    }
-    dirname.pop();
-    dirname.remove(0);
+    let dirname = parse_dirname_from_macro_input(input);
+    let asts = parse_files_in_dir(&dirname);
 
-    let root_dir = &std::env::var("CARGO_MANIFEST_DIR").unwrap();
-    let root_dir = Path::new(root_dir).join(dirname).canonicalize().unwrap();
-
-    let files = WalkDir::new(root_dir)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file())
-        .filter(|e| e.path().file_stem().map(|f| f != "mod").unwrap_or(false))
-        .filter(|e| e.path().extension().map(|e| e == "rs").unwrap_or(false))
-        .map(|e| e.path().to_owned())
-        .map(|e| e.to_str().unwrap().to_string())
-        .collect::<Vec<_>>();
-
-    let asts: Vec<File> = files
-        .iter()
-        .map(|file| {
-            let file_content = std::fs::read_to_string(file).unwrap();
-            syn::parse_file(&file_content).unwrap()
-        })
-        .collect();
     let commands: Vec<CommandInfo> = asts
         .iter()
         .flat_map(|ast| {
@@ -152,83 +128,106 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
     TokenStream::from(tokens)
 }
 
-struct CommandInfo<'ast> {
-    pub command_name: &'ast Ident,
-    pub command_type: &'ast ExprPath,
-    pub function_type: &'ast ExprPath,
-    pub origin: &'ast ExprPath,
-}
+#[proc_macro]
+pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
+    // Figure out which files to look at
+    let dirname = parse_dirname_from_macro_input(input);
+    let asts = parse_files_in_dir(&dirname);
 
-struct CommandInfoExtractor<'ast> {
-    commands: Vec<CommandInfo<'ast>>,
-}
-
-impl<'ast> Visit<'ast> for CommandInfoExtractor<'ast> {
-    fn visit_item_impl(&mut self, i: &'ast syn::ItemImpl) {
-        if i.trait_.is_none() {
-            return;
-        }
-        let (_, trait_path, _) = &i.trait_.as_ref().unwrap();
-        let trait_name = trait_path.get_ident().unwrap();
-        if trait_name != "CommandId" {
-            return;
-        }
-
-        let command_name = match i.self_ty.as_ref() {
-            syn::Type::Path(type_path) => type_path.path.get_ident().unwrap(),
-            _ => return,
-        };
-
-        let command_type_fn = match try_get_impl_fn(i, "command_type") {
-            Some(f) => f,
-            None => return,
-        };
-        let function_type_fn = match try_get_impl_fn(i, "function_type") {
-            Some(f) => f,
-            None => return,
-        };
-        let origin_fn = match try_get_impl_fn(i, "origin") {
-            Some(f) => f,
-            None => return,
-        };
-
-        let command_type = match try_get_single_value_from_fn(command_type_fn) {
-            Some(p) => p,
-            _ => return,
-        };
-        let function_type = match try_get_single_value_from_fn(function_type_fn) {
-            Some(p) => p,
-            _ => return,
-        };
-        let origin = match try_get_single_value_from_fn(origin_fn) {
-            Some(p) => p,
-            _ => return,
-        };
-
-        self.commands.push(CommandInfo {
-            command_name,
-            command_type,
-            function_type,
-            origin,
+    let ccs: Vec<CCInfo> = asts
+        .iter()
+        .flat_map(|ast| {
+            let mut extractor = CCInfoExtractor { ccs: Vec::new() };
+            visit::visit_file(&mut extractor, ast);
+            extractor.ccs
         })
-    }
-}
+        .collect();
 
-fn try_get_impl_fn<'ast>(i: &'ast ItemImpl, method_name: &str) -> Option<&'ast ImplItemFn> {
-    i.items.iter().find_map(|item| match item {
-        syn::ImplItem::Fn(method) if method.sig.ident == method_name => Some(method),
-        _ => None,
-    })
-}
+    let enum_variants = ccs.iter().map(|c| {
+        let cc_name = c.cc_name;
+        quote! { #cc_name(#cc_name) }
+    });
 
-fn try_get_single_value_from_fn(fun: &ImplItemFn) -> Option<&ExprPath> {
-    let stmts = &fun.block.stmts;
-    if stmts.len() != 1 {
-        return None;
-    }
+    let serializable_match_arms = ccs.iter().map(|c| {
+        let cc_name = c.cc_name;
+        quote! {
+            Self::#cc_name(c) => c.serialize()(out)
+        }
+    });
 
-    match stmts.first() {
-        Some(syn::Stmt::Expr(Expr::Path(p), _)) => Some(p),
-        _ => None,
-    }
+    let impl_try_from_cc_raw_match_arms = ccs.iter().map(|c| {
+        let cc_name = c.cc_name;
+        let cc_id = c.cc_id;
+        let cc_command = c.cc_command;
+        if let Some(cc_command) = cc_command {
+            quote! {
+                (#cc_id, Some(Ok(#cc_command))) => {
+                    #cc_name::try_from_slice(raw.payload.as_slice(), &ctx).map(Self::#cc_name)
+                }
+            }
+        } else {
+            quote! {
+                (#cc_id, None) => {
+                    #cc_name::try_from_slice(raw.payload.as_slice(), &ctx).map(Self::#cc_name)
+                }
+            }
+        }
+    });
+
+    let tokens = quote! {
+        // Define the command enum with all possible variants.
+        // Calls to the command enum will be dispatched to the corresponding variant.
+        #[enum_dispatch]
+        #[derive(Debug, Clone, PartialEq)]
+        pub enum CC {
+            NotImplemented(NotImplemented),
+            #( #enum_variants ),*
+        }
+
+        // Delegate Serialization to the corresponding variant
+        impl CCSerializable for CC {
+            fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+                move |out| match self {
+                    Self::NotImplemented(c) => cookie_factory::combinator::slice(&c.payload)(out),
+                    #( #serializable_match_arms ),*
+                }
+            }
+        }
+
+        impl CC {
+            // Implement conversion from a raw CC to the correct variant
+            pub fn try_from_raw(raw: CCRaw, ctx: &CCParsingContext) -> std::result::Result<Self, EncodingError> {
+                let cc_id = raw.cc_id;
+                let cc_command = raw.cc_command;
+
+                let ret = match (cc_id, cc_command.map(|c| c.try_into())) {
+                    #( #impl_try_from_cc_raw_match_arms ),*
+                    _ => Err(EncodingError::NotImplemented("Unknown combination of cc_id and cc_command")),
+                };
+
+                if let Err(EncodingError::NotImplemented(_)) = ret {
+                    // If we don't know how to parse the CC, we return the raw CC
+                    Ok(Self::NotImplemented(NotImplemented {
+                        cc_id,
+                        cc_command,
+                        payload: raw.payload,
+                    }))
+                } else {
+                    ret
+                }
+            }
+
+            pub fn try_into_raw(self) -> std::result::Result<CCRaw, EncodingError> {
+                let payload = cookie_factory::gen_simple(self.serialize(), Vec::new())?;
+                let raw = CCRaw {
+                    cc_id: self.cc_id(),
+                    cc_command: self.cc_command(),
+                    payload,
+                };
+                Ok(raw)
+            }
+        }
+    };
+
+    TokenStream::from(tokens)
 }

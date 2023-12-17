@@ -1,5 +1,5 @@
 [package]
-name = "zwave-serial"
+name = "zwave-cc"
 version = "0.1.0"
 rust-version.workspace = true
 edition.workspace = true
@@ -7,21 +7,13 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytes.workspace = true
 cookie-factory.workspace = true
 custom_debug_derive.workspace = true
 derive-try-from-primitive.workspace = true
 enum_dispatch.workspace = true
-futures.workspace = true
-hex.workspace = true
 nom.workspace = true
-proc-macros.workspace = true
-serialport.workspace = true
 thiserror.workspace = true
-tokio-serial.workspace = true
-tokio-util.workspace = true
-tokio.workspace = true
-typed-builder.workspace = true
 ux.workspace = true
 zwave-core.workspace = true
-zwave-cc.workspace = true
+typed-builder.workspace = true
+proc-macros.workspace = true

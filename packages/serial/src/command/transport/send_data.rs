@@ -1,19 +1,29 @@
 use crate::prelude::*;
+use zwave_cc::{
+    commandclass::{CCParsingContext, CCSerializable, CC},
+    commandclass_raw::CCRaw,
+};
 use zwave_core::prelude::*;
 
 use cookie_factory as cf;
-use nom::{bytes::complete::take, combinator::map, number::complete::be_u8};
+use nom::{
+    bytes::complete::take,
+    combinator::{map, map_res},
+    number::complete::be_u8,
+    Parser,
+};
 use typed_builder::TypedBuilder;
 use zwave_core::encoding;
 
-#[derive(Default, Debug, Clone, PartialEq, TypedBuilder)]
+#[derive(Debug, Clone, PartialEq, TypedBuilder)]
 pub struct SendDataRequest {
+    #[builder(setter(into))]
     node_id: NodeId,
+    command: CC,
     #[builder(setter(skip), default)]
     callback_id: Option<u8>,
     #[builder(default)]
     transmit_options: TransmitOptions,
-    payload: Vec<u8>, // FIXME: This should be a CommandClass
 }
 
 impl CommandId for SendDataRequest {
@@ -61,7 +71,10 @@ impl CommandParsable for SendDataRequest {
     ) -> encoding::ParseResult<'a, Self> {
         let (i, node_id) = NodeId::parse(i, ctx.node_id_type)?;
         let (i, payload_len) = be_u8(i)?;
-        let (i, payload) = take(payload_len)(i)?;
+        let (i, cc) = map_res(take(payload_len as usize).and_then(CCRaw::parse), |raw| {
+            let ctx = CCParsingContext::default();
+            CC::try_from_raw(raw, &ctx)
+        })(i)?;
         let (i, transmit_options) = TransmitOptions::parse(i)?;
         let (i, callback_id) = be_u8(i)?;
 
@@ -71,7 +84,7 @@ impl CommandParsable for SendDataRequest {
                 node_id,
                 callback_id: Some(callback_id),
                 transmit_options,
-                payload: payload.to_vec(),
+                command: cc,
             },
         ))
     }
@@ -83,13 +96,24 @@ impl CommandSerializable for SendDataRequest {
         ctx: &'a CommandEncodingContext,
     ) -> impl cookie_factory::SerializeFn<W> + 'a {
         use cf::{bytes::be_u8, combinator::slice, sequence::tuple};
-        tuple((
-            self.node_id.serialize(ctx.node_id_type),
-            be_u8(self.payload.len() as u8),
-            slice(&self.payload), // FIXME: This must be the serialized CC
-            self.transmit_options.serialize(),
-            be_u8(self.callback_id.unwrap_or(0)),
-        ))
+        move |out| {
+            // TODO: Figure out if we should handle serialization errors elsewhere
+            // let error_msg = format!("Serializing command {:?} should not fail", &self.command);
+
+            let command = self.command.clone();
+            let payload = command
+                .try_into_raw()
+                .and_then(|raw| raw.try_to_vec())
+                .expect("Serializing a CC should not fail");
+
+            tuple((
+                self.node_id.serialize(ctx.node_id_type),
+                be_u8(payload.len() as u8),
+                slice(payload),
+                self.transmit_options.serialize(),
+                be_u8(self.callback_id.unwrap_or(0)),
+            ))(out)
+        }
     }
 }
 

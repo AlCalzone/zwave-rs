@@ -7,6 +7,7 @@ edition.workspace = true
 
 [dependencies]
 tokio.workspace = true
+zwave-cc.workspace = true
 zwave-core.workspace = true
 zwave-driver.workspace = true
 zwave-serial.workspace = true

@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "packages/cc",
     "packages/cli",
     "packages/core",
     "packages/driver",
@@ -42,6 +43,7 @@ unique_id = "0.1.5"
 ux = "0.1.5"
 proc-macros = { path = "packages/proc-macros" }
 walkdir = "2.4.0"
+zwave-cc = { path = "packages/cc" }
 zwave-core = { path = "packages/core" }
 zwave-driver = { path = "packages/driver" }
 zwave-serial = { path = "packages/serial" }

@@ -2,13 +2,16 @@ use super::NodeIdType;
 use crate::encoding;
 use cookie_factory as cf;
 use nom::number::complete::{be_u16, be_u8};
-use std::fmt::{Display, Debug};
+use std::fmt::{Debug, Display};
 
 #[derive(Default, Clone, Copy, PartialEq, PartialOrd, Eq)]
 pub struct NodeId(u16);
 
 impl NodeId {
-    pub fn new<T>(id: T) -> Self where T: Into<u16> {
+    pub fn new<T>(id: T) -> Self
+    where
+        T: Into<u16>,
+    {
         Self(id.into())
     }
 }
@@ -25,53 +28,37 @@ impl Display for NodeId {
     }
 }
 
-impl From<u8> for NodeId {
-    fn from(val: u8) -> Self {
-        Self(val as u16)
-    }
+macro_rules! impl_conversions_for {
+    ($t:ty) => {
+        impl From<$t> for NodeId {
+            fn from(val: $t) -> Self {
+                Self(val as u16)
+            }
+        }
+
+        impl From<NodeId> for $t {
+            fn from(val: NodeId) -> Self {
+                val.0 as $t
+            }
+        }
+
+        impl PartialEq<$t> for NodeId {
+            fn eq(&self, other: &$t) -> bool {
+                self == &NodeId::from(*other)
+            }
+        }
+
+        impl PartialOrd<$t> for NodeId {
+            fn partial_cmp(&self, other: &$t) -> Option<std::cmp::Ordering> {
+                self.partial_cmp(&NodeId::from(*other))
+            }
+        }
+    };
 }
 
-impl From<u16> for NodeId {
-    fn from(val: u16) -> Self {
-        Self(val)
-    }
-}
-
-impl From<NodeId> for u8 {
-    fn from(val: NodeId) -> Self {
-        val.0 as u8
-    }
-}
-
-impl From<NodeId> for u16 {
-    fn from(val: NodeId) -> Self {
-        val.0
-    }
-}
-
-impl PartialEq<u8> for NodeId {
-    fn eq(&self, other: &u8) -> bool {
-        self == &NodeId::from(*other)
-    }
-}
-
-impl PartialEq<u16> for NodeId {
-    fn eq(&self, other: &u16) -> bool {
-        self == &NodeId::from(*other)
-    }
-}
-
-impl PartialOrd<u8> for NodeId {
-    fn partial_cmp(&self, other: &u8) -> Option<std::cmp::Ordering> {
-        self.partial_cmp(&NodeId::from(*other))
-    }
-}
-
-impl PartialOrd<u16> for NodeId {
-    fn partial_cmp(&self, other: &u16) -> Option<std::cmp::Ordering> {
-        self.partial_cmp(&NodeId::from(*other))
-    }
-}
+impl_conversions_for!(u8);
+impl_conversions_for!(u16);
+impl_conversions_for!(i32);
 
 impl NodeId {
     pub fn parse(i: encoding::Input, node_id_type: NodeIdType) -> encoding::ParseResult<Self> {
