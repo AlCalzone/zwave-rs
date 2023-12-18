@@ -1,5 +1,4 @@
 use crate::util::{try_get_impl_fn, try_get_single_value_from_fn};
-use syn::punctuated::Punctuated;
 use syn::visit::Visit;
 use syn::{Expr, ExprCall, ExprCast, ExprPath, Ident};
 

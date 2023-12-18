@@ -18,7 +18,7 @@ pub struct SerialPort {
 
 impl SerialBinding for SerialPort {
     fn new(path: &str) -> Result<Self> {
-        let mut port = tokio_serial::new(path, 115_200).open_native_async()?;
+        let port = tokio_serial::new(path, 115_200).open_native_async()?;
 
         #[cfg(unix)]
         port.set_exclusive(false)

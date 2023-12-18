@@ -18,9 +18,9 @@ pub enum BasicCCCommand {
     Report = 0x03,
 }
 
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BasicCCSet {
-    pub target_value: u8, // FIXME: This should be an enum with the available value ranges
+    pub target_value: LevelSet,
 }
 
 impl CCBase for BasicCCSet {}
@@ -36,8 +36,8 @@ impl CCId for BasicCCSet {
 }
 
 impl CCParsable for BasicCCSet {
-    fn parse<'a>(i: encoding::Input<'a>, ctx: &CCParsingContext) -> ParseResult<'a, Self> {
-        let (i, target_value) = be_u8(i)?;
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
+        let (i, target_value) = LevelSet::parse(i)?;
 
         Ok((i, Self { target_value }))
     }
@@ -45,8 +45,7 @@ impl CCParsable for BasicCCSet {
 
 impl CCSerializable for BasicCCSet {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
-        be_u8(self.target_value)
+        self.target_value.serialize()
     }
 }
 
@@ -72,7 +71,7 @@ impl CCRequest for BasicCCGet {
 }
 
 impl CCParsable for BasicCCGet {
-    fn parse<'a>(i: encoding::Input<'a>, ctx: &CCParsingContext) -> ParseResult<'a, Self> {
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
         // No payload
         Ok((i, Self {}))
     }
@@ -84,10 +83,10 @@ impl CCSerializable for BasicCCGet {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BasicCCReport {
-    pub current_value: u8, // FIXME: This should be an enum with the available value ranges
-    pub target_value: Option<u8>, // FIXME: This should be an enum with the available value ranges
+    pub current_value: LevelReport,
+    pub target_value: Option<LevelReport>,
     pub duration: Option<u8>, // FIXME: This should be its own struct/enum
 }
 
@@ -104,9 +103,10 @@ impl CCId for BasicCCReport {
 }
 
 impl CCParsable for BasicCCReport {
-    fn parse<'a>(i: encoding::Input<'a>, ctx: &CCParsingContext) -> ParseResult<'a, Self> {
-        let (i, current_value) = be_u8(i)?;
-        let (i, (target_value, duration)) = map(opt(tuple((be_u8, be_u8))), |x| x.unzip())(i)?;
+    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
+        let (i, current_value) = LevelReport::parse(i)?;
+        let (i, (target_value, duration)) =
+            map(opt(tuple((LevelReport::parse, be_u8))), |x| x.unzip())(i)?;
 
         Ok((
             i,
@@ -124,10 +124,18 @@ impl CCSerializable for BasicCCReport {
         // FIXME: Only include target_value and duration in V2 of the CC
         use cf::bytes::be_u8;
         use cf::sequence::tuple;
+
+        let serialize_target_and_duration = move |out| match self.target_value {
+            Some(target_value) => tuple((
+                target_value.serialize(),
+                be_u8(self.duration.unwrap_or(0xfe)),
+            ))(out),
+            None => empty()(out),
+        };
+
         tuple((
-            be_u8(self.current_value),
-            be_u8(self.target_value.unwrap_or(0xfe)),
-            be_u8(self.duration.unwrap_or(0xfe)),
+            self.current_value.serialize(),
+            serialize_target_and_duration,
         ))
     }
 }

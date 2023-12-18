@@ -1,15 +1,16 @@
 use std::thread;
 use std::time::Duration;
+use zwave_core::prelude::*;
 
-use zwave_cc::commandclass::{BasicCCSet, CC};
-use zwave_serial::command::{SendDataRequest, SerialApiSetupRequest};
+use zwave_cc::commandclass::BasicCCSet;
+use zwave_serial::command::SendDataRequest;
 
 #[cfg(target_os = "linux")]
 // const PORT: &str = "/dev/ttyUSB0";
 const PORT: &str = "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5479014030-if00";
 
 #[cfg(target_os = "windows")]
-const PORT: &str = "COM5";
+const PORT: &str = "COM6";
 
 #[tokio::main]
 async fn main() {
@@ -100,7 +101,12 @@ async fn main() {
 
     let cmd = SendDataRequest::builder()
         .node_id(2)
-        .command(BasicCCSet { target_value: 0xff }.into())
+        .command(
+            BasicCCSet {
+                target_value: LevelSet::Off,
+            }
+            .into(),
+        )
         .build();
 
     let result = driver.execute_serial_api_command(cmd).await.unwrap();
@@ -111,6 +117,3 @@ async fn main() {
     drop(driver);
     println!("driver stopped");
 }
-
-// 01090013000201002501c2
-// 011100a9000100020320010025000000002063

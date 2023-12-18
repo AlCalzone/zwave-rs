@@ -64,7 +64,7 @@ pub trait CCBase: std::fmt::Debug + Sync + Send {}
 
 pub trait CCRequest: CCId {
     fn expects_response(&self) -> bool;
-    fn test_response(&self, response: &CC) -> bool {
+    fn test_response(&self, _response: &CC) -> bool {
         // FIXME:
         todo!("Implement default test_response for {:?}", self)
     }
