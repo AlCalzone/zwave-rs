@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use zwave_cc::commandclass::CC;
 use zwave_core::state_machine::{StateMachine, StateMachineTransition};
 use zwave_core::util::now;
 use zwave_core::wrapping_counter::WrappingCounter;
@@ -30,6 +31,7 @@ mod serial_api_machine;
 
 submodule!(driver_state);
 submodule!(controller_commands);
+submodule!(node_commands);
 
 type TaskCommandSender<T> = mpsc::Sender<T>;
 type TaskCommandReceiver<T> = mpsc::Receiver<T>;
@@ -187,7 +189,6 @@ where
         predicate: Predicate<ControlFlow>,
         timeout: Option<Duration>,
     ) -> Result<AwaitedRef<ControlFlow>> {
-        // To await a control frame, we first register an awaiter
         exec_background_task!(
             self.tasks.main_cmd,
             MainTaskCommand::RegisterAwaitedControlFlowFrame,
@@ -201,10 +202,22 @@ where
         predicate: Predicate<Command>,
         timeout: Option<Duration>,
     ) -> Result<AwaitedRef<Command>> {
-        // To await a command, we first register an awaiter
         exec_background_task!(
             self.tasks.main_cmd,
             MainTaskCommand::RegisterAwaitedCommand,
+            predicate,
+            timeout
+        )
+    }
+
+    pub async fn await_cc(
+        &self,
+        predicate: Predicate<CC>,
+        timeout: Option<Duration>,
+    ) -> Result<AwaitedRef<CC>> {
+        exec_background_task!(
+            self.tasks.main_cmd,
+            MainTaskCommand::RegisterAwaitedCC,
             predicate,
             timeout
         )
@@ -448,6 +461,10 @@ macro_rules! define_task_commands {
 }
 
 define_task_commands!(MainTaskCommand {
+    RegisterAwaitedCC -> AwaitedRef<CC> {
+        predicate: Predicate<CC>,
+        timeout: Option<Duration>
+    },
     RegisterAwaitedCommand -> AwaitedRef<Command> {
         predicate: Predicate<Command>,
         timeout: Option<Duration>
@@ -464,6 +481,7 @@ type MainTaskCommandReceiver = TaskCommandReceiver<MainTaskCommand>;
 struct MainLoopStorage {
     awaited_control_flow_frames: Arc<AwaitedRegistry<ControlFlow>>,
     awaited_commands: Arc<AwaitedRegistry<Command>>,
+    awaited_ccs: Arc<AwaitedRegistry<CC>>,
 }
 
 async fn main_loop(
@@ -476,6 +494,7 @@ async fn main_loop(
     let storage = MainLoopStorage {
         awaited_control_flow_frames: Arc::new(AwaitedRegistry::default()),
         awaited_commands: Arc::new(AwaitedRegistry::default()),
+        awaited_ccs: Arc::new(AwaitedRegistry::default()),
     };
 
     loop {
@@ -520,6 +539,13 @@ async fn main_loop_handle_command(
                 .expect("invoking the callback of a MainTaskCommand should not fail");
         }
 
+        MainTaskCommand::RegisterAwaitedCC(cc) => {
+            let result = storage.awaited_ccs.add(cc.predicate, cc.timeout);
+            cc.callback
+                .send(result)
+                .expect("invoking the callback of a MainTaskCommand should not fail");
+        }
+
         #[allow(unreachable_patterns)]
         _ => {} // Ignore other commands
     }
@@ -555,6 +581,36 @@ async fn main_loop_handle_frame(
                 #[allow(clippy::needless_return)]
                 return;
             }
+
+            // Otherwise, figure out what to do with the command
+            // TODO: This is a bit awkward due to the duplication
+            match cmd {
+                Command::ApplicationCommandRequest(cmd) => {
+                    // If the awaited CC registry has a matching awaiter,
+                    // remove it and send the CC through its channel
+                    if let Some(channel) = storage.awaited_ccs.take_matching(&cmd.command) {
+                        channel
+                            .send(cmd.command.clone())
+                            .expect("invoking the callback of an Awaited should not fail");
+
+                        return;
+                    }
+                },
+                Command::BridgeApplicationCommandRequest(cmd) => {
+                    // If the awaited CC registry has a matching awaiter,
+                    // remove it and send the CC through its channel
+                    if let Some(channel) = storage.awaited_ccs.take_matching(&cmd.command) {
+                        channel
+                            .send(cmd.command.clone())
+                            .expect("invoking the callback of an Awaited should not fail");
+
+                        return;
+                    }
+                },
+                _ => {}
+            }
+
+            println!("TODO: Handle command {:?}", cmd);
         }
         _ => {}
     }

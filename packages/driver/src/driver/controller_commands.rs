@@ -7,32 +7,17 @@ use crate::SerialApiMachineResult;
 
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use zwave_core::definitions::NodeId;
-use zwave_core::definitions::NodeIdType;
-use zwave_core::definitions::Powerlevel;
-use zwave_core::definitions::RfRegion;
-use zwave_serial::command::CommandBase;
-use zwave_serial::command::GetControllerCapabilitiesRequest;
-use zwave_serial::command::GetControllerCapabilitiesResponse;
-use zwave_serial::command::GetControllerIdRequest;
-use zwave_serial::command::GetControllerIdResponse;
-use zwave_serial::command::GetControllerVersionRequest;
-use zwave_serial::command::GetControllerVersionResponse;
-use zwave_serial::command::GetProtocolVersionRequest;
-use zwave_serial::command::GetProtocolVersionResponse;
-use zwave_serial::command::GetSerialApiCapabilitiesRequest;
-use zwave_serial::command::GetSerialApiCapabilitiesResponse;
-use zwave_serial::command::GetSerialApiInitDataRequest;
-use zwave_serial::command::GetSerialApiInitDataResponse;
-use zwave_serial::command::GetSucNodeIdRequest;
-use zwave_serial::command::SerialApiSetupCommand;
-use zwave_serial::command::SerialApiSetupRequest;
-use zwave_serial::command::SerialApiSetupResponsePayload;
-use zwave_serial::command::SetSucNodeIdRequest;
-use zwave_serial::{
-    command::{Command, CommandRequest},
-    frame::SerialFrame,
+use zwave_core::prelude::*;
+use zwave_serial::command::{
+    Command, CommandBase, CommandRequest, GetControllerCapabilitiesRequest,
+    GetControllerCapabilitiesResponse, GetControllerIdRequest, GetControllerIdResponse,
+    GetControllerVersionRequest, GetControllerVersionResponse, GetProtocolVersionRequest,
+    GetProtocolVersionResponse, GetSerialApiCapabilitiesRequest, GetSerialApiCapabilitiesResponse,
+    GetSerialApiInitDataRequest, GetSerialApiInitDataResponse, GetSucNodeIdRequest,
+    SerialApiSetupCommand, SerialApiSetupRequest, SerialApiSetupResponsePayload,
+    SetSucNodeIdRequest,
 };
+use zwave_serial::frame::SerialFrame;
 
 // FIXME: Having a wrapper for this with the correct command options set would be nicer API-wise
 

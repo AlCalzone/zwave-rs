@@ -2,7 +2,7 @@ use std::thread;
 use std::time::Duration;
 use zwave_core::prelude::*;
 
-use zwave_cc::commandclass::BasicCCSet;
+use zwave_cc::commandclass::{BasicCCSet, BasicCCGet};
 use zwave_serial::command::SendDataRequest;
 
 #[cfg(target_os = "linux")]
@@ -99,17 +99,20 @@ async fn main() {
     //     println!("Failures: {:?}", failures);
     // }
 
-    let cmd = SendDataRequest::builder()
-        .node_id(2)
-        .command(
-            BasicCCSet {
-                target_value: LevelSet::Off,
-            }
-            .into(),
-        )
-        .build();
+    let cc = BasicCCGet::default();
+    let result = driver.exec_node_command(2.into(), cc, None).await;
 
-    let result = driver.execute_serial_api_command(cmd).await.unwrap();
+    // let cmd = SendDataRequest::builder()
+    //     .node_id(2)
+    //     .command(
+    //         BasicCCSet {
+    //             target_value: LevelSet::Off,
+    //         }
+    //         .into(),
+    //     )
+    //     .build();
+
+    // let result = driver.execute_serial_api_command(cmd).await.unwrap();
     println!("execute result: {:?}", result);
 
     thread::sleep(Duration::from_millis(2000));

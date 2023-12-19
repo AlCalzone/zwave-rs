@@ -2,7 +2,10 @@ use zwave_core::prelude::*;
 
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
-use nom::{bytes::complete::take, combinator::map, number::complete::be_u8};
+use nom::{
+    combinator::{map, rest},
+    number::complete::be_u8,
+};
 use zwave_core::{
     definitions::CommandClasses,
     encoding::{encoders::empty, Parsable, Serializable},
@@ -25,7 +28,7 @@ impl Parsable for CCRaw {
             CommandClasses::NoOperation => (i, None),
             _ => map(be_u8, Some)(i)?,
         };
-        let (i, payload) = take(i.len())(i)?;
+        let (i, payload) = rest(i)?;
 
         Ok((
             i,

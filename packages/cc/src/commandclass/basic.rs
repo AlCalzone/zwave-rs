@@ -35,6 +35,12 @@ impl CCId for BasicCCSet {
     }
 }
 
+impl CCRequest for BasicCCSet {
+    fn expects_response(&self) -> bool {
+        false
+    }
+}
+
 impl CCParsable for BasicCCSet {
     fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
         let (i, target_value) = LevelSet::parse(i)?;
@@ -67,6 +73,10 @@ impl CCId for BasicCCGet {
 impl CCRequest for BasicCCGet {
     fn expects_response(&self) -> bool {
         true
+    }
+
+    fn test_response(&self, response: &CC) -> bool {
+        matches!(response, CC::BasicCCReport(_))
     }
 }
 

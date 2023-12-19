@@ -1,20 +1,27 @@
 use crate::{command::CommandId, prelude::*, util::hex_fmt};
+use zwave_cc::{
+    commandclass::{CCParsingContext, CC},
+    commandclass_raw::CCRaw,
+};
 use zwave_core::{encoding::parsers::variable_length_bitmask_u8, prelude::*};
 
 use custom_debug_derive::Debug;
 
-use nom::{combinator::opt, multi::length_data, number::complete::be_u8};
+use nom::{
+    combinator::{map_res, opt},
+    multi::{length_data, length_value},
+    number::complete::be_u8,
+};
 use zwave_core::encoding::{self};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BridgeApplicationCommandRequest {
-    frame_info: FrameInfo,
-    destination_node_id: NodeId,
-    source_node_id: NodeId,
-    #[debug(with = "hex_fmt")]
-    payload: Vec<u8>,
-    multicast_node_ids: Vec<u16>, // FIXME: bitvec?
-    rssi: Option<RSSI>,
+    pub frame_info: FrameInfo,
+    pub destination_node_id: NodeId,
+    pub source_node_id: NodeId,
+    pub command: CC,
+    pub multicast_node_ids: Vec<u16>, // FIXME: bitvec?
+    pub rssi: Option<RSSI>,
 }
 
 impl CommandId for BridgeApplicationCommandRequest {
@@ -41,7 +48,10 @@ impl CommandParsable for BridgeApplicationCommandRequest {
         let (i, frame_info) = FrameInfo::parse(i)?;
         let (i, destination_node_id) = NodeId::parse(i, ctx.node_id_type)?;
         let (i, source_node_id) = NodeId::parse(i, ctx.node_id_type)?;
-        let (i, payload) = length_data(be_u8)(i)?;
+        let (i, cc) = map_res(length_value(be_u8, CCRaw::parse), |raw| {
+            let ctx = CCParsingContext::default();
+            CC::try_from_raw(raw, &ctx)
+        })(i)?;
         let (i, multicast_node_id_bitmask) = variable_length_bitmask_u8(i, 1)?;
         let (i, rssi) = opt(RSSI::parse)(i)?;
 
@@ -56,7 +66,7 @@ impl CommandParsable for BridgeApplicationCommandRequest {
                 frame_info,
                 destination_node_id,
                 source_node_id,
-                payload: payload.to_vec(),
+                command: cc,
                 multicast_node_ids,
                 rssi,
             },

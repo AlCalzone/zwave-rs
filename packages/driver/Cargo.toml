@@ -17,3 +17,4 @@ paste.workspace = true
 unique_id.workspace = true
 time.workspace = true
 typed-builder.workspace = true
+zwave-cc.workspace = true
