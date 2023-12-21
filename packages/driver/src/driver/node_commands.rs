@@ -52,7 +52,7 @@ impl Driver<Ready> {
         _options: Option<&ExecNodeCommandOptions>,
     ) -> ExecNodeCommandResult<Option<CC>>
     where
-        C: CCRequest + Clone + 'static + Sized,
+        C: CCRequest + Clone + Sized + 'static,
         CC: From<C>,
     {
         // FIXME: In some cases, the nodes' responses are received BEFORE
@@ -60,7 +60,7 @@ impl Driver<Ready> {
         let node_id = match cc.address().destination {
             Destination::Singlecast(node_id) => node_id,
             Destination::Multicast(_) => todo!("Multicast not implemented yet"),
-            Destination::Broadcast => NodeId::new(0xffu8), // FIXME: Make this a constant
+            Destination::Broadcast => NodeId::broadcast(),
         };
 
         let controller_command = SendDataRequest::builder()

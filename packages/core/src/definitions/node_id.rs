@@ -7,12 +7,18 @@ use std::fmt::{Debug, Display};
 #[derive(Default, Clone, Copy, PartialEq, PartialOrd, Eq)]
 pub struct NodeId(u16);
 
+pub const NODE_ID_BROADCAST: NodeId = NodeId(0xff);
+
 impl NodeId {
     pub fn new<T>(id: T) -> Self
     where
         T: Into<u16>,
     {
         Self(id.into())
+    }
+
+    pub fn broadcast() -> Self {
+        NODE_ID_BROADCAST
     }
 }
 
