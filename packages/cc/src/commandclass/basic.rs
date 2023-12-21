@@ -7,7 +7,7 @@ use zwave_core::encoding::encoders::empty;
 use zwave_core::prelude::*;
 
 use cookie_factory as cf;
-use nom::{combinator::map, number::complete::be_u8};
+use nom::combinator::map;
 use zwave_core::definitions::CommandClasses;
 use zwave_core::encoding::{self};
 
@@ -102,7 +102,7 @@ impl CCSerializable for BasicCCGet {
 pub struct BasicCCReport {
     pub current_value: LevelReport,
     pub target_value: Option<LevelReport>,
-    pub duration: Option<u8>, // FIXME: This should be its own struct/enum
+    pub duration: Option<DurationReport>,
 }
 
 impl CCBase for BasicCCReport {}
@@ -120,8 +120,10 @@ impl CCId for BasicCCReport {
 impl CCParsable for BasicCCReport {
     fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
         let (i, current_value) = LevelReport::parse(i)?;
-        let (i, (target_value, duration)) =
-            map(opt(tuple((LevelReport::parse, be_u8))), |x| x.unzip())(i)?;
+        let (i, (target_value, duration)) = map(
+            opt(tuple((LevelReport::parse, DurationReport::parse))),
+            |x| x.unzip(),
+        )(i)?;
 
         Ok((
             i,
@@ -137,13 +139,12 @@ impl CCParsable for BasicCCReport {
 impl CCSerializable for BasicCCReport {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
         // FIXME: Only include target_value and duration in V2 of the CC
-        use cf::bytes::be_u8;
         use cf::sequence::tuple;
 
         let serialize_target_and_duration = move |out| match self.target_value {
             Some(target_value) => tuple((
                 target_value.serialize(),
-                be_u8(self.duration.unwrap_or(0xfe)),
+                self.duration.unwrap_or_default().serialize(),
             ))(out),
             None => empty()(out),
         };

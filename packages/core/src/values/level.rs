@@ -77,9 +77,8 @@ pub enum LevelSet {
     On,
 }
 
-impl LevelSet {
-    /// Converts the value to its canonical representation, eliminating illegal values
-    pub fn to_canonical(&self) -> Self {
+impl Canonical for LevelSet {
+    fn to_canonical(&self) -> Self {
         match self {
             // Level 0 is canonical
             Self::Off => Self::Level(0),
