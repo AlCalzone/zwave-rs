@@ -1,26 +1,23 @@
-use crate::{command::CommandId, prelude::*, util::hex_fmt};
-use zwave_cc::{
-    commandclass::{CCParsingContext, CC},
-    commandclass_raw::CCRaw,
-};
-use zwave_core::{encoding::parsers::variable_length_bitmask_u8, prelude::*};
+use crate::prelude::*;
+use zwave_cc::prelude::*;
+use zwave_core::encoding::{self, parsers::variable_length_bitmask_u8};
+use zwave_core::prelude::*;
 
 use custom_debug_derive::Debug;
 
 use nom::{
     combinator::{map_res, opt},
-    multi::{length_data, length_value},
+    multi::length_value,
     number::complete::be_u8,
 };
-use zwave_core::encoding::{self};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BridgeApplicationCommandRequest {
     pub frame_info: FrameInfo,
-    pub destination_node_id: NodeId,
-    pub source_node_id: NodeId,
-    pub command: CC,
-    pub multicast_node_ids: Vec<u16>, // FIXME: bitvec?
+    pub address: CCAddress,
+    // Saving the address on the CC and the command separately is a bit redundant.
+    // Consider making address a getter and reading the CC field
+    pub command: WithAddress<CC>,
     pub rssi: Option<RSSI>,
 }
 
@@ -57,17 +54,28 @@ impl CommandParsable for BridgeApplicationCommandRequest {
 
         let multicast_node_ids = multicast_node_id_bitmask
             .iter()
-            .map(|x| (*x) as u16)
+            .map(|x| NodeId::new(*x))
             .collect();
+
+        let destination = match frame_info.frame_addressing {
+            FrameAddressing::Singlecast => Destination::Singlecast(destination_node_id),
+            FrameAddressing::Broadcast => Destination::Broadcast,
+            FrameAddressing::Multicast => Destination::Multicast(multicast_node_ids),
+        };
+        let address = CCAddress {
+            source_node_id,
+            destination,
+            endpoint_index: EndpointIndex::Root, // We don't know yet
+        };
+
+        let cc = cc.with_address(address.clone());
 
         Ok((
             i,
             Self {
                 frame_info,
-                destination_node_id,
-                source_node_id,
+                address,
                 command: cc,
-                multicast_node_ids,
                 rssi,
             },
         ))

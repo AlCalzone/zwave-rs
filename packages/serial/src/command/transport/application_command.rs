@@ -1,24 +1,23 @@
-use crate::{command::CommandId, prelude::*, util::hex_fmt};
-use zwave_cc::{
-    commandclass::{CCParsingContext, CC},
-    commandclass_raw::CCRaw,
-};
+use crate::prelude::*;
+use zwave_cc::prelude::*;
+use zwave_core::encoding;
 use zwave_core::prelude::*;
 
 use custom_debug_derive::Debug;
 
 use nom::{
     combinator::{map_res, opt},
-    multi::{length_data, length_value},
+    multi::length_value,
     number::complete::be_u8,
 };
-use zwave_core::encoding::{self};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ApplicationCommandRequest {
     pub frame_info: FrameInfo,
-    pub source_node_id: NodeId,
-    pub command: CC,
+    pub address: CCAddress,
+    // Saving the address on the CC and the command separately is a bit redundant.
+    // Consider making address a getter and reading the CC field
+    pub command: WithAddress<CC>,
     pub rssi: Option<RSSI>,
 }
 
@@ -51,11 +50,26 @@ impl CommandParsable for ApplicationCommandRequest {
         })(i)?;
         let (i, rssi) = opt(RSSI::parse)(i)?;
 
+        // FIXME: Figure out the correct node ID
+        let own_node_id = NodeId::new(1u8);
+        let destination = match frame_info.frame_addressing {
+            FrameAddressing::Singlecast => Destination::Singlecast(own_node_id),
+            FrameAddressing::Broadcast => Destination::Broadcast,
+            FrameAddressing::Multicast => Destination::Multicast(vec![own_node_id]),
+        };
+        let address = CCAddress {
+            source_node_id,
+            destination,
+            endpoint_index: EndpointIndex::Root, // We don't know yet
+        };
+
+        let cc = cc.with_address(address.clone());
+
         Ok((
             i,
             Self {
                 frame_info,
-                source_node_id,
+                address,
                 command: cc,
                 rssi,
             },

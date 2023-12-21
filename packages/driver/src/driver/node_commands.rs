@@ -1,18 +1,15 @@
-use std::time::Duration;
-
 use crate::error::Error;
-use crate::exec_background_task;
 use crate::ControllerCommandError;
 use crate::Driver;
 use crate::Ready;
+use std::time::Duration;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use zwave_cc::commandclass::CCRequest;
-use zwave_cc::commandclass::CC;
+use zwave_cc::commandclass::WithAddress;
+use zwave_cc::prelude::*;
 use zwave_core::prelude::*;
-use zwave_serial::command::Command;
-use zwave_serial::command::CommandBase;
 use zwave_serial::command::SendDataRequest;
+use zwave_serial::prelude::*;
 
 #[derive(TypedBuilder, Default, Clone)]
 pub struct ExecNodeCommandOptions {}
@@ -29,19 +26,42 @@ pub enum ExecNodeCommandError {
     NodeTimeout,
 }
 
+/// Tests if the given CC response is the expected CC response to the given CC request
+fn test_cc_response<C>(request: &WithAddress<C>, response: &WithAddress<CC>) -> bool
+where
+    C: CCRequest,
+{
+    if !request.expects_response() {
+        return false;
+    }
+
+    if let Destination::Singlecast(target) = request.address().destination {
+        response.address().source_node_id == target
+        // FIXME: Consider encapsulation
+            && request.cc_id() == response.cc_id()
+            && request.test_response(response)
+    } else {
+        false
+    }
+}
+
 impl Driver<Ready> {
     pub async fn exec_node_command<C>(
         &mut self,
-        node_id: NodeId, // FIXME: Use the Destination enum and handle Multicast/Broadcast
-        cc: C,
-        options: Option<&ExecNodeCommandOptions>,
+        cc: &WithAddress<C>,
+        _options: Option<&ExecNodeCommandOptions>,
     ) -> ExecNodeCommandResult<Option<CC>>
     where
-        C: CCRequest + Clone + 'static,
+        C: CCRequest + Clone + 'static + Sized,
         CC: From<C>,
     {
         // FIXME: In some cases, the nodes' responses are received BEFORE
         // the controller callback is received. We don't handle this case yet.
+        let node_id = match cc.address().destination {
+            Destination::Singlecast(node_id) => node_id,
+            Destination::Multicast(_) => todo!("Multicast not implemented yet"),
+            Destination::Broadcast => NodeId::new(0xffu8), // FIXME: Make this a constant
+        };
 
         let controller_command = SendDataRequest::builder()
             .node_id(node_id)
@@ -51,7 +71,7 @@ impl Driver<Ready> {
         let controller_command_result = self
             .exec_controller_command(controller_command, None)
             .await
-            .map_err(|e| ControllerCommandError::from(e))?
+            .map_err(ControllerCommandError::from)?
             .expect("SendData should always be answered by the controller");
 
         match controller_command_result {
@@ -78,7 +98,7 @@ impl Driver<Ready> {
         let awaited_cc_response = {
             let cc = cc.clone();
             self.await_cc(
-                Box::new(move |recv| cc.test_response(recv)),
+                Box::new(move |recv| test_cc_response(&cc, recv)),
                 Some(Duration::from_secs(10)),
             )
             .await
@@ -90,7 +110,7 @@ impl Driver<Ready> {
         };
 
         match awaited_cc_response.try_await().await {
-            Ok(recv) => Ok(Some(recv)),
+            Ok(recv) => Ok(Some(recv.unwrap())),
             Err(Error::Timeout) => Err(ExecNodeCommandError::NodeTimeout),
             Err(_) => {
                 panic!("Unexpected internal error while waiting for CC response");

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use zwave_cc::commandclass::CC;
+use zwave_cc::commandclass::{WithAddress, CC};
 use zwave_core::state_machine::{StateMachine, StateMachineTransition};
 use zwave_core::util::now;
 use zwave_core::wrapping_counter::WrappingCounter;
@@ -212,9 +212,9 @@ where
 
     pub async fn await_cc(
         &self,
-        predicate: Predicate<CC>,
+        predicate: Predicate<WithAddress<CC>>,
         timeout: Option<Duration>,
-    ) -> Result<AwaitedRef<CC>> {
+    ) -> Result<AwaitedRef<WithAddress<CC>>> {
         exec_background_task!(
             self.tasks.main_cmd,
             MainTaskCommand::RegisterAwaitedCC,
@@ -461,8 +461,8 @@ macro_rules! define_task_commands {
 }
 
 define_task_commands!(MainTaskCommand {
-    RegisterAwaitedCC -> AwaitedRef<CC> {
-        predicate: Predicate<CC>,
+    RegisterAwaitedCC -> AwaitedRef<WithAddress<CC>> {
+        predicate: Predicate<WithAddress<CC>>,
         timeout: Option<Duration>
     },
     RegisterAwaitedCommand -> AwaitedRef<Command> {
@@ -481,7 +481,7 @@ type MainTaskCommandReceiver = TaskCommandReceiver<MainTaskCommand>;
 struct MainLoopStorage {
     awaited_control_flow_frames: Arc<AwaitedRegistry<ControlFlow>>,
     awaited_commands: Arc<AwaitedRegistry<Command>>,
-    awaited_ccs: Arc<AwaitedRegistry<CC>>,
+    awaited_ccs: Arc<AwaitedRegistry<WithAddress<CC>>>,
 }
 
 async fn main_loop(
@@ -595,7 +595,7 @@ async fn main_loop_handle_frame(
 
                         return;
                     }
-                },
+                }
                 Command::BridgeApplicationCommandRequest(cmd) => {
                     // If the awaited CC registry has a matching awaiter,
                     // remove it and send the CC through its channel
@@ -606,7 +606,7 @@ async fn main_loop_handle_frame(
 
                         return;
                     }
-                },
+                }
                 _ => {}
             }
 

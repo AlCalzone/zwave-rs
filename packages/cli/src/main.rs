@@ -1,9 +1,7 @@
 use std::thread;
 use std::time::Duration;
-use zwave_core::prelude::*;
 
-use zwave_cc::commandclass::{BasicCCSet, BasicCCGet};
-use zwave_serial::command::SendDataRequest;
+use zwave_cc::commandclass::{BasicCCGet, CCAddressable};
 
 #[cfg(target_os = "linux")]
 // const PORT: &str = "/dev/ttyUSB0";
@@ -99,8 +97,10 @@ async fn main() {
     //     println!("Failures: {:?}", failures);
     // }
 
-    let cc = BasicCCGet::default();
-    let result = driver.exec_node_command(2.into(), cc, None).await;
+    let cc = BasicCCGet {};
+    let result = driver
+        .exec_node_command(&cc.with_destination(2.into()), None)
+        .await;
 
     // let cmd = SendDataRequest::builder()
     //     .node_id(2)

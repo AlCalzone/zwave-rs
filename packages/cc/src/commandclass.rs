@@ -1,3 +1,8 @@
+use std::{
+    marker::Sized,
+    ops::{Deref, DerefMut},
+};
+
 use enum_dispatch::enum_dispatch;
 use typed_builder::TypedBuilder;
 use zwave_core::{encoding::Input, prelude::*, submodule};
@@ -9,8 +14,6 @@ submodule!(basic);
 #[derive(Default, Clone, PartialEq, TypedBuilder)]
 #[builder(field_defaults(default))]
 pub struct CCParsingContext {
-    #[builder(setter(strip_option))]
-    origin: Option<MessageOrigin>,
     #[builder(setter(strip_option))]
     frame_addressing: Option<FrameAddressing>,
 }
@@ -62,39 +65,190 @@ pub trait CCId: CCBase {
 /// Command-specific functionality that may need to be implemented for each command
 pub trait CCBase: std::fmt::Debug + Sync + Send {}
 
-pub trait CCRequest: CCId {
+pub trait CCRequest: CCId + Sized {
     fn expects_response(&self) -> bool;
-    fn test_response(&self, _response: &CC) -> bool {
-        if !self.expects_response() {
-            return false;
-        }
-        // FIXME:
-        todo!("Implement default test_response for {:?}", self)
+
+    #[allow(unused_variables)]
+    fn test_response(&self, response: &CC) -> bool;
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WithAddress<T: CCBase> {
+    address: CCAddress,
+    command: T,
+}
+
+impl<T> WithAddress<T>
+where
+    T: CCBase,
+{
+    pub fn address(&self) -> &CCAddress {
+        &self.address
+    }
+
+    pub fn set_address(&mut self, address: CCAddress) {
+        self.address = address;
+    }
+
+    pub fn with_destination(self, destination: Destination) -> Self {
+        let mut address = self.address;
+        address.destination = destination;
+
+        Self { address, ..self }
+    }
+
+    pub fn with_endpoint_index(self, endpoint_index: EndpointIndex) -> Self {
+        let mut address = self.address;
+        address.endpoint_index = endpoint_index;
+
+        Self { address, ..self }
+    }
+
+    pub fn with_source_node_id(self, source_node_id: NodeId) -> Self {
+        let mut address = self.address;
+        address.source_node_id = source_node_id;
+
+        Self { address, ..self }
+    }
+
+    pub fn unwrap(self) -> T {
+        self.command
     }
 }
 
+impl<T> Deref for WithAddress<T>
+where
+    T: CCBase,
+{
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.command
+    }
+}
+
+impl<T> DerefMut for WithAddress<T>
+where
+    T: CCBase,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.command
+    }
+}
+
+impl<F> From<WithAddress<F>> for CC
+where
+    CC: From<F>,
+    F: CCBase,
+{
+    fn from(val: WithAddress<F>) -> Self {
+        Self::from(val.command)
+    }
+}
+
+pub trait CCAddressable {
+    fn with_address(self, address: CCAddress) -> WithAddress<Self>
+    where
+        Self: Sized + CCBase,
+    {
+        WithAddress {
+            address,
+            command: self,
+        }
+    }
+
+    fn with_destination(self, destination: Destination) -> WithAddress<Self>
+    where
+        Self: Sized + CCBase,
+    {
+        self.with_address(CCAddress {
+            destination,
+            ..Default::default()
+        })
+    }
+
+    fn clone_with_address(&self, address: CCAddress) -> WithAddress<Self>
+    where
+        Self: Sized + CCBase + Clone,
+    {
+        WithAddress {
+            address,
+            command: self.clone(),
+        }
+    }
+
+    fn clone_with_destination(&self, destination: Destination) -> WithAddress<Self>
+    where
+        Self: Sized + CCBase + Clone,
+    {
+        self.clone_with_address(CCAddress {
+            destination,
+            ..Default::default()
+        })
+    }
+}
+
+impl<T> CCAddressable for T where T: CCBase {}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct CCAddress {
     /// The source node of this CC
-    pub source_node: NodeId,
+    pub source_node_id: NodeId,
     /// The destination node(s) of this CC
-    pub target_node: Destination,
+    pub destination: Destination,
     /// Which endpoint of the node this CC belongs to
     pub endpoint_index: EndpointIndex,
 }
 
+impl Default for CCAddress {
+    fn default() -> Self {
+        // The default for the CC address is not terribly useful,
+        // but it makes working with it less cumbersome
+        Self {
+            source_node_id: NodeId::new(0u8),
+            destination: Destination::Singlecast(NodeId::new(0u8)),
+            endpoint_index: EndpointIndex::Root,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct CCInfo {
     /// The version of the specification this CC was parsed with
     pub version: u8,
 }
 
 /// Defines the destination of a command class
+#[derive(Debug, Clone, PartialEq)]
 pub enum Destination {
     Singlecast(NodeId),
     Multicast(Vec<NodeId>),
     Broadcast,
 }
 
+macro_rules! impl_destination_conversions_for {
+    ($t:ty) => {
+        impl From<$t> for Destination {
+            fn from(val: $t) -> Self {
+                Self::Singlecast(val.into())
+            }
+        }
+
+        impl PartialEq<$t> for Destination {
+            fn eq(&self, other: &$t) -> bool {
+                self == &Destination::from(*other)
+            }
+        }
+    };
+}
+
+impl_destination_conversions_for!(u8);
+impl_destination_conversions_for!(u16);
+impl_destination_conversions_for!(i32);
+
+#[derive(Default, Debug, Clone, PartialEq)]
 pub enum EndpointIndex {
+    #[default]
     Root,
     Endpoint(u8),
 }

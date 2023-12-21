@@ -2,6 +2,7 @@ use crate::prelude::*;
 use derive_try_from_primitive::TryFromPrimitive;
 use nom::combinator::opt;
 use nom::sequence::tuple;
+use typed_builder::TypedBuilder;
 use zwave_core::encoding::encoders::empty;
 use zwave_core::prelude::*;
 
@@ -18,7 +19,7 @@ pub enum BasicCCCommand {
     Report = 0x03,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, TypedBuilder)]
 pub struct BasicCCSet {
     pub target_value: LevelSet,
 }
@@ -37,6 +38,10 @@ impl CCId for BasicCCSet {
 
 impl CCRequest for BasicCCSet {
     fn expects_response(&self) -> bool {
+        false
+    }
+
+    fn test_response(&self, _response: &CC) -> bool {
         false
     }
 }
