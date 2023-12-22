@@ -47,7 +47,7 @@ where
 
 impl Driver<Ready> {
     pub async fn exec_node_command<C>(
-        &mut self,
+        &self,
         cc: &WithAddress<C>,
         _options: Option<&ExecNodeCommandOptions>,
     ) -> ExecNodeCommandResult<Option<CC>>

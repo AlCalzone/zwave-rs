@@ -41,7 +41,6 @@ type SerialListener = broadcast::Receiver<SerialFrame>;
 
 pub struct Driver<S: DriverState> {
     tasks: DriverTasks,
-    callback_id_gen: WrappingCounter<u8>,
 
     state: S,
     storage: DriverStorage,
@@ -118,11 +117,8 @@ impl Driver<Init> {
             serial_listener: serial_listener_rx,
         };
 
-        let callback_id_gen = WrappingCounter::new();
-
         Ok(Self {
             tasks,
-            callback_id_gen,
             state: Init,
             storage: DriverStorage::default(),
         })
@@ -141,7 +137,6 @@ impl Driver<Init> {
 
         let mut this = Driver::<Ready> {
             tasks: self.tasks,
-            callback_id_gen: self.callback_id_gen,
             state: Ready { controller },
             storage: self.storage,
         };
@@ -223,8 +218,12 @@ where
         )
     }
 
+    pub async fn get_next_callback_id(&self) -> Result<u8> {
+        exec_background_task!(self.tasks.main_cmd, MainTaskCommand::GetNextCallbackId)
+    }
+
     pub async fn execute_serial_api_command<C>(
-        &mut self,
+        &self,
         mut command: C,
     ) -> Result<SerialApiMachineResult>
     where
@@ -236,7 +235,7 @@ where
 
         // Give the command a callback ID if it needs one
         if command.needs_callback_id() {
-            command.set_callback_id(Some(self.callback_id_gen.increment()));
+            command.set_callback_id(Some(self.get_next_callback_id().await?));
         }
 
         let expects_response = command.expects_response();
@@ -439,8 +438,8 @@ macro_rules! define_task_commands {
         }
     ) => {
         struct $cmd_name {
-            $( pub $field_name: $field_type ),*,
             pub callback: oneshot::Sender<$cmd_result>,
+            $( pub $field_name: $field_type ),*
         }
 
         impl $cmd_name {
@@ -450,8 +449,8 @@ macro_rules! define_task_commands {
                 let (tx, rx) = oneshot::channel::<$cmd_result>();
                 (
                     Self {
-                        $( $field_name ),*,
                         callback: tx,
+                        $( $field_name ),*
                     },
                     rx,
                 )
@@ -473,6 +472,7 @@ define_task_commands!(MainTaskCommand {
         predicate: Predicate<ControlFlow>,
         timeout: Option<Duration>
     },
+    GetNextCallbackId -> u8 {}
 });
 
 type MainTaskCommandSender = TaskCommandSender<MainTaskCommand>;
@@ -482,6 +482,7 @@ struct MainLoopStorage {
     awaited_control_flow_frames: Arc<AwaitedRegistry<ControlFlow>>,
     awaited_commands: Arc<AwaitedRegistry<Command>>,
     awaited_ccs: Arc<AwaitedRegistry<WithAddress<CC>>>,
+    callback_id_gen: WrappingCounter<u8>,
 }
 
 async fn main_loop(
@@ -491,10 +492,11 @@ async fn main_loop(
     mut serial_listener: SerialListener,
     // command_handlers: Arc<Mutex<Vec<CommandHandler>>>,
 ) {
-    let storage = MainLoopStorage {
+    let mut storage = MainLoopStorage {
         awaited_control_flow_frames: Arc::new(AwaitedRegistry::default()),
         awaited_commands: Arc::new(AwaitedRegistry::default()),
         awaited_ccs: Arc::new(AwaitedRegistry::default()),
+        callback_id_gen: WrappingCounter::new(),
     };
 
     loop {
@@ -507,7 +509,7 @@ async fn main_loop(
             _ = shutdown.notified() => break,
 
             // We received a command from the outside
-            Some(cmd) = cmd_rx.recv() => main_loop_handle_command(&storage, cmd, &serial_cmd).await,
+            Some(cmd) = cmd_rx.recv() => main_loop_handle_command(&mut storage, cmd, &serial_cmd).await,
 
             // The serial port emitted a frame
             Ok(frame) = serial_listener.recv() => main_loop_handle_frame(&storage, frame, &serial_cmd).await
@@ -518,7 +520,7 @@ async fn main_loop(
 }
 
 async fn main_loop_handle_command(
-    storage: &MainLoopStorage,
+    storage: &mut MainLoopStorage,
     cmd: MainTaskCommand,
     _serial_cmd: &SerialTaskCommandSender,
 ) {
@@ -546,8 +548,12 @@ async fn main_loop_handle_command(
                 .expect("invoking the callback of a MainTaskCommand should not fail");
         }
 
-        #[allow(unreachable_patterns)]
-        _ => {} // Ignore other commands
+        MainTaskCommand::GetNextCallbackId(cmd) => {
+            let id = storage.callback_id_gen.increment();
+            cmd.callback
+                .send(id)
+                .expect("invoking the callback of a MainTaskCommand should not fail");
+        },
     }
 }
 
@@ -770,5 +776,10 @@ macro_rules! exec_background_task {
             rx.await.map_err(|_| $crate::error::Error::Internal)
         }
     };
+
+    ($command_sender:expr, $command_type:ident::$variant:ident) => {
+        exec_background_task!($command_sender, $command_type::$variant,)
+    }
+
 }
 pub(crate) use exec_background_task;

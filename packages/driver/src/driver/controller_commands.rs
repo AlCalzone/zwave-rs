@@ -27,7 +27,7 @@ where
     S: DriverState,
 {
     pub async fn get_serial_api_capabilities(
-        &mut self,
+        &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetSerialApiCapabilitiesResponse> {
         println!("Querying Serial API capabilities...");
@@ -44,7 +44,7 @@ where
     }
 
     pub async fn get_serial_api_init_data(
-        &mut self,
+        &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetSerialApiInitDataResponse> {
         println!("Querying Serial API init data...");
@@ -60,7 +60,7 @@ where
     }
 
     pub async fn get_controller_capabilities(
-        &mut self,
+        &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetControllerCapabilitiesResponse> {
         println!("Querying controller capabilities...");
@@ -77,7 +77,7 @@ where
     }
 
     pub async fn get_controller_version(
-        &mut self,
+        &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetControllerVersionResponse> {
         println!("Querying version info...");
@@ -94,7 +94,7 @@ where
     }
 
     pub async fn get_controller_id(
-        &mut self,
+        &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetControllerIdResponse> {
         println!("Querying controller ID...");
@@ -110,7 +110,7 @@ where
     }
 
     pub async fn get_protocol_version(
-        &mut self,
+        &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetProtocolVersionResponse> {
         println!("Querying protocol version...");
@@ -127,7 +127,7 @@ where
     }
 
     pub async fn get_suc_node_id(
-        &mut self,
+        &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<Option<NodeId>> {
         println!("Querying SUC node ID...");
@@ -144,7 +144,7 @@ where
     }
 
     pub async fn get_supported_serial_api_setup_commands(
-        &mut self,
+        &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<Vec<SerialApiSetupCommand>> {
         println!("Querying supported Serial API setup commands...");
@@ -245,7 +245,7 @@ impl Driver<Ready> {
     }
 
     pub async fn set_tx_status_report(
-        &mut self,
+        &self,
         enabled: bool,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<bool> {
@@ -316,7 +316,7 @@ where
     S: DriverState,
 {
     pub async fn exec_controller_command<C>(
-        &mut self,
+        &self,
         command: C,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ExecControllerCommandResult<Option<Command>>
