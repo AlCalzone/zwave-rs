@@ -7,6 +7,7 @@ use std::fmt::{Debug, Display};
 #[derive(Default, Clone, Copy, PartialEq, PartialOrd, Eq)]
 pub struct NodeId(u16);
 
+pub const NODE_ID_UNSPECIFIED: NodeId = NodeId(0);
 pub const NODE_ID_BROADCAST: NodeId = NodeId(0xff);
 
 impl NodeId {
@@ -19,6 +20,10 @@ impl NodeId {
 
     pub fn broadcast() -> Self {
         NODE_ID_BROADCAST
+    }
+
+    pub fn unspecified() -> Self {
+        NODE_ID_UNSPECIFIED
     }
 }
 

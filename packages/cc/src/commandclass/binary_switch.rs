@@ -21,6 +21,7 @@ pub enum BinarySwitchCCCommand {
 #[derive(Debug, Clone, PartialEq, TypedBuilder)]
 pub struct BinarySwitchCCSet {
     pub target_value: BinarySet,
+    #[builder(default, setter(strip_option))]
     pub duration: Option<DurationSet>,
 }
 

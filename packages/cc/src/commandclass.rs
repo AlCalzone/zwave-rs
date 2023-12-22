@@ -42,8 +42,6 @@ where
 // and extracting the information from the CCId impls.
 proc_macros::impl_cc_enum!("src/commandclass");
 
-// FIXME: auto-implement From<CCImpl> for CC
-
 #[enum_dispatch(CC)]
 /// Identifies a command class and its commands
 pub trait CCId: CCBase {
@@ -65,8 +63,6 @@ pub trait CCBase: std::fmt::Debug + Sync + Send {}
 
 pub trait CCRequest: CCId + Sized {
     fn expects_response(&self) -> bool;
-
-    #[allow(unused_variables)]
     fn test_response(&self, response: &CC) -> bool;
 }
 
@@ -203,8 +199,8 @@ impl Default for CCAddress {
         // The default for the CC address is not terribly useful,
         // but it makes working with it less cumbersome
         Self {
-            source_node_id: NodeId::new(0u8),
-            destination: Destination::Singlecast(NodeId::new(0u8)),
+            source_node_id: NodeId::unspecified(),
+            destination: Destination::Singlecast(NodeId::unspecified()),
             endpoint_index: EndpointIndex::Root,
         }
     }

@@ -1,7 +1,8 @@
 use std::thread;
 use std::time::Duration;
 
-use zwave_cc::commandclass::{BasicCCGet, CCAddressable};
+use zwave_cc::commandclass::{BasicCCGet, BinarySwitchCCSet, CCAddressable};
+use zwave_core::values::BinarySet;
 
 #[cfg(target_os = "linux")]
 // const PORT: &str = "/dev/ttyUSB0";
@@ -97,7 +98,9 @@ async fn main() {
     //     println!("Failures: {:?}", failures);
     // }
 
-    let cc = BasicCCGet {};
+    let cc = BinarySwitchCCSet::builder()
+        .target_value(BinarySet::Off)
+        .build();
     let result = driver
         .exec_node_command(&cc.with_destination(2.into()), None)
         .await;
