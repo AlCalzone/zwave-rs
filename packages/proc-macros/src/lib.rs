@@ -1,9 +1,11 @@
 #![feature(proc_macro_diagnostic)]
 
+use std::collections::HashMap;
+
 use impl_cc_enum::{CCInfo, CCInfoExtractor};
 use impl_command_enum::{CommandInfo, CommandInfoExtractor};
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{quote, format_ident};
 use syn::visit;
 use util::{parse_dirname_from_macro_input, parse_files_in_dir};
 
@@ -15,11 +17,11 @@ mod util;
 pub fn impl_command_enum(input: TokenStream) -> TokenStream {
     // Figure out which files to look at
     let dirname = parse_dirname_from_macro_input(input);
-    let asts = parse_files_in_dir(&dirname);
+    let files = parse_files_in_dir(&dirname);
 
-    let commands: Vec<CommandInfo> = asts
+    let commands: Vec<CommandInfo> = files
         .iter()
-        .flat_map(|ast| {
+        .flat_map(|(_, ast)| {
             let mut extractor = CommandInfoExtractor {
                 commands: Vec::new(),
             };
@@ -132,16 +134,26 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
 pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
     // Figure out which files to look at
     let dirname = parse_dirname_from_macro_input(input);
-    let asts = parse_files_in_dir(&dirname);
+    let files = parse_files_in_dir(&dirname);
 
-    let ccs: Vec<CCInfo> = asts
+    let ccs: Vec<CCInfo> = files
         .iter()
-        .flat_map(|ast| {
-            let mut extractor = CCInfoExtractor { ccs: Vec::new() };
+        .flat_map(|(_, ast)| {
+            let mut extractor = CCInfoExtractor {
+                ccs: Vec::new(),
+                cc_command_enum_variants: HashMap::new(),
+            };
             visit::visit_file(&mut extractor, ast);
             extractor.ccs
         })
         .collect();
+
+    let submodule_imports = files.iter().map(|(file, _)| {
+        let module = format_ident!("{}", file);
+        quote! {
+            submodule!(#module);
+        }
+    });
 
     let enum_variants = ccs.iter().map(|c| {
         let cc_name = c.cc_name;
@@ -161,13 +173,13 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
         let cc_command = c.cc_command;
         if let Some(cc_command) = cc_command {
             quote! {
-                (#cc_id, Some(Ok(#cc_command))) => {
+                (#cc_id, Some(#cc_command)) => {
                     #cc_name::try_from_slice(raw.payload.as_slice(), &ctx).map(Self::#cc_name)
                 }
             }
         } else {
             quote! {
-                (#cc_id, None) => {
+                (#cc_id, #cc_command) => {
                     #cc_name::try_from_slice(raw.payload.as_slice(), &ctx).map(Self::#cc_name)
                 }
             }
@@ -175,6 +187,9 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
     });
 
     let tokens = quote! {
+        // Import all CC modules, so we don't have to do it manually
+        #(#submodule_imports)*
+
         // Define the command enum with all possible variants.
         // Calls to the command enum will be dispatched to the corresponding variant.
         #[enum_dispatch]
@@ -200,7 +215,7 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
                 let cc_id = raw.cc_id;
                 let cc_command = raw.cc_command;
 
-                let ret = match (cc_id, cc_command.map(|c| c.try_into())) {
+                let ret = match (cc_id, cc_command) {
                     #( #impl_try_from_cc_raw_match_arms ),*
                     _ => Err(EncodingError::NotImplemented("Unknown combination of cc_id and cc_command")),
                 };

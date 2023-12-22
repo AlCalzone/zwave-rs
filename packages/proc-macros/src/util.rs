@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use syn::{Expr, File};
 use syn::{ImplItemFn, ItemImpl};
 use walkdir::WalkDir;
@@ -37,7 +37,7 @@ pub(crate) fn parse_dirname_from_macro_input(input: TokenStream) -> String {
     dirname
 }
 
-pub(crate) fn parse_files_in_dir(dirname: &str) -> Vec<File> {
+pub(crate) fn parse_files_in_dir(dirname: &str) -> Vec<(String, File)> {
     let root_dir = &std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let root_dir = Path::new(root_dir).join(dirname).canonicalize().unwrap();
 
@@ -59,5 +59,16 @@ pub(crate) fn parse_files_in_dir(dirname: &str) -> Vec<File> {
         })
         .collect();
 
-    asts
+    files
+        .iter()
+        .map(|f| {
+            PathBuf::from(f)
+                .file_stem()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string()
+        })
+        .zip(asts)
+        .collect()
 }

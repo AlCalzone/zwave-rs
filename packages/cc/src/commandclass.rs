@@ -9,8 +9,6 @@ use zwave_core::{encoding::Input, prelude::*, submodule};
 
 use crate::commandclass_raw::CCRaw;
 
-submodule!(basic);
-
 #[derive(Default, Clone, PartialEq, TypedBuilder)]
 #[builder(field_defaults(default))]
 pub struct CCParsingContext {

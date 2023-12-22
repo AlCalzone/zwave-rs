@@ -112,7 +112,7 @@ impl From<BinaryReport> for LevelReport {
     }
 }
 
-/// Represents a value of type Binary (0-99, 255) that is sent to a device
+/// Represents a value of type Binary (On/Off) that is sent to a device
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum BinarySet {

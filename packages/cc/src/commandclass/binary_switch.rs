@@ -3,36 +3,40 @@ use zwave_core::prelude::*;
 
 use cookie_factory as cf;
 use derive_try_from_primitive::TryFromPrimitive;
-use nom::{combinator::{map, opt}, sequence::tuple};
+use nom::{
+    combinator::{map, opt},
+    sequence::tuple,
+};
 use typed_builder::TypedBuilder;
-use zwave_core::encoding::{self, encoders::empty};
+use zwave_core::encoding::{self, encoders::empty, parser_not_implemented};
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
-pub enum BasicCCCommand {
+pub enum BinarySwitchCCCommand {
     Set = 0x01,
     Get = 0x02,
     Report = 0x03,
 }
 
 #[derive(Debug, Clone, PartialEq, TypedBuilder)]
-pub struct BasicCCSet {
-    pub target_value: LevelSet,
+pub struct BinarySwitchCCSet {
+    pub target_value: BinarySet,
+    pub duration: Option<DurationSet>,
 }
 
-impl CCBase for BasicCCSet {}
+impl CCBase for BinarySwitchCCSet {}
 
-impl CCId for BasicCCSet {
+impl CCId for BinarySwitchCCSet {
     fn cc_id(&self) -> CommandClasses {
-        CommandClasses::Basic
+        CommandClasses::BinarySwitch
     }
 
     fn cc_command(&self) -> Option<u8> {
-        Some(BasicCCCommand::Set as _)
+        Some(BinarySwitchCCCommand::Set as _)
     }
 }
 
-impl CCRequest for BasicCCSet {
+impl CCRequest for BinarySwitchCCSet {
     fn expects_response(&self) -> bool {
         false
     }
@@ -42,82 +46,90 @@ impl CCRequest for BasicCCSet {
     }
 }
 
-impl CCParsable for BasicCCSet {
+impl CCParsable for BinarySwitchCCSet {
     fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
-        let (i, target_value) = LevelSet::parse(i)?;
+        let (i, target_value) = BinarySet::parse(i)?;
+        let (i, duration) = opt(DurationSet::parse)(i)?;
 
-        Ok((i, Self { target_value }))
+        Ok((
+            i,
+            Self {
+                target_value,
+                duration,
+            },
+        ))
     }
 }
 
-impl CCSerializable for BasicCCSet {
+impl CCSerializable for BinarySwitchCCSet {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        self.target_value.serialize()
+        use cf::{bytes::be_u8, sequence::tuple};
+        tuple((self.target_value.serialize(), self.duration.serialize()))
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq)]
-pub struct BasicCCGet {}
+#[derive(Debug, Clone, PartialEq, TypedBuilder)]
+pub struct BinarySwitchCCGet {}
 
-impl CCBase for BasicCCGet {}
+impl CCBase for BinarySwitchCCGet {}
 
-impl CCId for BasicCCGet {
+impl CCId for BinarySwitchCCGet {
     fn cc_id(&self) -> CommandClasses {
-        CommandClasses::Basic
+        CommandClasses::BinarySwitch
     }
 
     fn cc_command(&self) -> Option<u8> {
-        Some(BasicCCCommand::Get as _)
+        Some(BinarySwitchCCCommand::Get as _)
     }
 }
 
-impl CCRequest for BasicCCGet {
+impl CCRequest for BinarySwitchCCGet {
     fn expects_response(&self) -> bool {
         true
     }
 
     fn test_response(&self, response: &CC) -> bool {
-        matches!(response, CC::BasicCCReport(_))
+        matches!(response, CC::BinarySwitchCCReport(_))
     }
 }
 
-impl CCParsable for BasicCCGet {
+impl CCParsable for BinarySwitchCCGet {
     fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
         // No payload
         Ok((i, Self {}))
     }
 }
 
-impl CCSerializable for BasicCCGet {
+impl CCSerializable for BinarySwitchCCGet {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
         empty()
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct BasicCCReport {
-    pub current_value: LevelReport,
-    pub target_value: Option<LevelReport>,
-    pub duration: Option<DurationReport>,
+#[derive(Debug, Clone, PartialEq, TypedBuilder)]
+pub struct BinarySwitchCCReport {
+    current_value: BinaryReport,
+    target_value: Option<BinaryReport>,
+    duration: Option<DurationReport>,
 }
 
-impl CCBase for BasicCCReport {}
+impl CCBase for BinarySwitchCCReport {}
 
-impl CCId for BasicCCReport {
+impl CCId for BinarySwitchCCReport {
     fn cc_id(&self) -> CommandClasses {
-        CommandClasses::Basic
+        CommandClasses::BinarySwitch
     }
 
     fn cc_command(&self) -> Option<u8> {
-        Some(BasicCCCommand::Report as _)
+        Some(BinarySwitchCCCommand::Report as _)
     }
 }
 
-impl CCParsable for BasicCCReport {
+impl CCParsable for BinarySwitchCCReport {
     fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
-        let (i, current_value) = LevelReport::parse(i)?;
+        let (i, current_value) = BinaryReport::parse(i)?;
         let (i, (target_value, duration)) = map(
-            opt(tuple((LevelReport::parse, DurationReport::parse))),
+            opt(tuple((BinaryReport::parse, DurationReport::parse))),
             |x| x.unzip(),
         )(i)?;
 
@@ -132,9 +144,8 @@ impl CCParsable for BasicCCReport {
     }
 }
 
-impl CCSerializable for BasicCCReport {
+impl CCSerializable for BinarySwitchCCReport {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        // FIXME: Only include target_value and duration in V2 of the CC
         use cf::sequence::tuple;
 
         let serialize_target_and_duration = move |out| match self.target_value {
