@@ -1,6 +1,8 @@
-use zwave_core::definitions::FunctionType;
+use std::collections::BTreeMap;
 
-use crate::Controller;
+use zwave_core::definitions::{FunctionType, NodeId};
+
+use crate::{Controller, Node};
 
 /// The driver can be in one of multiple states, each of which has a different set of capabilities.
 pub trait DriverState {

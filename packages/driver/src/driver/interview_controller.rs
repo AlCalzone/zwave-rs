@@ -1,10 +1,9 @@
-use crate::{driver::ControllerCommandError, ControllerCommandResult, Driver};
-use crate::{Controller, ExecControllerCommandOptions};
+use std::collections::BTreeMap;
 
-use zwave_core::definitions::{
-    parse_libary_version, protocol_version_to_sdk_version, ControllerRole, DeviceFingerprint,
-    FunctionType, NodeIdType,
-};
+use crate::{driver::ControllerCommandError, ControllerCommandResult, Driver};
+use crate::{Controller, ExecControllerCommandOptions, Node};
+
+use zwave_core::definitions::*;
 use zwave_serial::command::SerialApiSetupCommand;
 
 use super::{Init, Ready};
@@ -59,11 +58,18 @@ impl Driver<Init> {
         let ids = self.get_controller_id(command_options).await?;
         let suc_node_id = self.get_suc_node_id(command_options).await?;
 
+        let nodes = BTreeMap::from_iter(
+            init_data
+                .node_ids
+                .iter()
+                .map(|node_id| (*node_id, Node::new(*node_id))),
+        );
+
         let controller = Controller::builder()
             .home_id(ids.home_id)
             .own_node_id(ids.own_node_id)
             .suc_node_id(suc_node_id)
-            .node_ids(init_data.node_ids)
+            .nodes(nodes)
             .fingerprint(DeviceFingerprint::new(
                 api_capabilities.manufacturer_id,
                 api_capabilities.product_type,

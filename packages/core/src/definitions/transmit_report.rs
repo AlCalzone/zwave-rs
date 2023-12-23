@@ -1,4 +1,4 @@
-use super::{ProtocolDataRate, RoutingScheme, RSSI};
+use super::{ProtocolDataRate, RoutingScheme, RSSI, Beam};
 use crate::encoding::{self, BitParsable, Parsable, Serializable};
 
 use cookie_factory as cf;
@@ -46,21 +46,6 @@ impl Display for RouteFailLocation {
             "{} ↯ {}",
             self.last_functional_node_id, self.first_non_functional_node_id
         )
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Beam {
-    Beam250ms,
-    Beam1000ms,
-}
-
-impl Display for Beam {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Beam::Beam250ms => write!(f, "250 ms"),
-            Beam::Beam1000ms => write!(f, "1000 ms"),
-        }
     }
 }
 
@@ -120,11 +105,7 @@ impl TransmitReport {
         let (i, repeater_node_ids) = count(be_u8, 4usize)(i)?;
         let (i, (_reserved7, beam, _reserved43, route_speed)) = bits(tuple((
             u1::parse,
-            map(take_bits(2usize), |x: u8| match x {
-                1 => Some(Beam::Beam250ms),
-                2 => Some(Beam::Beam1000ms),
-                _ => None,
-            }),
+            Beam::parse_opt,
             u2::parse,
             <ProtocolDataRate as BitParsable>::parse,
         )))(i)?;

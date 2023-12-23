@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -27,6 +28,7 @@ pub use serial_api_machine::SerialApiMachineResult;
 
 mod awaited;
 mod interview_controller;
+mod interview_node;
 mod serial_api_machine;
 
 submodule!(driver_state);
@@ -142,6 +144,12 @@ impl Driver<Init> {
         };
 
         this.configure_controller().await?;
+
+        // FIXME: Interview nodes in the background
+        let node_ids: Vec<_> = this.controller().nodes().map(|n| n.id()).collect();
+        for node_id in node_ids {
+            this.interview_node(node_id).await?;
+        }
 
         Ok(this)
     }
@@ -553,7 +561,7 @@ async fn main_loop_handle_command(
             cmd.callback
                 .send(id)
                 .expect("invoking the callback of a MainTaskCommand should not fail");
-        },
+        }
     }
 }
 

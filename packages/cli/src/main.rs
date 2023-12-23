@@ -98,27 +98,27 @@ async fn main() {
     //     println!("Failures: {:?}", failures);
     // }
 
-    let cc = BinarySwitchCCSet::builder()
-        .target_value(BinarySet::Off)
-        .build();
-    let result = driver
-        .exec_node_command(&cc.with_destination(2.into()), None)
-        .await;
-
-    // let cmd = SendDataRequest::builder()
-    //     .node_id(2)
-    //     .command(
-    //         BasicCCSet {
-    //             target_value: LevelSet::Off,
-    //         }
-    //         .into(),
-    //     )
+    // let cc = BinarySwitchCCSet::builder()
+    //     .target_value(BinarySet::Off)
     //     .build();
+    // let result = driver
+    //     .exec_node_command(&cc.with_destination(2.into()), None)
+    //     .await;
 
-    // let result = driver.execute_serial_api_command(cmd).await.unwrap();
-    println!("execute result: {:?}", result);
+    // // let cmd = SendDataRequest::builder()
+    // //     .node_id(2)
+    // //     .command(
+    // //         BasicCCSet {
+    // //             target_value: LevelSet::Off,
+    // //         }
+    // //         .into(),
+    // //     )
+    // //     .build();
 
-    thread::sleep(Duration::from_millis(2000));
+    // // let result = driver.execute_serial_api_command(cmd).await.unwrap();
+    // println!("execute result: {:?}", result);
+
+    // thread::sleep(Duration::from_millis(2000));
 
     drop(driver);
     println!("driver stopped");
