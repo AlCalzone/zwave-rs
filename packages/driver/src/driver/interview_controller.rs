@@ -9,7 +9,7 @@ use zwave_serial::command::SerialApiSetupCommand;
 use super::{Init, Ready};
 
 impl Driver<Init> {
-    pub(crate) async fn interview_controller(&mut self) -> ControllerCommandResult<Controller> {
+    pub(crate) async fn interview_controller(&mut self) -> ControllerCommandResult<Ready> {
         // We execute some of these commands before knowing the controller capabilities, so
         // we disable enforcing that the controller supports the commands.
         let command_options = ExecControllerCommandOptions::builder()
@@ -69,7 +69,6 @@ impl Driver<Init> {
             .home_id(ids.home_id)
             .own_node_id(ids.own_node_id)
             .suc_node_id(suc_node_id)
-            .nodes(nodes)
             .fingerprint(DeviceFingerprint::new(
                 api_capabilities.manufacturer_id,
                 api_capabilities.product_type,
@@ -91,7 +90,7 @@ impl Driver<Init> {
             .supports_timers(init_data.supports_timers)
             .build();
 
-        Ok(controller)
+        Ok(Ready { controller, nodes })
     }
 }
 
@@ -100,7 +99,7 @@ impl Driver<Ready> {
         // Get the currently configured RF region and remember it.
         // If it differs from the desired region, change it afterwards.
         if self
-            .controller()
+            .state.controller
             .supports_serial_api_setup_command(SerialApiSetupCommand::GetRFRegion)
         {
             let _region = self.get_rf_region(None).await?;
@@ -110,7 +109,7 @@ impl Driver<Ready> {
         // Get the currently configured powerlevel and remember it.
         // If it differs from the desired powerlevel, change it afterwards.
         if self
-            .controller()
+            .state.controller
             .supports_serial_api_setup_command(SerialApiSetupCommand::GetPowerlevel)
         {
             let _powerlevel = self.get_powerlevel(None).await?;
@@ -119,7 +118,7 @@ impl Driver<Ready> {
 
         // Enable TX status reports if supported
         if self
-            .controller()
+            .state.controller
             .supports_serial_api_setup_command(SerialApiSetupCommand::SetTxStatusReport)
         {
             self.set_tx_status_report(true, None).await?;
@@ -132,7 +131,7 @@ impl Driver<Ready> {
         // * there is no SUC and
         // * there is no SIS
         let should_promote = {
-            let controller = self.controller();
+            let controller = &self.state.controller;
             controller.role() == ControllerRole::Primary
                 && !controller.is_suc()
                 && !controller.is_sis()
@@ -143,8 +142,8 @@ impl Driver<Ready> {
             println!("There is no SUC/SIS in the network - promoting ourselves...");
             match self
                 .set_suc_node_id(
-                    self.controller().own_node_id(),
-                    self.controller().own_node_id(),
+                    self.state.controller.own_node_id(),
+                    self.state.controller.own_node_id(),
                     true,
                     true,
                     None,

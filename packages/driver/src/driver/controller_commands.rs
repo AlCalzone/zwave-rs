@@ -215,7 +215,7 @@ impl Driver<Ready> {
             SerialApiSetupResponsePayload::GetRFRegion { region } => region
         )?;
 
-        self.controller_mut().set_rf_region(Some(rf_region));
+        self.state.controller.set_rf_region(Some(rf_region));
 
         println!("The controller is using RF region {}", rf_region);
 
@@ -237,7 +237,7 @@ impl Driver<Ready> {
             SerialApiSetupResponsePayload::GetPowerlevel { powerlevel } => powerlevel
         )?;
 
-        self.controller_mut().set_powerlevel(Some(powerlevel));
+        self.state.controller.set_powerlevel(Some(powerlevel));
 
         println!("The controller is using powerlevel {}", powerlevel);
 
@@ -303,7 +303,7 @@ impl Driver<Ready> {
         };
 
         if success {
-            self.controller_mut().set_suc_node_id(Some(node_id));
+            self.state.controller.set_suc_node_id(Some(node_id));
             // FIXME: If we promoted ourselves also set the is_suc/is_sis/sis_present flags to true
         }
 
@@ -312,10 +312,10 @@ impl Driver<Ready> {
 
     pub async fn get_node_protocol_info(
         &self,
-        node_id: NodeId,
+        node_id: &NodeId,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<NodeInformationProtocolData> {
-        let cmd = GetNodeProtocolInfoRequest { node_id };
+        let cmd = GetNodeProtocolInfoRequest { node_id: *node_id };
         let response = self.exec_controller_command(cmd, options).await;
         let response = expect_controller_command_result!(response, GetNodeProtocolInfoResponse);
 

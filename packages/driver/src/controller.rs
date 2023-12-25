@@ -16,7 +16,6 @@ pub struct Controller {
     home_id: u32,
     own_node_id: NodeId,
     suc_node_id: Option<NodeId>,
-    nodes: BTreeMap<NodeId, Node>,
 
     fingerprint: DeviceFingerprint,
 
@@ -115,22 +114,6 @@ impl Controller {
 
     pub(crate) fn set_powerlevel(&mut self, powerlevel: Option<Powerlevel>) {
         self.powerlevel = powerlevel;
-    }
-
-    pub fn nodes(&self) -> impl Iterator<Item = &Node> {
-        self.nodes.iter().map(|(_, node)| node)
-    }
-
-    pub fn nodes_mut(&mut self) -> impl Iterator<Item = &mut Node> {
-        self.nodes.iter_mut().map(|(_, node)| node)
-    }
-
-    pub fn get_node(&self, node_id: NodeId) -> Option<&Node> {
-        self.nodes.get(&node_id)
-    }
-
-    pub fn get_node_mut(&mut self, node_id: NodeId) -> Option<&mut Node> {
-        self.nodes.get_mut(&node_id)
     }
 
 }

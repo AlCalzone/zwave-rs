@@ -34,8 +34,10 @@ impl DriverState for Init {
 }
 
 /// The driver is ready to use normally
+#[derive(Debug)]
 pub struct Ready {
     pub(crate) controller: Controller,
+    pub(crate) nodes: BTreeMap<NodeId, Node>,
 }
 
 impl DriverState for Ready {

@@ -134,21 +134,21 @@ impl Driver<Init> {
             SerialFrame::ControlFlow(ControlFlow::NAK)
         )??;
 
-        let controller = self.interview_controller().await?;
-        println!("Controller info: {:#?}", &controller);
+        let ready = self.interview_controller().await?;
+        println!("Controller info: {:#?}", &ready);
 
         let mut this = Driver::<Ready> {
             tasks: self.tasks,
-            state: Ready { controller },
+            state: ready,
             storage: self.storage,
         };
 
         this.configure_controller().await?;
 
         // FIXME: Interview nodes in the background
-        let node_ids: Vec<_> = this.controller().nodes().map(|n| n.id()).collect();
+        let node_ids: Vec<_> = this.state.nodes.keys().copied().collect();
         for node_id in node_ids {
-            this.interview_node(node_id).await?;
+            this.interview_node(&node_id).await?;
         }
 
         Ok(this)
@@ -161,13 +161,12 @@ impl Driver<Init> {
 
 impl Driver<Ready> {
     pub fn controller(&self) -> &Controller {
-        // When the driver is in the ready state, we're sure that the controller has been initialized
-        self.state.controller().unwrap()
+        &self.state.controller
     }
 
     pub fn controller_mut(&mut self) -> &mut Controller {
         // When the driver is in the ready state, we're sure that the controller has been initialized
-        self.state.controller_mut().unwrap()
+        &mut self.state.controller
     }
 }
 
