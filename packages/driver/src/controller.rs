@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use custom_debug_derive::Debug;
 use typed_builder::TypedBuilder;
 use zwave_core::definitions::{
@@ -7,8 +5,6 @@ use zwave_core::definitions::{
     Version, ZWaveApiVersion, ZWaveLibraryType,
 };
 use zwave_serial::command::SerialApiSetupCommand;
-
-use crate::Node;
 
 #[derive(Debug, TypedBuilder)]
 pub struct Controller {

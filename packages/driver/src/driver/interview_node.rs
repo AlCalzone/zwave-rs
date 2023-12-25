@@ -2,8 +2,10 @@ use crate::{error::*, Driver, InterviewStage, Node, Ready};
 use zwave_core::definitions::*;
 
 impl Driver<Ready> {
-    pub async fn interview_node(&mut self, node_id: &NodeId) -> Result<()> {
-        let node = self.state.nodes.get_mut(node_id).unwrap();
+    pub async fn interview_node(&self, node_id: &NodeId) -> Result<()> {
+        // FIXME: Don't hold the lock for longer than necessary
+        let mut nodes = self.nodes_mut();
+        let node = nodes.get_mut(node_id).unwrap();
 
         if node.interview_stage() == &InterviewStage::None {
             node.set_interview_stage(InterviewStage::ProtocolInfo);

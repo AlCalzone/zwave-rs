@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use crate::{driver::ControllerCommandError, ControllerCommandResult, Driver};
 use crate::{Controller, ExecControllerCommandOptions, Node};
 
@@ -9,7 +7,7 @@ use zwave_serial::command::SerialApiSetupCommand;
 use super::{Init, Ready};
 
 impl Driver<Init> {
-    pub(crate) async fn interview_controller(&mut self) -> ControllerCommandResult<Ready> {
+    pub(crate) async fn interview_controller(&self) -> ControllerCommandResult<Ready> {
         // We execute some of these commands before knowing the controller capabilities, so
         // we disable enforcing that the controller supports the commands.
         let command_options = ExecControllerCommandOptions::builder()
@@ -58,12 +56,7 @@ impl Driver<Init> {
         let ids = self.get_controller_id(command_options).await?;
         let suc_node_id = self.get_suc_node_id(command_options).await?;
 
-        let nodes = BTreeMap::from_iter(
-            init_data
-                .node_ids
-                .iter()
-                .map(|node_id| (*node_id, Node::new(*node_id))),
-        );
+        let nodes = init_data.node_ids.iter().map(|node_id| Node::new(*node_id));
 
         let controller = Controller::builder()
             .home_id(ids.home_id)
@@ -90,7 +83,7 @@ impl Driver<Init> {
             .supports_timers(init_data.supports_timers)
             .build();
 
-        Ok(Ready { controller, nodes })
+        Ok(Ready::new(controller, nodes))
     }
 }
 
@@ -99,7 +92,7 @@ impl Driver<Ready> {
         // Get the currently configured RF region and remember it.
         // If it differs from the desired region, change it afterwards.
         if self
-            .state.controller
+            .controller()
             .supports_serial_api_setup_command(SerialApiSetupCommand::GetRFRegion)
         {
             let _region = self.get_rf_region(None).await?;
@@ -109,7 +102,7 @@ impl Driver<Ready> {
         // Get the currently configured powerlevel and remember it.
         // If it differs from the desired powerlevel, change it afterwards.
         if self
-            .state.controller
+            .controller()
             .supports_serial_api_setup_command(SerialApiSetupCommand::GetPowerlevel)
         {
             let _powerlevel = self.get_powerlevel(None).await?;
@@ -118,7 +111,7 @@ impl Driver<Ready> {
 
         // Enable TX status reports if supported
         if self
-            .state.controller
+            .controller()
             .supports_serial_api_setup_command(SerialApiSetupCommand::SetTxStatusReport)
         {
             self.set_tx_status_report(true, None).await?;
@@ -131,7 +124,7 @@ impl Driver<Ready> {
         // * there is no SUC and
         // * there is no SIS
         let should_promote = {
-            let controller = &self.state.controller;
+            let controller = self.controller();
             controller.role() == ControllerRole::Primary
                 && !controller.is_suc()
                 && !controller.is_sis()
@@ -140,14 +133,9 @@ impl Driver<Ready> {
 
         if should_promote {
             println!("There is no SUC/SIS in the network - promoting ourselves...");
+            let own_node_id = self.controller().own_node_id();
             match self
-                .set_suc_node_id(
-                    self.state.controller.own_node_id(),
-                    self.state.controller.own_node_id(),
-                    true,
-                    true,
-                    None,
-                )
+                .set_suc_node_id(own_node_id, own_node_id, true, true, None)
                 .await
             {
                 Ok(success) => {

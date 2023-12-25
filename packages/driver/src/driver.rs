@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
 use std::time::Duration;
 
 use zwave_cc::commandclass::{WithAddress, CC};
@@ -14,7 +14,7 @@ use zwave_serial::frame::{ControlFlow, RawSerialFrame, SerialFrame};
 use zwave_serial::serialport::SerialPort;
 
 use crate::error::{Error, Result};
-use crate::Controller;
+use crate::{Controller, Node};
 
 use tokio::sync::{broadcast, mpsc, oneshot, Notify};
 use tokio::task::JoinHandle;
@@ -23,6 +23,7 @@ use self::awaited::{AwaitedRef, AwaitedRegistry, Predicate};
 use self::serial_api_machine::{
     SerialApiMachine, SerialApiMachineCondition, SerialApiMachineInput, SerialApiMachineState,
 };
+use self::storage::DriverStorage;
 
 pub use serial_api_machine::SerialApiMachineResult;
 
@@ -30,6 +31,7 @@ mod awaited;
 mod interview_controller;
 mod interview_node;
 mod serial_api_machine;
+mod storage;
 
 submodule!(driver_state);
 submodule!(controller_commands);
@@ -66,11 +68,6 @@ impl Drop for DriverTasks {
         self.serial_task_shutdown.notify_one();
         self.main_task_shutdown.notify_one();
     }
-}
-
-#[derive(Default)]
-struct DriverStorage {
-    node_id_type: NodeIdType,
 }
 
 impl Driver<Init> {
@@ -146,7 +143,7 @@ impl Driver<Init> {
         this.configure_controller().await?;
 
         // FIXME: Interview nodes in the background
-        let node_ids: Vec<_> = this.state.nodes.keys().copied().collect();
+        let node_ids: Vec<_> = this.nodes().keys().copied().collect();
         for node_id in node_ids {
             this.interview_node(&node_id).await?;
         }
@@ -159,14 +156,31 @@ impl Driver<Init> {
     }
 }
 
+// FIXME: returning the RwLock guards is leaking implementation details.
+// We should separate the storage from accessing the data, where the data access holds the locks for as short as possible.
 impl Driver<Ready> {
-    pub fn controller(&self) -> &Controller {
-        &self.state.controller
+    /// Returns a read-only reference to the controller. While this reference is held, no write access to the
+    /// controller struct is possible. Therefore it should only be held as short as possible.
+    pub fn controller(&self) -> RwLockReadGuard<Controller> {
+        self.state.controller.read().unwrap()
     }
 
-    pub fn controller_mut(&mut self) -> &mut Controller {
-        // When the driver is in the ready state, we're sure that the controller has been initialized
-        &mut self.state.controller
+    /// Returns a read-only reference to the controller. While this reference is held, no other access to the
+    /// controller struct is possible. Therefore it should only be held as short as possible.
+    pub fn controller_mut(&self) -> RwLockWriteGuard<Controller> {
+        self.state.controller.write().unwrap()
+    }
+
+    /// Returns a read-only reference to the list of nodes. While this reference is held, no write access to the
+    /// list of nodes is possible. Therefore it should only be held as short as possible.
+    pub fn nodes(&self) -> RwLockReadGuard<BTreeMap<NodeId, Node>> {
+        self.state.nodes.read().unwrap()
+    }
+
+    /// Returns a read-only reference to the list of nodes. While this reference is held, no other access to the
+    /// list of nodes is possible. Therefore it should only be held as short as possible.
+    pub fn nodes_mut(&self) -> RwLockWriteGuard<BTreeMap<NodeId, Node>> {
+        self.state.nodes.write().unwrap()
     }
 }
 

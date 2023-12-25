@@ -161,7 +161,7 @@ where
     }
 
     pub async fn set_node_id_type(
-        &mut self,
+        &self,
         node_id_type: NodeIdType,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<bool> {
@@ -186,7 +186,7 @@ where
         );
 
         if success {
-            self.storage.node_id_type = node_id_type;
+            self.storage.set_node_id_type(node_id_type);
             exec_background_task!(
                 &self.tasks.serial_cmd,
                 SerialTaskCommand::UseNodeIDType,
@@ -201,7 +201,7 @@ where
 // Define the commands that require the driver to be ready
 impl Driver<Ready> {
     pub async fn get_rf_region(
-        &mut self,
+        &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<RfRegion> {
         println!("Querying configured RF region...");
@@ -215,7 +215,9 @@ impl Driver<Ready> {
             SerialApiSetupResponsePayload::GetRFRegion { region } => region
         )?;
 
-        self.state.controller.set_rf_region(Some(rf_region));
+        {
+            self.controller_mut().set_rf_region(Some(rf_region));
+        }
 
         println!("The controller is using RF region {}", rf_region);
 
@@ -223,7 +225,7 @@ impl Driver<Ready> {
     }
 
     pub async fn get_powerlevel(
-        &mut self,
+        &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<Powerlevel> {
         println!("Querying configured powerlevel...");
@@ -237,8 +239,9 @@ impl Driver<Ready> {
             SerialApiSetupResponsePayload::GetPowerlevel { powerlevel } => powerlevel
         )?;
 
-        self.state.controller.set_powerlevel(Some(powerlevel));
-
+        {
+            self.controller_mut().set_powerlevel(Some(powerlevel));
+        }
         println!("The controller is using powerlevel {}", powerlevel);
 
         Ok(powerlevel)
@@ -276,7 +279,7 @@ impl Driver<Ready> {
     }
 
     pub async fn set_suc_node_id(
-        &mut self,
+        &self,
         own_node_id: NodeId,
         node_id: NodeId,
         enable_suc: bool,
@@ -303,7 +306,8 @@ impl Driver<Ready> {
         };
 
         if success {
-            self.state.controller.set_suc_node_id(Some(node_id));
+            let mut controller = self.controller_mut();
+            controller.set_suc_node_id(Some(node_id));
             // FIXME: If we promoted ourselves also set the is_suc/is_sis/sis_present flags to true
         }
 

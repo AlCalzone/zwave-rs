@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::RwLock};
 
 use zwave_core::definitions::{FunctionType, NodeId};
 
@@ -6,12 +6,6 @@ use crate::{Controller, Node};
 
 /// The driver can be in one of multiple states, each of which has a different set of capabilities.
 pub trait DriverState {
-    /// An immutable reference to the controller, if available
-    fn controller(&self) -> Option<&Controller>;
-
-    /// A mutable reference to the controller, if available
-    fn controller_mut(&mut self) -> Option<&mut Controller>;
-
     /// Whether the driver supports executing the given function type in this phase
     #[allow(unused_variables)]
     fn supports_function(&self, function_type: FunctionType) -> bool {
@@ -23,33 +17,27 @@ pub trait DriverState {
 /// The driver isn't fully initialized yet
 pub struct Init;
 
-impl DriverState for Init {
-    fn controller(&self) -> Option<&Controller> {
-        None
-    }
-
-    fn controller_mut(&mut self) -> Option<&mut Controller> {
-        None
-    }
-}
+impl DriverState for Init {}
 
 /// The driver is ready to use normally
 #[derive(Debug)]
 pub struct Ready {
-    pub(crate) controller: Controller,
-    pub(crate) nodes: BTreeMap<NodeId, Node>,
+    pub(crate) controller: RwLock<Controller>,
+    pub(crate) nodes: RwLock<BTreeMap<NodeId, Node>>,
+}
+
+impl Ready {
+    pub fn new(controller: Controller, nodes: impl Iterator<Item = Node>) -> Self {
+        Self {
+            controller: RwLock::new(controller),
+            nodes: RwLock::new(BTreeMap::from_iter(nodes.map(|n| (n.id(), n)))),
+        }
+    }
 }
 
 impl DriverState for Ready {
-    fn controller(&self) -> Option<&Controller> {
-        Some(&self.controller)
-    }
-
-    fn controller_mut(&mut self) -> Option<&mut Controller> {
-        Some(&mut self.controller)
-    }
-
     fn supports_function(&self, function_type: FunctionType) -> bool {
-        self.controller.supports_function(function_type)
+        let controller = self.controller.read().unwrap();
+        controller.supports_function(function_type)
     }
 }
