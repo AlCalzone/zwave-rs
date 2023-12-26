@@ -1,5 +1,4 @@
-use std::collections::BTreeMap;
-use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::Arc;
 use std::time::Duration;
 
 use zwave_cc::commandclass::{WithAddress, CC};
@@ -14,7 +13,6 @@ use zwave_serial::frame::{ControlFlow, RawSerialFrame, SerialFrame};
 use zwave_serial::serialport::SerialPort;
 
 use crate::error::{Error, Result};
-use crate::{Controller, Node};
 
 use tokio::sync::{broadcast, mpsc, oneshot, Notify};
 use tokio::task::JoinHandle;
@@ -37,6 +35,7 @@ submodule!(driver_state);
 submodule!(controller_commands);
 submodule!(node_commands);
 submodule!(node_api);
+submodule!(controller_api);
 
 type TaskCommandSender<T> = mpsc::Sender<T>;
 type TaskCommandReceiver<T> = mpsc::Receiver<T>;
@@ -155,34 +154,6 @@ impl Driver<Init> {
         }
 
         Ok(this)
-    }
-
-    pub fn controller(&self) -> Option<&Controller> {
-        None
-    }
-}
-
-// FIXME: returning the RwLock guards is leaking implementation details.
-// We should separate the storage from accessing the data, where the data access holds the locks for as short as possible.
-impl Driver<Ready> {
-    /// Returns a read-only reference to the controller. While this reference is held, no write access to the
-    /// controller struct is possible. Therefore it should only be held as short as possible.
-    pub fn controller(&self) -> RwLockReadGuard<Controller> {
-        self.state.controller.read().unwrap()
-    }
-
-    /// Returns a read-only reference to the controller. While this reference is held, no other access to the
-    /// controller struct is possible. Therefore it should only be held as short as possible.
-    pub fn controller_mut(&self) -> RwLockWriteGuard<Controller> {
-        self.state.controller.write().unwrap()
-    }
-
-    pub fn get_node(&self, node_id: &NodeId) -> Option<Node> {
-        if self.state.nodes.contains_key(node_id) {
-            Some(Node::new(*node_id, self))
-        } else {
-            None
-        }
     }
 }
 

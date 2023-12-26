@@ -2,9 +2,9 @@ use crate::prelude::*;
 use zwave_core::prelude::*;
 
 use cookie_factory as cf;
-use nom::{bytes::complete::tag, character::complete::none_of, combinator::map, multi::many1};
-use typed_builder::TypedBuilder;
-use zwave_core::encoding::{self, encoders::empty, parser_not_implemented};
+
+
+use zwave_core::encoding::{self};
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetNodeProtocolInfoRequest {
@@ -90,9 +90,9 @@ impl CommandParsable for GetNodeProtocolInfoResponse {
 impl CommandSerializable for GetNodeProtocolInfoResponse {
     fn serialize<'a, W: std::io::Write + 'a>(
         &'a self,
-        ctx: &'a CommandEncodingContext,
+        _ctx: &'a CommandEncodingContext,
     ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, sequence::tuple};
-        move |out| todo!("ERROR: GetNodeProtocolInfoResponse::serialize() not implemented")
+        
+        move |_out| todo!("ERROR: GetNodeProtocolInfoResponse::serialize() not implemented")
     }
 }

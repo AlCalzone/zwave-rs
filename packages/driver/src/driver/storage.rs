@@ -19,4 +19,3 @@ impl DriverStorage {
         *self.node_id_type.write().unwrap() = node_id_type;
     }
 }
-

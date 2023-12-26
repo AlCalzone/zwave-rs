@@ -51,7 +51,7 @@ impl<'ast> Visit<'ast> for CCInfoExtractor<'ast> {
             };
             Some((variant_name, variant_value))
         });
-        
+
         // And create an entry in the enum variants map for each of them
         for (variant_name, variant_value) in enum_variants {
             self.cc_command_enum_variants

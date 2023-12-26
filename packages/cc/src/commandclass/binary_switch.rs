@@ -8,7 +8,7 @@ use nom::{
     sequence::tuple,
 };
 use typed_builder::TypedBuilder;
-use zwave_core::encoding::{self, encoders::empty, parser_not_implemented};
+use zwave_core::encoding::{self, encoders::empty};
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
@@ -64,7 +64,7 @@ impl CCParsable for BinarySwitchCCSet {
 
 impl CCSerializable for BinarySwitchCCSet {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, sequence::tuple};
+        use cf::{sequence::tuple};
         tuple((self.target_value.serialize(), self.duration.serialize()))
     }
 }

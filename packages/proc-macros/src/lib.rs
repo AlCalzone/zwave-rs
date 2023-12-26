@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use impl_cc_enum::{CCInfo, CCInfoExtractor};
 use impl_command_enum::{CommandInfo, CommandInfoExtractor};
 use proc_macro::TokenStream;
-use quote::{quote, format_ident};
+use quote::{format_ident, quote};
 use syn::visit;
 use util::{parse_dirname_from_macro_input, parse_files_in_dir};
 

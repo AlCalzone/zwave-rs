@@ -1,8 +1,8 @@
-use crate::{error::*, Driver, InterviewStage, Node, Ready};
+use crate::{error::*, Driver, Ready};
 use zwave_core::definitions::*;
 
 impl Driver<Ready> {
-    pub async fn interview_node(&self, node_id: &NodeId) -> Result<()> {
+    pub async fn interview_node(&self, _node_id: &NodeId) -> Result<()> {
         // // FIXME: Don't hold the lock for longer than necessary
         // let mut nodes = self.nodes_mut();
         // let node = nodes.get_mut(node_id).unwrap();

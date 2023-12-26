@@ -1,5 +1,3 @@
-use std::sync::{Arc, RwLock};
-
 use zwave_core::{definitions::NodeId, submodule};
 
 use crate::{error::Result, Driver, Ready};

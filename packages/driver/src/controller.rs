@@ -1,115 +1,127 @@
-use custom_debug_derive::Debug;
-use typed_builder::TypedBuilder;
-use zwave_core::definitions::{
-    ControllerRole, DeviceFingerprint, FunctionType, NodeId, NodeType, Powerlevel, RfRegion,
-    Version, ZWaveApiVersion, ZWaveLibraryType,
-};
+use std::sync::atomic::Ordering;
+use zwave_core::{definitions::*, submodule};
 use zwave_serial::command::SerialApiSetupCommand;
 
-#[derive(Debug, TypedBuilder)]
-pub struct Controller {
-    #[debug(format = "0x{:08x}")]
-    home_id: u32,
-    own_node_id: NodeId,
-    suc_node_id: Option<NodeId>,
+use crate::{Driver, Ready};
 
-    fingerprint: DeviceFingerprint,
+submodule!(storage);
 
-    library_type: ZWaveLibraryType,
-    api_version: ZWaveApiVersion,
-    protocol_version: Version,
-    sdk_version: Version,
-
-    node_type: NodeType,
-    role: ControllerRole,
-    started_this_network: bool,
-    sis_present: bool,
-    is_sis: bool,
-    is_suc: bool,
-
-    supported_function_types: Vec<FunctionType>,
-    supported_serial_api_setup_commands: Vec<SerialApiSetupCommand>,
-    supports_timers: bool,
-
-    #[builder(setter(skip), default)]
-    rf_region: Option<RfRegion>,
-    #[builder(setter(skip), default)]
-    powerlevel: Option<Powerlevel>,
+macro_rules! read {
+    ($self:ident, $field:ident) => {
+        $self.driver.get_controller_storage().$field
+    };
 }
 
-impl Controller {
+macro_rules! read_locked {
+    ($self:ident, $field:ident) => {
+        *$self.driver.get_controller_storage().$field.read().unwrap()
+    };
+}
+
+macro_rules! write_locked {
+    ($self:ident, $field:ident, $value:expr) => {
+        *$self
+            .driver
+            .get_controller_storage()
+            .$field
+            .write()
+            .unwrap() = $value;
+    };
+}
+
+macro_rules! read_atomic {
+    ($self:ident, $field:ident) => {
+        read!($self, $field).load(Ordering::Relaxed)
+    };
+}
+
+macro_rules! write_atomic {
+    ($self:ident, $field:ident, $value:expr) => {
+        read!($self, $field).store($value, Ordering::Relaxed);
+    };
+}
+
+// #[derive(Debug)]
+pub struct Controller<'a> {
+    driver: &'a Driver<Ready>,
+}
+
+impl<'a> Controller<'a> {
+    pub fn new(driver: &'a Driver<Ready>) -> Self {
+        Self { driver }
+    }
+
     /// Checks whether a given Z-Wave function type is supported by the controller.
     pub fn supports_function(&self, function_type: FunctionType) -> bool {
-        self.supported_function_types.contains(&function_type)
+        read!(self, supported_function_types).contains(&function_type)
     }
 
     /// Checks whether a given Z-Wave Serial API setup command is supported by the controller.
     pub fn supports_serial_api_setup_command(&self, command: SerialApiSetupCommand) -> bool {
-        self.supported_serial_api_setup_commands.contains(&command)
+        read!(self, supported_serial_api_setup_commands).contains(&command)
     }
 
     pub fn home_id(&self) -> u32 {
-        self.home_id
+        read!(self, home_id)
     }
 
     pub fn own_node_id(&self) -> NodeId {
-        self.own_node_id
+        read!(self, own_node_id)
     }
 
     pub fn suc_node_id(&self) -> Option<NodeId> {
-        self.suc_node_id
+        read_locked!(self, suc_node_id)
     }
 
     pub(crate) fn set_suc_node_id(&mut self, suc_node_id: Option<NodeId>) {
-        self.suc_node_id = suc_node_id;
+        write_locked!(self, suc_node_id, suc_node_id);
     }
 
     pub fn is_suc(&self) -> bool {
-        self.is_suc
+        read_atomic!(self, is_suc)
     }
 
     pub(crate) fn set_is_suc(&mut self, is_suc: bool) {
-        self.is_suc = is_suc;
+        write_atomic!(self, is_suc, is_suc);
     }
 
     pub fn is_sis(&self) -> bool {
-        self.is_sis
+        read_atomic!(self, is_sis)
     }
 
     pub(crate) fn set_is_sis(&mut self, is_sis: bool) {
-        self.is_sis = is_sis;
+        write_atomic!(self, is_sis, is_sis);
     }
 
     pub fn sis_present(&self) -> bool {
-        self.sis_present
+        read_atomic!(self, sis_present)
     }
 
     pub(crate) fn set_sis_present(&mut self, sis_present: bool) {
-        self.sis_present = sis_present;
+        write_atomic!(self, sis_present, sis_present);
     }
 
     pub fn role(&self) -> ControllerRole {
-        self.role
+        read_locked!(self, role)
     }
 
     pub(crate) fn set_role(&mut self, role: ControllerRole) {
-        self.role = role;
+        write_locked!(self, role, role);
     }
 
     pub fn rf_region(&self) -> Option<RfRegion> {
-        self.rf_region
+        read_locked!(self, rf_region)
     }
 
     pub(crate) fn set_rf_region(&mut self, region: Option<RfRegion>) {
-        self.rf_region = region;
+        write_locked!(self, rf_region, region);
     }
 
     pub fn powerlevel(&self) -> Option<Powerlevel> {
-        self.powerlevel
+        read_locked!(self, powerlevel)
     }
 
     pub(crate) fn set_powerlevel(&mut self, powerlevel: Option<Powerlevel>) {
-        self.powerlevel = powerlevel;
+        write_locked!(self, powerlevel, powerlevel);
     }
-
 }

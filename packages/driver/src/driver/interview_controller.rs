@@ -1,12 +1,9 @@
-use std::collections::BTreeMap;
-
+use super::{Init, Ready};
 use crate::{driver::ControllerCommandError, ControllerCommandResult, Driver};
-use crate::{Controller, ExecControllerCommandOptions, Node, NodeStorage};
-
+use crate::{ControllerStorage, ExecControllerCommandOptions, NodeStorage};
+use std::collections::BTreeMap;
 use zwave_core::definitions::*;
 use zwave_serial::command::SerialApiSetupCommand;
-
-use super::{Init, Ready};
 
 impl Driver<Init> {
     pub(crate) async fn interview_controller(&self) -> ControllerCommandResult<Ready> {
@@ -65,7 +62,7 @@ impl Driver<Init> {
                 .map(|node_id| (*node_id, NodeStorage::new())),
         );
 
-        let controller = Controller::builder()
+        let controller = ControllerStorage::builder()
             .home_id(ids.home_id)
             .own_node_id(ids.own_node_id)
             .suc_node_id(suc_node_id)
@@ -90,7 +87,7 @@ impl Driver<Init> {
             .supports_timers(init_data.supports_timers)
             .build();
 
-        Ok(Ready::new(controller, nodes))
+        Ok(Ready { controller, nodes })
     }
 }
 

@@ -11,8 +11,7 @@ use zwave_core::prelude::*;
 use zwave_serial::command::{
     Command, CommandBase, CommandRequest, GetControllerCapabilitiesRequest,
     GetControllerCapabilitiesResponse, GetControllerIdRequest, GetControllerIdResponse,
-    GetControllerVersionRequest, GetControllerVersionResponse, GetNodeProtocolInfoRequest,
-    GetNodeProtocolInfoResponse, GetProtocolVersionRequest, GetProtocolVersionResponse,
+    GetControllerVersionRequest, GetControllerVersionResponse, GetNodeProtocolInfoRequest, GetProtocolVersionRequest, GetProtocolVersionResponse,
     GetSerialApiCapabilitiesRequest, GetSerialApiCapabilitiesResponse, GetSerialApiInitDataRequest,
     GetSerialApiInitDataResponse, GetSucNodeIdRequest, SerialApiSetupCommand,
     SerialApiSetupRequest, SerialApiSetupResponsePayload, SetSucNodeIdRequest,
@@ -215,9 +214,7 @@ impl Driver<Ready> {
             SerialApiSetupResponsePayload::GetRFRegion { region } => region
         )?;
 
-        {
-            self.controller_mut().set_rf_region(Some(rf_region));
-        }
+        self.controller().set_rf_region(Some(rf_region));
 
         println!("The controller is using RF region {}", rf_region);
 
@@ -239,9 +236,8 @@ impl Driver<Ready> {
             SerialApiSetupResponsePayload::GetPowerlevel { powerlevel } => powerlevel
         )?;
 
-        {
-            self.controller_mut().set_powerlevel(Some(powerlevel));
-        }
+        self.controller().set_powerlevel(Some(powerlevel));
+
         println!("The controller is using powerlevel {}", powerlevel);
 
         Ok(powerlevel)
@@ -306,8 +302,7 @@ impl Driver<Ready> {
         };
 
         if success {
-            let mut controller = self.controller_mut();
-            controller.set_suc_node_id(Some(node_id));
+            self.controller().set_suc_node_id(Some(node_id));
             // FIXME: If we promoted ourselves also set the is_suc/is_sis/sis_present flags to true
         }
 
