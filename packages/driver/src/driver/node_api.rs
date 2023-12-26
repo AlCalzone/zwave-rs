@@ -13,6 +13,13 @@ impl Driver<Ready> {
         }
     }
 
+    pub fn nodes(&self) -> impl Iterator<Item = Node> {
+        self.state
+            .nodes
+            .keys()
+            .map(move |node_id| Node::new(*node_id, self))
+    }
+
     pub(crate) fn get_node_storage(&self, node_id: &NodeId) -> Option<&NodeStorage> {
         self.state.nodes.get(node_id)
     }

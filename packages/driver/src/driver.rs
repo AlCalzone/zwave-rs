@@ -27,7 +27,7 @@ pub use serial_api_machine::SerialApiMachineResult;
 
 mod awaited;
 mod interview_controller;
-mod interview_node;
+mod interview_nodes;
 mod serial_api_machine;
 mod storage;
 
@@ -141,17 +141,6 @@ impl Driver<Init> {
         };
 
         this.configure_controller().await?;
-
-        // FIXME: Interview nodes in the background
-        let nodes: Vec<_> = this
-            .state
-            .nodes
-            .keys()
-            .filter_map(|id| this.get_node(id))
-            .collect();
-        for node in nodes {
-            node.interview().await?;
-        }
 
         Ok(this)
     }
