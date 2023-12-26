@@ -36,6 +36,7 @@ mod storage;
 submodule!(driver_state);
 submodule!(controller_commands);
 submodule!(node_commands);
+submodule!(node_api);
 
 type TaskCommandSender<T> = mpsc::Sender<T>;
 type TaskCommandReceiver<T> = mpsc::Receiver<T>;
@@ -123,7 +124,7 @@ impl Driver<Init> {
         })
     }
 
-    pub async fn init(mut self) -> Result<Driver<Ready>> {
+    pub async fn init(self) -> Result<Driver<Ready>> {
         // Synchronize the serial port
         exec_background_task!(
             self.tasks.serial_cmd,
@@ -143,9 +144,14 @@ impl Driver<Init> {
         this.configure_controller().await?;
 
         // FIXME: Interview nodes in the background
-        let node_ids: Vec<_> = this.nodes().keys().copied().collect();
-        for node_id in node_ids {
-            this.interview_node(&node_id).await?;
+        let nodes: Vec<_> = this
+            .state
+            .nodes
+            .keys()
+            .filter_map(|id| this.get_node(id))
+            .collect();
+        for node in nodes {
+            node.interview().await?;
         }
 
         Ok(this)
@@ -171,16 +177,12 @@ impl Driver<Ready> {
         self.state.controller.write().unwrap()
     }
 
-    /// Returns a read-only reference to the list of nodes. While this reference is held, no write access to the
-    /// list of nodes is possible. Therefore it should only be held as short as possible.
-    pub fn nodes(&self) -> RwLockReadGuard<BTreeMap<NodeId, Node>> {
-        self.state.nodes.read().unwrap()
-    }
-
-    /// Returns a read-only reference to the list of nodes. While this reference is held, no other access to the
-    /// list of nodes is possible. Therefore it should only be held as short as possible.
-    pub fn nodes_mut(&self) -> RwLockWriteGuard<BTreeMap<NodeId, Node>> {
-        self.state.nodes.write().unwrap()
+    pub fn get_node(&self, node_id: &NodeId) -> Option<Node> {
+        if self.state.nodes.contains_key(node_id) {
+            Some(Node::new(*node_id, self))
+        } else {
+            None
+        }
     }
 }
 

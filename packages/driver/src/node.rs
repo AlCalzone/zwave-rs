@@ -1,30 +1,45 @@
+use std::sync::{Arc, RwLock};
+
 use zwave_core::{definitions::NodeId, submodule};
 
-submodule!(interview_stage);
+use crate::{error::Result, Driver, Ready};
 
-#[derive(Debug)]
-pub struct Node {
+submodule!(interview_stage);
+submodule!(storage);
+
+pub struct Node<'a> {
     id: NodeId,
-    interview_stage: InterviewStage,
+    driver: &'a Driver<Ready>,
 }
 
-impl Node {
-    pub fn new(id: NodeId) -> Self {
-        Self {
-            id,
-            interview_stage: InterviewStage::None,
-        }
+impl<'a> Node<'a> {
+    pub fn new(id: NodeId, driver: &'a Driver<Ready>) -> Self {
+        Self { id, driver }
     }
 
     pub fn id(&self) -> NodeId {
         self.id
     }
 
-    pub fn interview_stage(&self) -> &InterviewStage {
-        &self.interview_stage
+    pub fn interview_stage(&self) -> InterviewStage {
+        self.driver
+            .get_node_interview_stage(&self.id)
+            .unwrap_or(InterviewStage::None)
     }
 
-    pub fn set_interview_stage(&mut self, interview_stage: InterviewStage) {
-        self.interview_stage = interview_stage;
+    pub fn set_interview_stage(&self, interview_stage: InterviewStage) {
+        self.driver
+            .set_node_interview_stage(&self.id, interview_stage);
+    }
+
+    pub async fn interview(&self) -> Result<()> {
+        if self.interview_stage() == InterviewStage::None {
+            self.set_interview_stage(InterviewStage::ProtocolInfo);
+
+            let protocol_info = self.driver.get_node_protocol_info(&self.id, None).await?;
+            println!("Node {:?} protocol info: {:?}", &self.id, protocol_info);
+        }
+
+        Ok(())
     }
 }

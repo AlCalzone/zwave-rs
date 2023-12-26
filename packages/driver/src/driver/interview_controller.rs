@@ -1,5 +1,7 @@
+use std::collections::BTreeMap;
+
 use crate::{driver::ControllerCommandError, ControllerCommandResult, Driver};
-use crate::{Controller, ExecControllerCommandOptions, Node};
+use crate::{Controller, ExecControllerCommandOptions, Node, NodeStorage};
 
 use zwave_core::definitions::*;
 use zwave_serial::command::SerialApiSetupCommand;
@@ -56,7 +58,12 @@ impl Driver<Init> {
         let ids = self.get_controller_id(command_options).await?;
         let suc_node_id = self.get_suc_node_id(command_options).await?;
 
-        let nodes = init_data.node_ids.iter().map(|node_id| Node::new(*node_id));
+        let nodes = BTreeMap::from_iter(
+            init_data
+                .node_ids
+                .iter()
+                .map(|node_id| (*node_id, NodeStorage::new())),
+        );
 
         let controller = Controller::builder()
             .home_id(ids.home_id)

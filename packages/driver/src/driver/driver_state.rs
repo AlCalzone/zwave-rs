@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, sync::RwLock};
 
 use zwave_core::definitions::{FunctionType, NodeId};
 
-use crate::{Controller, Node};
+use crate::{Controller, NodeStorage};
 
 /// The driver can be in one of multiple states, each of which has a different set of capabilities.
 pub trait DriverState {
@@ -23,14 +23,14 @@ impl DriverState for Init {}
 #[derive(Debug)]
 pub struct Ready {
     pub(crate) controller: RwLock<Controller>,
-    pub(crate) nodes: RwLock<BTreeMap<NodeId, Node>>,
+    pub(crate) nodes: BTreeMap<NodeId, NodeStorage>,
 }
 
 impl Ready {
-    pub fn new(controller: Controller, nodes: impl Iterator<Item = Node>) -> Self {
+    pub(crate) fn new(controller: Controller, nodes: BTreeMap<NodeId, NodeStorage>) -> Self {
         Self {
             controller: RwLock::new(controller),
-            nodes: RwLock::new(BTreeMap::from_iter(nodes.map(|n| (n.id(), n)))),
+            nodes,
         }
     }
 }
