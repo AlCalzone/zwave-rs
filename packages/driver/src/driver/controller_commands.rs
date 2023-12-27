@@ -8,6 +8,9 @@ use crate::SerialApiMachineResult;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 use zwave_core::prelude::*;
+use zwave_serial::command::ApplicationUpdateRequest;
+use zwave_serial::command::ApplicationUpdateRequestPayload;
+use zwave_serial::command::RequestNodeInfoRequest;
 use zwave_serial::command::{
     Command, CommandBase, CommandRequest, GetControllerCapabilitiesRequest,
     GetControllerCapabilitiesResponse, GetControllerIdRequest, GetControllerIdResponse,
@@ -324,6 +327,43 @@ impl Driver<Ready> {
         }
 
         Ok(success)
+    }
+
+    pub async fn request_node_info(
+        &self,
+        node_id: &NodeId,
+        options: Option<&ExecControllerCommandOptions>,
+    ) -> ControllerCommandResult<NodeInformationApplicationData> {
+        println!("Querying node info for node {}...", node_id);
+        let response = self
+            .exec_controller_command(RequestNodeInfoRequest::new(*node_id), options)
+            .await;
+
+        let application_data = match response {
+            Ok(Some(Command::ApplicationUpdateRequest(ApplicationUpdateRequest {
+                payload:
+                    ApplicationUpdateRequestPayload::NodeInfoReceived {
+                        application_data, ..
+                    },
+                ..
+            }))) => {
+                println!("Node info received: {:?}", application_data);
+                application_data
+            }
+            Ok(_) => {
+                return Err(ControllerCommandError::Unexpected(
+                    "expected ApplicationUpdateRequest".to_string(),
+                ))
+            }
+            Err(e) => {
+                println!("Querying the node info failed");
+                return Err(e.into());
+            }
+        };
+
+        // TODO: Save received info
+
+        Ok(application_data)
     }
 }
 

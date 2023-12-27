@@ -87,12 +87,15 @@ impl<'a> Node<'a> {
     }
 
     pub async fn interview(&self) -> Result<()> {
-        // if self.interview_stage() == InterviewStage::None {
-        //     self.set_interview_stage(InterviewStage::ProtocolInfo);
-
-        //     let protocol_info = self.driver.get_node_protocol_info(&self.id, None).await?;
-        //     println!("Node {:?} protocol info: {:?}", &self.id, protocol_info);
-        // }
+        println!(
+            "Node {}, beginning interview. Current stage: {:?}",
+            self.id,
+            self.interview_stage()
+        );
+        if self.interview_stage() == InterviewStage::None {
+            self.set_interview_stage(InterviewStage::NodeInfo);
+            let _node_info = self.driver.request_node_info(&self.id, None).await?;
+        }
 
         Ok(())
     }

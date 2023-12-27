@@ -1,3 +1,5 @@
+#![feature(lint_reasons)]
+
 mod util;
 
 pub mod binding;

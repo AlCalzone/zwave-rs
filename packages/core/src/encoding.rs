@@ -529,6 +529,7 @@ pub mod parsers {
         Ok((i, ret))
     }
 
+    /// Parses a list of supported and controlled CCs that starts with a length byte
     pub fn variable_length_cc_list(
         i: super::Input,
     ) -> super::ParseResult<(
@@ -543,5 +544,31 @@ pub mod parsers {
                 many0(CommandClasses::parse),
             ),
         )(i)
+    }
+
+    /// Parses a list of supported and controlled CCs with the given length
+    pub fn fixed_length_cc_list(
+        i: super::Input,
+        len: usize,
+    ) -> super::ParseResult<(
+        Vec<CommandClasses>, // supported
+        Vec<CommandClasses>, // controlled
+    )> {
+        map_parser(
+            take_bytes(len),
+            separated_pair(
+                many0(CommandClasses::parse),
+                tag([COMMAND_CLASS_SUPPORT_CONTROL_MARK]),
+                many0(CommandClasses::parse),
+            ),
+        )(i)
+    }
+
+    /// Parses a list of supported (NOT controlled) CCs with the given length
+    pub fn fixed_length_cc_list_only_supported(
+        i: super::Input,
+        len: usize,
+    ) -> super::ParseResult<Vec<CommandClasses>> {
+        map_parser(take_bytes(len), many0(CommandClasses::parse))(i)
     }
 }

@@ -11,6 +11,8 @@ use std::fmt::Display;
 pub enum BasicDeviceType {
     PortableController = 0x01,
     StaticController = 0x02,
+    EndNode = 0x03,
+    RoutingEndNode = 0x04,
 }
 
 impl NomTryFromPrimitive for BasicDeviceType {
@@ -26,6 +28,8 @@ impl Display for BasicDeviceType {
         match self {
             BasicDeviceType::PortableController => write!(f, "Portable Controller"),
             BasicDeviceType::StaticController => write!(f, "Static Controller"),
+            BasicDeviceType::EndNode => write!(f, "End Node"),
+            BasicDeviceType::RoutingEndNode => write!(f, "Routing End Node"),
         }
     }
 }

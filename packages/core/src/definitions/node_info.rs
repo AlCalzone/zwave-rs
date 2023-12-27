@@ -1,18 +1,13 @@
-use nom::{
-    bits,
-    bits::complete::bool,
-    combinator::{cond},
-    number::complete::be_u8,
-    sequence::tuple,
-};
+
+use nom::{bits, bits::complete::bool, combinator::cond, number::complete::be_u8, sequence::tuple};
 use ux::{u1, u2, u5};
 
 use crate::{
-    encoding::{self, BitParsable},
+    encoding::{self, parsers, BitParsable},
     prelude::Parsable,
 };
 
-use super::{BasicDeviceType, Beam, DataRate, NodeType, ProtocolVersion};
+use super::{BasicDeviceType, Beam, CommandClasses, DataRate, NodeType, ProtocolVersion};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NodeInformationProtocolData {
@@ -65,15 +60,7 @@ impl Parsable for NodeInformationProtocolData {
                 controller,
                 supports_security,
             ),
-        ) = bits(tuple((
-            bool,
-            Beam::parse_opt,
-            bool,
-            bool,
-            bool,
-            bool,
-            bool,
-        )))(i)?;
+        ) = bits(tuple((bool, Beam::parse_opt, bool, bool, bool, bool, bool)))(i)?;
 
         let (i, (_reserved73, _reserved21, speed_100k)) =
             bits(tuple((u5::parse, u2::parse, bool)))(i)?;
@@ -93,23 +80,60 @@ impl Parsable for NodeInformationProtocolData {
             supported_data_rates.push(DataRate::DataRate_9k6);
         }
 
-        Ok((i, Self {
-            listening,
-            frequent_listening,
-            routing,
-            supported_data_rates,
-            protocol_version,
-            optional_functionality,
-            node_type: if end_node {
-                NodeType::EndNode
-            } else {
-                NodeType::Controller
+        Ok((
+            i,
+            Self {
+                listening,
+                frequent_listening,
+                routing,
+                supported_data_rates,
+                protocol_version,
+                optional_functionality,
+                node_type: if end_node {
+                    NodeType::EndNode
+                } else {
+                    NodeType::Controller
+                },
+                supports_security,
+                beaming,
+                basic_device_type,
+                generic_device_class,
+                specific_device_class,
             },
-            supports_security,
-            beaming,
-            basic_device_type,
-            generic_device_class,
-            specific_device_class,
-        }))
+        ))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NodeInformationApplicationData {
+    /// The basic device type of this node
+    pub basic_device_type: BasicDeviceType,
+    /// Which generic device class is implemented by this node
+    pub generic_device_class: u8,
+    /// Which specific device class is implemented by this node
+    pub specific_device_class: u8,
+    /// Which command classes are supported by this node
+    pub supported_command_classes: Vec<CommandClasses>,
+}
+
+impl Parsable for NodeInformationApplicationData {
+    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
+        // The specs call this CC list length, but this includes the device class bytes
+        let (i, remaining_len) = be_u8(i)?;
+        let (i, basic_device_type) = BasicDeviceType::parse(i)?;
+        let (i, generic_device_class) = be_u8(i)?;
+        let (i, specific_device_class) = be_u8(i)?;
+        let (i, supported_command_classes) =
+            parsers::fixed_length_cc_list_only_supported(i, (remaining_len - 3) as usize)?;
+
+        Ok((
+            i,
+            Self {
+                basic_device_type,
+                generic_device_class,
+                specific_device_class,
+                supported_command_classes,
+            },
+        ))
     }
 }
