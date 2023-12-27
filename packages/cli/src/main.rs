@@ -2,7 +2,7 @@ use std::thread;
 use std::time::Duration;
 
 use zwave_cc::commandclass::{BasicCCGet, BinarySwitchCCSet, CCAddressable};
-use zwave_core::values::BinarySet;
+use zwave_core::{definitions::NodeId, values::BinarySet};
 
 #[cfg(target_os = "linux")]
 // const PORT: &str = "/dev/ttyUSB0";
@@ -22,6 +22,11 @@ async fn main() {
 
     driver.interview_nodes().await.unwrap();
     println!("all nodes interviewed");
+
+    let node = driver.get_node(&NodeId::new(2u8)).unwrap();
+
+    let ping_result = node.ping().await.unwrap();
+    println!("ping result: {:?}", ping_result);
 
     // driver
     //     .register_command_handler(Box::new(|cmd| {

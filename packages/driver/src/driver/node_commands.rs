@@ -22,6 +22,8 @@ pub type ExecNodeCommandResult<T> = Result<T, ExecNodeCommandError>;
 pub enum ExecNodeCommandError {
     #[error("Controller command error: {0}")]
     Controller(#[from] ControllerCommandError),
+    #[error("The node did not acknowledge the command")]
+    NodeNoAck,
     #[error("Timed out waiting for a response from the node")]
     NodeTimeout,
 }
@@ -82,7 +84,9 @@ impl Driver<Ready> {
             }
             Command::SendDataCallback(cb) => {
                 if !cb.is_ok() {
-                    todo!("Handle failed SendData callback")
+                    // FIXME: Use callback information in statistics
+                    // FIXME: This is not necessarily NoAck, it could be Fail too
+                    return Err(ExecNodeCommandError::NodeNoAck);
                 }
             }
             other => {

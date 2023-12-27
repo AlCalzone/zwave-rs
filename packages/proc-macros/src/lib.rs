@@ -179,7 +179,7 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
             }
         } else {
             quote! {
-                (#cc_id, #cc_command) => {
+                (#cc_id, None) => {
                     #cc_name::try_from_slice(raw.payload.as_slice(), &ctx).map(Self::#cc_name)
                 }
             }

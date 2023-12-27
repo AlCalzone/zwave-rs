@@ -239,6 +239,7 @@ macro_rules! impl_destination_conversions_for {
 impl_destination_conversions_for!(u8);
 impl_destination_conversions_for!(u16);
 impl_destination_conversions_for!(i32);
+impl_destination_conversions_for!(NodeId);
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub enum EndpointIndex {

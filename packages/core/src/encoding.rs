@@ -489,7 +489,7 @@ pub mod encoders {
 pub mod parsers {
     use bitvec::prelude::*;
     use nom::bytes::complete::{tag, take as take_bytes};
-    use nom::combinator::{map, map_parser, map_res};
+    use nom::combinator::map_parser;
     use nom::multi::{length_data, many0};
     use nom::number::complete::be_u8;
     use nom::sequence::separated_pair;

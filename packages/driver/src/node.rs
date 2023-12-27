@@ -1,6 +1,7 @@
+use zwave_cc::commandclass::{CCAddressable, NoOperationCC};
 use zwave_core::{definitions::*, submodule};
 
-use crate::{error::Result, Driver, Ready};
+use crate::{error::Result, ControllerCommandResult, Driver, ExecNodeCommandError, Ready};
 
 submodule!(interview_stage);
 submodule!(storage);
@@ -94,5 +95,18 @@ impl<'a> Node<'a> {
         // }
 
         Ok(())
+    }
+
+    /// Pings the node and returns whether it responded or not.
+    pub async fn ping(&self) -> ControllerCommandResult<bool> {
+        // ^ Although this is a node command, the only errors we want to surface are controller errors
+        let cc = NoOperationCC {}.with_destination(self.id.into());
+        let result = self.driver.exec_node_command(&cc, None).await;
+        match result {
+            Ok(_) => Ok(true),
+            Err(ExecNodeCommandError::NodeNoAck) => Ok(false),
+            Err(ExecNodeCommandError::Controller(e)) => Err(e),
+            Err(ExecNodeCommandError::NodeTimeout) => panic!("NoOperation CC should not time out"),
+        }
     }
 }
