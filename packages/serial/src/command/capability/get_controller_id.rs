@@ -98,12 +98,11 @@ impl CommandParsable for GetControllerIdResponse {
 }
 
 impl CommandSerializable for GetControllerIdResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self, ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
         use cf::{bytes::be_u32, sequence::tuple};
-        // FIXME: Support serializing 16-bit node IDs
         tuple((
             be_u32(self.home_id),
-            self.own_node_id.serialize(NodeIdType::NodeId8Bit),
+            self.own_node_id.serialize(ctx.node_id_type),
         ))
     }
 }

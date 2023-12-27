@@ -488,9 +488,15 @@ pub mod encoders {
 
 pub mod parsers {
     use bitvec::prelude::*;
-    use nom::bytes::complete::take as take_bytes;
-    use nom::multi::length_data;
+    use nom::bytes::complete::{tag, take as take_bytes};
+    use nom::combinator::{map, map_parser, map_res};
+    use nom::multi::{length_data, many0};
     use nom::number::complete::be_u8;
+    use nom::sequence::separated_pair;
+
+    use crate::prelude::{CommandClasses, COMMAND_CLASS_SUPPORT_CONTROL_MARK};
+
+    use super::Parsable;
 
     /// Parses a bitmask into a `Vec<u8>`. The least significant bit is mapped to `bit0_value`. The first byte is considerd to be the bitmask length.
     pub fn variable_length_bitmask_u8(
@@ -521,5 +527,21 @@ pub mod parsers {
             .map(|index| (index as u8) + bit0_value)
             .collect::<Vec<_>>();
         Ok((i, ret))
+    }
+
+    pub fn variable_length_cc_list(
+        i: super::Input,
+    ) -> super::ParseResult<(
+        Vec<CommandClasses>, // supported
+        Vec<CommandClasses>, // controlled
+    )> {
+        map_parser(
+            length_data(be_u8),
+            separated_pair(
+                many0(CommandClasses::parse),
+                tag([COMMAND_CLASS_SUPPORT_CONTROL_MARK]),
+                many0(CommandClasses::parse),
+            ),
+        )(i)
     }
 }

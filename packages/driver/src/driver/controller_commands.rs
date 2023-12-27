@@ -316,7 +316,11 @@ impl Driver<Ready> {
 
         if success {
             self.controller().set_suc_node_id(Some(node_id));
-            // FIXME: If we promoted ourselves also set the is_suc/is_sis/sis_present flags to true
+            self.controller().set_is_sis(enable_sis);
+            self.controller().set_is_suc(enable_suc);
+            if enable_sis {
+                self.controller().set_sis_present(true);
+            }
         }
 
         Ok(success)

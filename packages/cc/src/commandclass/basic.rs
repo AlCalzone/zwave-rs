@@ -134,7 +134,6 @@ impl CCParsable for BasicCCReport {
 
 impl CCSerializable for BasicCCReport {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        // FIXME: Only include target_value and duration in V2 of the CC
         use cf::sequence::tuple;
 
         let serialize_target_and_duration = move |out| match self.target_value {
