@@ -1,46 +1,45 @@
 use nom::{
     bits,
     bits::complete::bool,
-    combinator::{cond, opt, map_res},
+    combinator::{cond},
     number::complete::be_u8,
     sequence::tuple,
 };
 use ux::{u1, u2, u5};
 
 use crate::{
-    definitions::node_type,
     encoding::{self, BitParsable},
     prelude::Parsable,
 };
 
-use super::{protocol_version, BasicDeviceType, Beam, DataRate, NodeType, ProtocolVersion};
+use super::{BasicDeviceType, Beam, DataRate, NodeType, ProtocolVersion};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NodeInformationProtocolData {
     /// Whether this node is always listening
-    listening: bool,
+    pub listening: bool,
     /// Whether this node is frequently listening, and if yes, with which interval
-    frequent_listening: Option<Beam>,
+    pub frequent_listening: Option<Beam>,
     /// Whether the node supports routing/forwarding messages
-    routing: bool,
+    pub routing: bool,
     /// Which data rates the node supports
-    supported_data_rates: Vec<DataRate>,
+    pub supported_data_rates: Vec<DataRate>,
     /// The protocol version this node implements
-    protocol_version: ProtocolVersion,
+    pub protocol_version: ProtocolVersion,
     /// Whether this node supports additional CCs besides the mandatory minimum
-    optional_functionality: bool,
+    pub optional_functionality: bool,
     /// Whether this node is a controller (can calculate routes) or an end node (relies on route info)
-    node_type: NodeType,
+    pub node_type: NodeType,
     /// Whether this node supports secure communication (official Host API specs) / legacy network security (legacy Host API specs).
-    supports_security: bool,
-    // Whether the node can wake up FLiRS nodes
-    beaming: bool,
+    pub supports_security: bool,
+    /// Whether the node can wake up FLiRS nodes
+    pub beaming: bool,
     /// The basic device type of this node. Only present if the node is a controller
-    basic_device_type: Option<BasicDeviceType>,
+    pub basic_device_type: Option<BasicDeviceType>,
     /// Which generic device class is implemented by this node
-    generic_device_class: u8,
+    pub generic_device_class: u8,
     /// Which specific device class is implemented by this node
-    specific_device_class: Option<u8>,
+    pub specific_device_class: Option<u8>,
 }
 
 impl Parsable for NodeInformationProtocolData {

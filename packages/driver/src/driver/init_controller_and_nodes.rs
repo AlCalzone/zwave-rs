@@ -55,12 +55,16 @@ impl Driver<Init> {
         let ids = self.get_controller_id(command_options).await?;
         let suc_node_id = self.get_suc_node_id(command_options).await?;
 
-        let nodes = BTreeMap::from_iter(
-            init_data
-                .node_ids
-                .iter()
-                .map(|node_id| (*node_id, NodeStorage::new())),
-        );
+        // Read the protocol info for each node and store it
+        // FIXME: Read this from cache where possible when we have one
+        let mut nodes = BTreeMap::new();
+        for node_id in &init_data.node_ids {
+            let protocol_info = self
+                .get_node_protocol_info(node_id, command_options)
+                .await?;
+            let storage = NodeStorage::new(protocol_info);
+            nodes.insert(*node_id, storage);
+        }
 
         let controller = ControllerStorage::builder()
             .home_id(ids.home_id)

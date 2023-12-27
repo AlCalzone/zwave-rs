@@ -5,7 +5,6 @@ use cookie_factory as cf;
 use custom_debug_derive::Debug;
 use nom::{
     bits,
-    bits::complete::take as take_bits,
     combinator::{cond, map, opt},
     multi::count,
     number::complete::be_u16,

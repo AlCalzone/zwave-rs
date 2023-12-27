@@ -4,9 +4,6 @@ pub enum InterviewStage {
     /// The interview process hasn't started yet
     None,
 
-    /// Querying the node's protocol information from the controller
-    ProtocolInfo,
-
     /// Querying the node's capabilities from the node itself, including supported/controlled command classes
     NodeInfo,
 

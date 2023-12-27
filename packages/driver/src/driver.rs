@@ -26,7 +26,7 @@ use self::storage::DriverStorage;
 pub use serial_api_machine::SerialApiMachineResult;
 
 mod awaited;
-mod interview_controller;
+mod init_controller_and_nodes;
 mod interview_nodes;
 mod serial_api_machine;
 mod storage;

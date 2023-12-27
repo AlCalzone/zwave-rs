@@ -1,18 +1,18 @@
-use zwave_core::{definitions::NodeId, submodule};
+use zwave_core::{definitions::*, submodule};
 
 use crate::{error::Result, Driver, Ready};
 
 submodule!(interview_stage);
 submodule!(storage);
 
-// macro_rules! read {
-//     ($self:ident, $node_id:expr, $field:ident) => {
-//         $self
-//             .driver
-//             .get_node_storage($node_id)
-//             .map(|storage| *storage.$field)
-//     };
-// }
+macro_rules! read {
+    ($self:ident, $node_id:expr, $field:ident) => {
+        $self
+            .driver
+            .get_node_storage($node_id)
+            .map(|storage| (*storage).$field)
+    };
+}
 
 macro_rules! read_locked {
     ($self:ident, $node_id:expr, $field:ident) => {
@@ -46,12 +46,21 @@ macro_rules! write_locked {
 
 pub struct Node<'a> {
     id: NodeId,
+    protocol_data: NodeInformationProtocolData,
     driver: &'a Driver<Ready>,
 }
 
 impl<'a> Node<'a> {
-    pub fn new(id: NodeId, driver: &'a Driver<Ready>) -> Self {
-        Self { id, driver }
+    pub fn new(
+        id: NodeId,
+        protocol_data: NodeInformationProtocolData,
+        driver: &'a Driver<Ready>,
+    ) -> Self {
+        Self {
+            id,
+            protocol_data,
+            driver,
+        }
     }
 
     pub fn id(&self) -> NodeId {
@@ -68,13 +77,21 @@ impl<'a> Node<'a> {
         }
     }
 
-    pub async fn interview(&self) -> Result<()> {
-        if self.interview_stage() == InterviewStage::None {
-            self.set_interview_stage(InterviewStage::ProtocolInfo);
+    pub fn protocol_data(&self) -> &NodeInformationProtocolData {
+        &self.protocol_data
+    }
 
-            let protocol_info = self.driver.get_node_protocol_info(&self.id, None).await?;
-            println!("Node {:?} protocol info: {:?}", &self.id, protocol_info);
-        }
+    pub fn can_sleep(&self) -> bool {
+        !self.protocol_data.listening && self.protocol_data.frequent_listening.is_none()
+    }
+
+    pub async fn interview(&self) -> Result<()> {
+        // if self.interview_stage() == InterviewStage::None {
+        //     self.set_interview_stage(InterviewStage::ProtocolInfo);
+
+        //     let protocol_info = self.driver.get_node_protocol_info(&self.id, None).await?;
+        //     println!("Node {:?} protocol info: {:?}", &self.id, protocol_info);
+        // }
 
         Ok(())
     }

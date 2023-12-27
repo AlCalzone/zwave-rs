@@ -4,7 +4,7 @@ use cookie_factory as cf;
 use derive_try_from_primitive::*;
 use nom::{
     bits::complete::take as take_bits, combinator::map_res, error::context,
-    number::complete::be_u8, sequence::tuple,
+    number::complete::be_u8,
 };
 use std::fmt::Display;
 

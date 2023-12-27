@@ -11,10 +11,11 @@ use zwave_core::prelude::*;
 use zwave_serial::command::{
     Command, CommandBase, CommandRequest, GetControllerCapabilitiesRequest,
     GetControllerCapabilitiesResponse, GetControllerIdRequest, GetControllerIdResponse,
-    GetControllerVersionRequest, GetControllerVersionResponse, GetNodeProtocolInfoRequest, GetProtocolVersionRequest, GetProtocolVersionResponse,
-    GetSerialApiCapabilitiesRequest, GetSerialApiCapabilitiesResponse, GetSerialApiInitDataRequest,
-    GetSerialApiInitDataResponse, GetSucNodeIdRequest, SerialApiSetupCommand,
-    SerialApiSetupRequest, SerialApiSetupResponsePayload, SetSucNodeIdRequest,
+    GetControllerVersionRequest, GetControllerVersionResponse, GetNodeProtocolInfoRequest,
+    GetProtocolVersionRequest, GetProtocolVersionResponse, GetSerialApiCapabilitiesRequest,
+    GetSerialApiCapabilitiesResponse, GetSerialApiInitDataRequest, GetSerialApiInitDataResponse,
+    GetSucNodeIdRequest, SerialApiSetupCommand, SerialApiSetupRequest,
+    SerialApiSetupResponsePayload, SetSucNodeIdRequest,
 };
 use zwave_serial::frame::SerialFrame;
 
@@ -195,6 +196,18 @@ where
 
         Ok(success)
     }
+
+    pub async fn get_node_protocol_info(
+        &self,
+        node_id: &NodeId,
+        options: Option<&ExecControllerCommandOptions>,
+    ) -> ControllerCommandResult<NodeInformationProtocolData> {
+        let cmd = GetNodeProtocolInfoRequest { node_id: *node_id };
+        let response = self.exec_controller_command(cmd, options).await;
+        let response = expect_controller_command_result!(response, GetNodeProtocolInfoResponse);
+
+        Ok(response.protocol_info)
+    }
 }
 
 // Define the commands that require the driver to be ready
@@ -307,18 +320,6 @@ impl Driver<Ready> {
         }
 
         Ok(success)
-    }
-
-    pub async fn get_node_protocol_info(
-        &self,
-        node_id: &NodeId,
-        options: Option<&ExecControllerCommandOptions>,
-    ) -> ControllerCommandResult<NodeInformationProtocolData> {
-        let cmd = GetNodeProtocolInfoRequest { node_id: *node_id };
-        let response = self.exec_controller_command(cmd, options).await;
-        let response = expect_controller_command_result!(response, GetNodeProtocolInfoResponse);
-
-        Ok(response.protocol_info)
     }
 }
 

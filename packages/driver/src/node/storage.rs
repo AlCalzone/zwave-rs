@@ -1,3 +1,5 @@
+use zwave_core::definitions::NodeInformationProtocolData;
+
 use crate::InterviewStage;
 use std::sync::RwLock;
 
@@ -8,12 +10,14 @@ use std::sync::RwLock;
 /// interior mutability to allow for concurrent access without requiring a mutable reference.
 pub(crate) struct NodeStorage {
     pub(crate) interview_stage: RwLock<InterviewStage>,
+    pub(crate) protocol_data: NodeInformationProtocolData,
 }
 
 impl NodeStorage {
-    pub fn new() -> Self {
+    pub fn new(protocol_data: NodeInformationProtocolData) -> Self {
         Self {
             interview_stage: RwLock::new(InterviewStage::None),
+            protocol_data
         }
     }
 }
