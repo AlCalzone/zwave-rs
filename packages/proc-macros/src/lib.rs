@@ -246,3 +246,17 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
 
     TokenStream::from(tokens)
 }
+
+/// This attribute is used to mark the implementation of a Command Class interview.
+/// Usage:
+/// ```ignore
+/// #[interview(CommandClasses::Basic)]
+/// pub fn interview_basic_cc(...) {
+///   // ...
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn interview(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    // Do not change anything, this is merely a marker attribute
+    item
+}

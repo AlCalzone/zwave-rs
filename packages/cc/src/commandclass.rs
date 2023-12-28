@@ -241,13 +241,6 @@ impl_destination_conversions_for!(u16);
 impl_destination_conversions_for!(i32);
 impl_destination_conversions_for!(NodeId);
 
-#[derive(Default, Debug, Clone, PartialEq)]
-pub enum EndpointIndex {
-    #[default]
-    Root,
-    Endpoint(u8),
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct NotImplemented {
     pub cc_id: CommandClasses,

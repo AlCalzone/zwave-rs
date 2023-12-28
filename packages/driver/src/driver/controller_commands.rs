@@ -361,8 +361,6 @@ impl Driver<Ready> {
             }
         };
 
-        // TODO: Save received info
-
         Ok(application_data)
     }
 }

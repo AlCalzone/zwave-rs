@@ -36,6 +36,7 @@ submodule!(controller_commands);
 submodule!(node_commands);
 submodule!(node_api);
 submodule!(controller_api);
+submodule!(cc_interviews);
 
 type TaskCommandSender<T> = mpsc::Sender<T>;
 type TaskCommandReceiver<T> = mpsc::Receiver<T>;

@@ -1,7 +1,10 @@
 use zwave_cc::commandclass::{CCAddressable, NoOperationCC};
 use zwave_core::{definitions::*, submodule};
 
-use crate::{error::Result, ControllerCommandResult, Driver, ExecNodeCommandError, Ready};
+use crate::{
+    error::Result, interview_cc, CCInterviewContext, ControllerCommandResult, Driver,
+    ExecNodeCommandError, Ready,
+};
 
 submodule!(interview_stage);
 submodule!(storage);
@@ -11,16 +14,22 @@ macro_rules! read {
         $self
             .driver
             .get_node_storage($node_id)
-            .map(|storage| (*storage).$field)
+            .map(|storage| storage.$field)
     };
 }
 
 macro_rules! read_locked {
-    ($self:ident, $node_id:expr, $field:ident) => {
+    ($self:ident, $node_id:expr, $field:ident; deref) => {
         $self
             .driver
             .get_node_storage($node_id)
             .map(|storage| *storage.$field.read().unwrap())
+    };
+    ($self:ident, $node_id:expr, $field:ident) => {
+        $self
+            .driver
+            .get_node_storage($node_id)
+            .map(|storage| storage.$field.read().unwrap())
     };
 }
 
@@ -29,6 +38,30 @@ macro_rules! write_locked {
         $self
             .driver
             .get_node_storage($node_id)
+            .map(|storage| storage.$field.write().unwrap())
+    };
+}
+
+macro_rules! read_endpoint_locked {
+    ($self:ident, $node_id:expr, $endpoint_index:expr, $field:ident; deref) => {
+        $self
+            .driver
+            .get_endpoint_storage($node_id, $endpoint_index)
+            .map(|storage| *storage.$field.read().unwrap())
+    };
+    ($self:ident, $node_id:expr, $endpoint_index:expr, $field:ident) => {
+        $self
+            .driver
+            .get_endpoint_storage($node_id, $endpoint_index)
+            .map(|storage| storage.$field.read().unwrap())
+    };
+}
+
+macro_rules! write_endpoint_locked {
+    ($self:ident, $node_id:expr, $endpoint_index:expr, $field:ident) => {
+        $self
+            .driver
+            .get_endpoint_storage($node_id, $endpoint_index)
             .map(|storage| storage.$field.write().unwrap())
     };
 }
@@ -51,6 +84,15 @@ pub struct Node<'a> {
     driver: &'a Driver<Ready>,
 }
 
+// FIXME: We probably want a struct with this name, so this needs a rename
+pub trait Endpoint {
+    fn node_id(&self) -> NodeId;
+    fn get_node(&self) -> &Node<'_>;
+    fn index(&self) -> EndpointIndex;
+
+    // TODO: Add the rest
+}
+
 impl<'a> Node<'a> {
     pub fn new(
         id: NodeId,
@@ -69,7 +111,7 @@ impl<'a> Node<'a> {
     }
 
     pub fn interview_stage(&self) -> InterviewStage {
-        read_locked!(self, &self.id, interview_stage).unwrap_or(InterviewStage::None)
+        read_locked!(self, &self.id, interview_stage; deref).unwrap_or(InterviewStage::None)
     }
 
     pub fn set_interview_stage(&self, interview_stage: InterviewStage) {
@@ -82,6 +124,22 @@ impl<'a> Node<'a> {
         &self.protocol_data
     }
 
+    pub fn supported_command_classes(&self) -> Vec<CommandClasses> {
+        read_endpoint_locked!(self, &self.id, &self.index(), supported_command_classes)
+            .map(|ccs| ccs.clone())
+            .unwrap_or_default()
+    }
+
+    // FIXME: We need an easier way to modify CC support on nodes and endpoints -> Separate trait!
+
+    pub fn set_supported_command_classes(&self, ccs: Vec<CommandClasses>) {
+        if let Some(mut handle) =
+            write_endpoint_locked!(self, &self.id, &self.index(), supported_command_classes)
+        {
+            *handle = ccs;
+        }
+    }
+
     pub fn can_sleep(&self) -> bool {
         !self.protocol_data.listening && self.protocol_data.frequent_listening.is_none()
     }
@@ -92,9 +150,28 @@ impl<'a> Node<'a> {
             self.id,
             self.interview_stage()
         );
+
         if self.interview_stage() == InterviewStage::None {
             self.set_interview_stage(InterviewStage::NodeInfo);
-            let _node_info = self.driver.request_node_info(&self.id, None).await?;
+        }
+
+        if self.interview_stage() == InterviewStage::NodeInfo {
+            // Query the node info and save supported CCs
+            let node_info = self.driver.request_node_info(&self.id, None).await?;
+            self.set_supported_command_classes(node_info.supported_command_classes);
+
+            // Done, advance to the next stage
+            self.set_interview_stage(InterviewStage::CommandClasses);
+        }
+
+        if self.interview_stage() == InterviewStage::CommandClasses {
+            let ctx = CCInterviewContext {
+                driver: self.driver,
+                endpoint: self,
+            };
+            for cc in self.supported_command_classes() {
+                interview_cc(cc, &ctx).await;
+            }
         }
 
         Ok(())
@@ -111,5 +188,20 @@ impl<'a> Node<'a> {
             Err(ExecNodeCommandError::Controller(e)) => Err(e),
             Err(ExecNodeCommandError::NodeTimeout) => panic!("NoOperation CC should not time out"),
         }
+    }
+}
+
+impl Endpoint for Node<'_> {
+    fn node_id(&self) -> NodeId {
+        self.id
+    }
+
+    fn get_node(&self) -> &Node<'_> {
+        // A node IS the root endpoint
+        self
+    }
+
+    fn index(&self) -> EndpointIndex {
+        EndpointIndex::Root
     }
 }

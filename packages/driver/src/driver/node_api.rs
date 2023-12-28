@@ -1,6 +1,6 @@
 use super::Ready;
-use crate::NodeStorage;
-use crate::{Driver, Node};
+use crate::{Driver, EndpointStorage, Node};
+use crate::{Endpoint, NodeStorage};
 use zwave_core::definitions::*;
 
 // API for node instances
@@ -32,5 +32,14 @@ impl Driver<Ready> {
 
     pub(crate) fn get_node_storage(&self, node_id: &NodeId) -> Option<&NodeStorage> {
         self.state.nodes.get(node_id)
+    }
+
+    pub(crate) fn get_endpoint_storage(
+        &self,
+        node_id: &NodeId,
+        endpoint_index: &EndpointIndex,
+    ) -> Option<&EndpointStorage> {
+        self.get_node_storage(node_id)
+            .and_then(|storage| storage.endpoints.get(endpoint_index))
     }
 }

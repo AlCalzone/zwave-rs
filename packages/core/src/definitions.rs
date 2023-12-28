@@ -29,3 +29,4 @@ submodule!(transmit_status);
 submodule!(version);
 submodule!(zwave_api_version);
 submodule!(zwave_library_type);
+submodule!(endpoint_index);
