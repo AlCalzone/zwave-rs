@@ -2,11 +2,11 @@ use zwave_cc::commandclass::{CCAddressable, NoOperationCC};
 use zwave_core::{definitions::*, submodule};
 
 use crate::{
-    error::Result, interview_cc, CCInterviewContext, ControllerCommandResult, Driver,
+    ControllerCommandResult, Driver,
     ExecNodeCommandError, Ready,
 };
 
-submodule!(interview_stage);
+submodule!(interview);
 submodule!(storage);
 
 macro_rules! read {
@@ -142,39 +142,6 @@ impl<'a> Node<'a> {
 
     pub fn can_sleep(&self) -> bool {
         !self.protocol_data.listening && self.protocol_data.frequent_listening.is_none()
-    }
-
-    pub async fn interview(&self) -> Result<()> {
-        println!(
-            "Node {}, beginning interview. Current stage: {:?}",
-            self.id,
-            self.interview_stage()
-        );
-
-        if self.interview_stage() == InterviewStage::None {
-            self.set_interview_stage(InterviewStage::NodeInfo);
-        }
-
-        if self.interview_stage() == InterviewStage::NodeInfo {
-            // Query the node info and save supported CCs
-            let node_info = self.driver.request_node_info(&self.id, None).await?;
-            self.set_supported_command_classes(node_info.supported_command_classes);
-
-            // Done, advance to the next stage
-            self.set_interview_stage(InterviewStage::CommandClasses);
-        }
-
-        if self.interview_stage() == InterviewStage::CommandClasses {
-            let ctx = CCInterviewContext {
-                driver: self.driver,
-                endpoint: self,
-            };
-            for cc in self.supported_command_classes() {
-                interview_cc(cc, &ctx).await;
-            }
-        }
-
-        Ok(())
     }
 
     /// Pings the node and returns whether it responded or not.

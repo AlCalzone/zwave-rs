@@ -238,7 +238,7 @@ pub(crate) mod test {
     use crate::state_machine::StateMachine;
 
     use super::StateMachineInterpreter;
-    use std::{sync::Mutex, time::Duration};
+    use std::time::Duration;
 
     state_machine! { FSM {
         State = {
@@ -285,7 +285,6 @@ pub(crate) mod test {
         let evaluate_condition = Box::new(|_| false);
 
         let interpreter = StateMachineInterpreter::new(fsm, resolve_named, evaluate_condition);
-        let sender = interpreter.input_sender();
         let mut listener = interpreter.effect_listener();
 
         let mut inputs: Vec<FSMInput> = vec![FSMInput::DoStuff, FSMInput::FinishStuff];
@@ -332,7 +331,6 @@ pub(crate) mod test {
         let evaluate_condition = Box::new(|_| false);
 
         let interpreter = StateMachineInterpreter::new(fsm, resolve_named, evaluate_condition);
-        let sender = interpreter.input_sender();
         let mut listener = interpreter.effect_listener();
 
         // We only provide an input to go into the working state

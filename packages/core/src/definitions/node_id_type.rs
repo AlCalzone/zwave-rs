@@ -1,4 +1,4 @@
-use crate::encoding::{self, BitParsable, BitSerializable, NomTryFromPrimitive, WriteLastNBits};
+use crate::encoding::{self, NomTryFromPrimitive};
 
 use cookie_factory as cf;
 use derive_try_from_primitive::*;
