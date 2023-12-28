@@ -1,8 +1,4 @@
-use std::thread;
-use std::time::Duration;
-
-use zwave_cc::commandclass::{BasicCCGet, BinarySwitchCCSet, CCAddressable};
-use zwave_core::{definitions::NodeId, values::BinarySet};
+use zwave_core::definitions::NodeId;
 
 #[cfg(target_os = "linux")]
 // const PORT: &str = "/dev/ttyUSB0";

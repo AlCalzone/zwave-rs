@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 use impl_cc_enum::{CCInfo, CCInfoExtractor};
+use impl_cc_interviews::CCInterviewInfoExtractor;
 use impl_command_enum::{CommandInfo, CommandInfoExtractor};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
@@ -10,6 +11,7 @@ use syn::visit;
 use util::{parse_dirname_from_macro_input, parse_files_in_dir};
 
 mod impl_cc_enum;
+mod impl_cc_interviews;
 mod impl_command_enum;
 mod util;
 
@@ -259,4 +261,53 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
 pub fn interview(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Do not change anything, this is merely a marker attribute
     item
+}
+
+#[proc_macro]
+pub fn impl_cc_interviews(input: TokenStream) -> TokenStream {
+    // Figure out which files to look at
+    let dirname = parse_dirname_from_macro_input(input);
+    let files = parse_files_in_dir(&dirname);
+
+    let ccs: Vec<_> = files
+        .iter()
+        .filter_map(|(file, ast)| {
+            let mut extractor = CCInterviewInfoExtractor { interview: None };
+            visit::visit_file(&mut extractor, ast);
+            extractor.interview.map(|interview| (file, interview))
+        })
+        .collect();
+
+    let submodules = files.iter().map(|(file, _)| {
+        let module = format_ident!("{}", file);
+        quote! {
+            mod #module;
+        }
+    });
+
+    let serializable_match_arms = ccs.iter().map(|(m, c)| {
+        let module = format_ident!("{}", m);
+        let cc_id = &c.cc_id;
+        let fn_name = c.interview_fn;
+        quote! {
+            #cc_id => #module::#fn_name(ctx).await,
+        }
+    });
+
+    let tokens = quote! {
+        // Import all interview modules, so we don't have to do it manually
+        #(#submodules)*
+
+        pub async fn interview_cc(cc: CommandClasses, ctx: &CCInterviewContext<'_>) {
+            // TODO: Generate this
+            match cc {
+                #( #serializable_match_arms )*
+                _ => {
+                    // No interview procedure
+                }
+            }
+        }
+    };
+
+    TokenStream::from(tokens)
 }
