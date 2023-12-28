@@ -489,12 +489,12 @@ pub mod encoders {
 pub mod parsers {
     use bitvec::prelude::*;
     use nom::bytes::complete::{tag, take as take_bytes};
-    use nom::combinator::map_parser;
+    use nom::combinator::{map, map_parser};
     use nom::multi::{length_data, many0};
     use nom::number::complete::be_u8;
-    use nom::sequence::separated_pair;
+    use nom::sequence::{separated_pair, tuple};
 
-    use crate::prelude::{CommandClasses, COMMAND_CLASS_SUPPORT_CONTROL_MARK};
+    use crate::prelude::{CommandClasses, Version, COMMAND_CLASS_SUPPORT_CONTROL_MARK};
 
     use super::Parsable;
 
@@ -570,5 +570,25 @@ pub mod parsers {
         len: usize,
     ) -> super::ParseResult<Vec<CommandClasses>> {
         map_parser(take_bytes(len), many0(CommandClasses::parse))(i)
+    }
+
+    pub fn version_major_minor_patch(i: super::Input) -> super::ParseResult<Version> {
+        map(tuple((be_u8, be_u8, be_u8)), |(major, minor, patch)| {
+            Version {
+                major,
+                minor,
+                patch: Some(patch),
+            }
+        })(i)
+    }
+
+    pub fn version_major_minor(i: super::Input) -> super::ParseResult<Version> {
+        map(tuple((be_u8, be_u8)), |(major, minor)| {
+            Version {
+                major,
+                minor,
+                patch: None,
+            }
+        })(i)
     }
 }
