@@ -44,6 +44,8 @@ pub struct ManufacturerSpecificCCGet {}
 
 impl CCBase for ManufacturerSpecificCCGet {}
 
+impl CCValues for ManufacturerSpecificCCGet {}
+
 impl CCId for ManufacturerSpecificCCGet {
     fn cc_id(&self) -> CommandClasses {
         CommandClasses::ManufacturerSpecific
@@ -85,6 +87,8 @@ pub struct ManufacturerSpecificCCReport {
 }
 
 impl CCBase for ManufacturerSpecificCCReport {}
+
+impl CCValues for ManufacturerSpecificCCReport {}
 
 impl CCId for ManufacturerSpecificCCReport {
     fn cc_id(&self) -> CommandClasses {
@@ -130,6 +134,8 @@ pub struct ManufacturerSpecificCCDeviceSpecificGet {
 }
 
 impl CCBase for ManufacturerSpecificCCDeviceSpecificGet {}
+
+impl CCValues for ManufacturerSpecificCCDeviceSpecificGet {}
 
 impl CCId for ManufacturerSpecificCCDeviceSpecificGet {
     fn cc_id(&self) -> CommandClasses {
@@ -189,6 +195,8 @@ pub struct ManufacturerSpecificCCDeviceSpecificReport {
 
 impl CCBase for ManufacturerSpecificCCDeviceSpecificReport {}
 
+impl CCValues for ManufacturerSpecificCCDeviceSpecificReport {}
+
 impl CCId for ManufacturerSpecificCCDeviceSpecificReport {
     fn cc_id(&self) -> CommandClasses {
         CommandClasses::ManufacturerSpecific
@@ -222,7 +230,7 @@ impl CCParsable for ManufacturerSpecificCCDeviceSpecificReport {
 
 impl CCSerializable for ManufacturerSpecificCCDeviceSpecificReport {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, sequence::tuple};
+        // use cf::{bytes::be_u8, sequence::tuple};
         move |out| {
             todo!("ERROR: ManufacturerSpecificCCDeviceSpecificReport::serialize() not implemented")
         }

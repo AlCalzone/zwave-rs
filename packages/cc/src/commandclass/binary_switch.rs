@@ -10,6 +10,7 @@ use nom::{
 use typed_builder::TypedBuilder;
 use zwave_core::encoding::{self, encoders::empty};
 
+
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum BinarySwitchCCCommand {
@@ -26,6 +27,8 @@ pub struct BinarySwitchCCSet {
 }
 
 impl CCBase for BinarySwitchCCSet {}
+
+impl CCValues for BinarySwitchCCSet {}
 
 impl CCId for BinarySwitchCCSet {
     fn cc_id(&self) -> CommandClasses {
@@ -74,6 +77,8 @@ pub struct BinarySwitchCCGet {}
 
 impl CCBase for BinarySwitchCCGet {}
 
+impl CCValues for BinarySwitchCCGet {}
+
 impl CCId for BinarySwitchCCGet {
     fn cc_id(&self) -> CommandClasses {
         CommandClasses::BinarySwitch
@@ -115,6 +120,8 @@ pub struct BinarySwitchCCReport {
 }
 
 impl CCBase for BinarySwitchCCReport {}
+
+impl CCValues for BinarySwitchCCReport {}
 
 impl CCId for BinarySwitchCCReport {
     fn cc_id(&self) -> CommandClasses {

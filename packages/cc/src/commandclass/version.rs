@@ -30,6 +30,8 @@ pub struct VersionCCGet {}
 
 impl CCBase for VersionCCGet {}
 
+impl CCValues for VersionCCGet {}
+
 impl CCId for VersionCCGet {
     fn cc_id(&self) -> CommandClasses {
         CommandClasses::Version
@@ -73,6 +75,8 @@ pub struct VersionCCReport {
 
 impl CCBase for VersionCCReport {}
 
+impl CCValues for VersionCCReport {}
+
 impl CCId for VersionCCReport {
     fn cc_id(&self) -> CommandClasses {
         CommandClasses::Version
@@ -115,7 +119,7 @@ impl CCParsable for VersionCCReport {
 
 impl CCSerializable for VersionCCReport {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, sequence::tuple};
+        // use cf::{bytes::be_u8, sequence::tuple};
         move |out| todo!("ERROR: VersionCCReport::serialize() not implemented")
     }
 }
@@ -126,6 +130,8 @@ pub struct VersionCCCommandClassGet {
 }
 
 impl CCBase for VersionCCCommandClassGet {}
+
+impl CCValues for VersionCCCommandClassGet {}
 
 impl CCId for VersionCCCommandClassGet {
     fn cc_id(&self) -> CommandClasses {
@@ -175,6 +181,8 @@ pub struct VersionCCCommandClassReport {
 
 impl CCBase for VersionCCCommandClassReport {}
 
+impl CCValues for VersionCCCommandClassReport {}
+
 impl CCId for VersionCCCommandClassReport {
     fn cc_id(&self) -> CommandClasses {
         CommandClasses::Version
@@ -212,6 +220,8 @@ impl CCSerializable for VersionCCCommandClassReport {
 pub struct VersionCCCapabilitiesGet {}
 
 impl CCBase for VersionCCCapabilitiesGet {}
+
+impl CCValues for VersionCCCapabilitiesGet {}
 
 impl CCId for VersionCCCapabilitiesGet {
     fn cc_id(&self) -> CommandClasses {
@@ -253,6 +263,8 @@ pub struct VersionCCCapabilitiesReport {
 
 impl CCBase for VersionCCCapabilitiesReport {}
 
+impl CCValues for VersionCCCapabilitiesReport {}
+
 impl CCId for VersionCCCapabilitiesReport {
     fn cc_id(&self) -> CommandClasses {
         CommandClasses::Version
@@ -293,6 +305,8 @@ impl CCSerializable for VersionCCCapabilitiesReport {
 pub struct VersionCCZWaveSoftwareGet {}
 
 impl CCBase for VersionCCZWaveSoftwareGet {}
+
+impl CCValues for VersionCCZWaveSoftwareGet {}
 
 impl CCId for VersionCCZWaveSoftwareGet {
     fn cc_id(&self) -> CommandClasses {
@@ -337,6 +351,8 @@ pub struct VersionCCZWaveSoftwareReport {
 }
 
 impl CCBase for VersionCCZWaveSoftwareReport {}
+
+impl CCValues for VersionCCZWaveSoftwareReport {}
 
 impl CCId for VersionCCZWaveSoftwareReport {
     fn cc_id(&self) -> CommandClasses {

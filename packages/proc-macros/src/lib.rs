@@ -2,16 +2,16 @@
 
 use std::collections::HashMap;
 
-use impl_cc_enum::{CCInfo, CCInfoExtractor};
 use impl_cc_apis::CCAPIInfoExtractor;
+use impl_cc_enum::{CCInfo, CCInfoExtractor};
 use impl_command_enum::{CommandInfo, CommandInfoExtractor};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::visit;
 use util::{parse_dirname_from_macro_input, parse_files_in_dir};
 
-mod impl_cc_enum;
 mod impl_cc_apis;
+mod impl_cc_enum;
 mod impl_command_enum;
 mod util;
 
@@ -274,7 +274,6 @@ pub fn impl_cc_apis(input: TokenStream) -> TokenStream {
     let serializable_match_arms = ccs.iter().map(|(m, c)| {
         let module = format_ident!("{}", m);
         let cc_id = c.cc_id;
-        let api_name = c.api_name;
         quote! {
             #cc_id => CCAPIs::new(ctx.endpoint).#module().interview(ctx).await,
         }
@@ -284,7 +283,7 @@ pub fn impl_cc_apis(input: TokenStream) -> TokenStream {
         let module = format_ident!("{}", m);
         let api_name = c.api_name;
         quote! {
-            pub fn #module(&self) -> #module::#api_name {
+            pub fn #module(&self) -> #module::#api_name<'a> {
                 #module::#api_name::new(self.endpoint)
             }
         }
@@ -294,21 +293,22 @@ pub fn impl_cc_apis(input: TokenStream) -> TokenStream {
         // Import all interview modules, so we don't have to do it manually
         #(#submodules)*
 
-        pub async fn interview_cc(cc: CommandClasses, ctx: &CCInterviewContext<'_>) {
+        pub async fn interview_cc(cc: CommandClasses, ctx: &CCInterviewContext<'_>) -> CCAPIResult<()> {
             // TODO: Generate this
             match cc {
                 #( #serializable_match_arms )*
                 _ => {
                     // No interview procedure
+                    Ok(())
                 }
             }
         }
 
         pub struct CCAPIs<'a> {
-            endpoint: &'a dyn Endpoint,
+            endpoint: &'a dyn Endpoint<'a>,
         }
         impl<'a> CCAPIs<'a> {
-            pub fn new(endpoint: &'a dyn Endpoint) -> Self {
+            pub fn new(endpoint: &'a dyn Endpoint<'a>) -> Self {
                 Self { endpoint }
             }
 

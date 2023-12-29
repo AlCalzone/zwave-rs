@@ -1,9 +1,9 @@
+pub mod cache;
 pub mod definitions;
 pub mod encoding;
 pub mod prelude;
 pub mod state_machine;
 pub mod util;
+pub mod value_id;
 pub mod values;
 pub mod wrapping_counter;
-pub mod value_id;
-pub mod cache;

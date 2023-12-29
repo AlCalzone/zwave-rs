@@ -583,12 +583,10 @@ pub mod parsers {
     }
 
     pub fn version_major_minor(i: super::Input) -> super::ParseResult<Version> {
-        map(tuple((be_u8, be_u8)), |(major, minor)| {
-            Version {
-                major,
-                minor,
-                patch: None,
-            }
+        map(tuple((be_u8, be_u8)), |(major, minor)| Version {
+            major,
+            minor,
+            patch: None,
         })(i)
     }
 }

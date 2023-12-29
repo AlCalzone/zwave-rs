@@ -10,6 +10,8 @@ pub struct NoOperationCC {}
 
 impl CCBase for NoOperationCC {}
 
+impl CCValues for NoOperationCC {}
+
 impl CCId for NoOperationCC {
     fn cc_id(&self) -> CommandClasses {
         CommandClasses::NoOperation

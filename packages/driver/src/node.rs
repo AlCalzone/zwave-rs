@@ -3,6 +3,8 @@ use zwave_core::{definitions::*, submodule};
 
 use crate::{ControllerCommandResult, Driver, ExecNodeCommandError, Ready};
 
+use self::cache::EndpointValueCache;
+
 submodule!(interview);
 submodule!(storage);
 submodule!(cc_api);
@@ -84,10 +86,11 @@ pub struct Node<'a> {
 }
 
 // FIXME: We probably want a struct with this name, so this needs a rename
-pub trait Endpoint {
+pub trait Endpoint<'a> {
     fn node_id(&self) -> NodeId;
-    fn get_node(&self) -> &Node<'_>;
+    fn get_node(&'a self) -> &Node<'a>;
     fn index(&self) -> EndpointIndex;
+    fn value_cache(&'a self) -> EndpointValueCache<'a>;
 
     // TODO: Add the rest
 }
@@ -161,17 +164,21 @@ impl<'a> Node<'a> {
     }
 }
 
-impl Endpoint for Node<'_> {
+impl<'a> Endpoint<'a> for Node<'a> {
     fn node_id(&self) -> NodeId {
         self.id
     }
 
-    fn get_node(&self) -> &Node<'_> {
+    fn get_node(&'a self) -> &Node<'a> {
         // A node IS the root endpoint
         self
     }
 
     fn index(&self) -> EndpointIndex {
         EndpointIndex::Root
+    }
+
+    fn value_cache(&'a self) -> EndpointValueCache<'a> {
+        EndpointValueCache::new(self, self.driver.value_cache())
     }
 }

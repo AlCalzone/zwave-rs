@@ -24,8 +24,38 @@ pub enum CacheValue {
     BinaryReport(BinaryReport),
 }
 
+macro_rules! impl_cachevalue_from {
+    ($ty:ty, $variant:ident) => {
+        impl From<$ty> for CacheValue {
+            fn from(val: $ty) -> Self {
+                Self::$variant(val)
+            }
+        }
+    };
+}
+
+impl_cachevalue_from!(bool, Bool);
+impl_cachevalue_from!(u8, UInt8);
+impl_cachevalue_from!(u16, UInt16);
+impl_cachevalue_from!(u32, UInt32);
+impl_cachevalue_from!(i8, Int8);
+impl_cachevalue_from!(i16, Int16);
+impl_cachevalue_from!(i32, Int32);
+impl_cachevalue_from!(f32, Float);
+impl_cachevalue_from!(String, String);
+impl_cachevalue_from!(Vec<u8>, Buffer);
+impl_cachevalue_from!(DurationSet, DurationSet);
+impl_cachevalue_from!(DurationReport, DurationReport);
+impl_cachevalue_from!(LevelSet, LevelSet);
+impl_cachevalue_from!(LevelReport, LevelReport);
+impl_cachevalue_from!(BinarySet, BinarySet);
+impl_cachevalue_from!(BinaryReport, BinaryReport);
+
+/// A trait for a cache that stores values for a given key
+
 pub trait Cache<TKey> {
     fn read(&self, key: &TKey) -> Option<CacheValue>;
+    fn write_many(&mut self, values: impl Iterator<Item = (TKey, CacheValue)>);
     fn write(&mut self, key: &TKey, value: CacheValue);
     fn delete(&mut self, key: &TKey);
 }

@@ -14,7 +14,7 @@ use zwave_serial::prelude::*;
 #[derive(TypedBuilder, Default, Clone)]
 pub struct ExecNodeCommandOptions {}
 
-/// The node command execution.
+/// The result of a node command execution
 pub type ExecNodeCommandResult<T> = Result<T, ExecNodeCommandError>;
 
 #[derive(Error, Debug)]
@@ -122,3 +122,4 @@ impl Driver<Ready> {
         }
     }
 }
+

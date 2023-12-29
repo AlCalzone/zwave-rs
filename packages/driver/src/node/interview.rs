@@ -52,7 +52,7 @@ impl<'a> Node<'a> {
 
         // FIXME: Correct the order of interviews
         for cc in self.supported_command_classes() {
-            interview_cc(cc, &ctx).await;
+            interview_cc(cc, &ctx).await.unwrap();
         }
 
         // Desired order:

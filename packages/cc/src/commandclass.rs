@@ -5,7 +5,7 @@ use std::{
 
 use enum_dispatch::enum_dispatch;
 use typed_builder::TypedBuilder;
-use zwave_core::{encoding::Input, prelude::*, submodule};
+use zwave_core::{cache::CacheValue, encoding::Input, prelude::*, submodule, value_id::ValueId};
 
 use crate::commandclass_raw::CCRaw;
 
@@ -58,8 +58,16 @@ pub trait CCId: CCBase {
 }
 
 #[enum_dispatch(CC)]
+pub trait CCValues {
+    fn to_values(&self) -> Vec<(ValueId, CacheValue)> {
+        // CCs which carry values should implement this. For all others, this is a no-op.
+        vec![]
+    }
+}
+
+#[enum_dispatch(CC)]
 /// Command-specific functionality that may need to be implemented for each command
-pub trait CCBase: std::fmt::Debug + Sync + Send {}
+pub trait CCBase: CCValues + std::fmt::Debug + Sync + Send {}
 
 pub trait CCRequest: CCId + Sized {
     fn expects_response(&self) -> bool;
@@ -250,6 +258,8 @@ pub struct NotImplemented {
 }
 
 impl CCBase for NotImplemented {}
+
+impl CCValues for NotImplemented {}
 
 impl CCId for NotImplemented {
     fn cc_id(&self) -> CommandClasses {

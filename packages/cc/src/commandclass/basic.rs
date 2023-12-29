@@ -1,11 +1,44 @@
 use crate::prelude::*;
-use zwave_core::prelude::*;
+use zwave_core::{cache::CacheValue, prelude::*, value_id::ValueId};
 
 use cookie_factory as cf;
 use derive_try_from_primitive::TryFromPrimitive;
-use nom::{combinator::{map, opt}, sequence::tuple};
+use nom::{
+    combinator::{map, opt},
+    sequence::tuple,
+};
 use typed_builder::TypedBuilder;
 use zwave_core::encoding::{self, encoders::empty};
+
+
+// FIXME: Find a way to tie the metadata into this
+enum BasicCCProperties {
+    CurrentValue = 0x00,
+    TargetValue = 0x01,
+    Duration = 0x02,
+}
+
+impl From<BasicCCProperties> for u32 {
+    fn from(val: BasicCCProperties) -> Self {
+        val as u32
+    }
+}
+
+pub struct BasicCCValues;
+
+impl BasicCCValues {
+    pub fn current_value() -> ValueId {
+        ValueId::new(CommandClasses::Basic, BasicCCProperties::CurrentValue, None)
+    }
+
+    pub fn target_value() -> ValueId {
+        ValueId::new(CommandClasses::Basic, BasicCCProperties::TargetValue, None)
+    }
+
+    pub fn duration() -> ValueId {
+        ValueId::new(CommandClasses::Basic, BasicCCProperties::Duration, None)
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
@@ -21,6 +54,8 @@ pub struct BasicCCSet {
 }
 
 impl CCBase for BasicCCSet {}
+
+impl CCValues for BasicCCSet {}
 
 impl CCId for BasicCCSet {
     fn cc_id(&self) -> CommandClasses {
@@ -60,6 +95,8 @@ impl CCSerializable for BasicCCSet {
 pub struct BasicCCGet {}
 
 impl CCBase for BasicCCGet {}
+
+impl CCValues for BasicCCGet {}
 
 impl CCId for BasicCCGet {
     fn cc_id(&self) -> CommandClasses {
@@ -102,6 +139,29 @@ pub struct BasicCCReport {
 }
 
 impl CCBase for BasicCCReport {}
+
+// FIXME: Create a derive macro for this
+impl CCValues for BasicCCReport {
+    fn to_values(&self) -> Vec<(ValueId, CacheValue)> {
+        let mut ret = vec![(
+            BasicCCValues::current_value(),
+            CacheValue::from(self.current_value),
+        )];
+
+        if let Some(target_value) = self.target_value {
+            ret.push((
+                BasicCCValues::target_value(),
+                CacheValue::from(target_value),
+            ));
+        }
+
+        if let Some(duration) = self.duration {
+            ret.push((BasicCCValues::duration(), CacheValue::from(duration)));
+        }
+
+        ret
+    }
+}
 
 impl CCId for BasicCCReport {
     fn cc_id(&self) -> CommandClasses {

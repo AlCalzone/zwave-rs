@@ -1,9 +1,11 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use zwave_cc::commandclass::{WithAddress, CC};
+use zwave_cc::commandclass::{CCValues, WithAddress, CC};
+use zwave_core::cache::Cache;
 use zwave_core::state_machine::{StateMachine, StateMachineTransition};
 use zwave_core::util::now;
+use zwave_core::value_id::EndpointValueId;
 use zwave_core::wrapping_counter::WrappingCounter;
 use zwave_core::{prelude::*, submodule};
 use zwave_serial::prelude::*;
@@ -18,19 +20,20 @@ use tokio::sync::{broadcast, mpsc, oneshot, Notify};
 use tokio::task::JoinHandle;
 
 use self::awaited::{AwaitedRef, AwaitedRegistry, Predicate};
+use self::cache::ValueCache;
 use self::serial_api_machine::{
     SerialApiMachine, SerialApiMachineCondition, SerialApiMachineInput, SerialApiMachineState,
 };
-use self::storage::DriverStorage;
+use self::storage::{DriverStorage, DriverStorageShared};
 
 pub use serial_api_machine::SerialApiMachineResult;
 
 mod awaited;
+pub(crate) mod cache;
 mod init_controller_and_nodes;
 mod interview_nodes;
 mod serial_api_machine;
 mod storage;
-pub(crate) mod cache;
 
 submodule!(driver_state);
 submodule!(controller_commands);
@@ -49,6 +52,7 @@ pub struct Driver<S: DriverState> {
 
     state: S,
     storage: DriverStorage,
+    shared_storage: Arc<DriverStorageShared>,
 }
 
 #[allow(dead_code)]
@@ -91,12 +95,15 @@ impl Driver<Init> {
         let main_task_shutdown = Arc::new(Notify::new());
         let main_task_shutdown2 = main_task_shutdown.clone();
 
+        let shared_storage = Arc::new(DriverStorageShared::default());
+
         // Start the background task for the main logic
         let main_task = tokio::spawn(main_loop(
             main_cmd_rx,
             main_task_shutdown2,
             main_serial_cmd,
             main_serial_listener,
+            shared_storage.clone(),
         ));
 
         // Start the background task for the serial port communication
@@ -121,6 +128,7 @@ impl Driver<Init> {
             tasks,
             state: Init,
             storage: DriverStorage::default(),
+            shared_storage,
         })
     }
 
@@ -139,6 +147,7 @@ impl Driver<Init> {
             tasks: self.tasks,
             state: ready,
             storage: self.storage,
+            shared_storage: self.shared_storage,
         };
 
         this.configure_controller().await?;
@@ -474,6 +483,7 @@ async fn main_loop(
     shutdown: Arc<Notify>,
     serial_cmd: SerialTaskCommandSender,
     mut serial_listener: SerialListener,
+    shared_storage: Arc<DriverStorageShared>,
     // command_handlers: Arc<Mutex<Vec<CommandHandler>>>,
 ) {
     let mut storage = MainLoopStorage {
@@ -496,7 +506,7 @@ async fn main_loop(
             Some(cmd) = cmd_rx.recv() => main_loop_handle_command(&mut storage, cmd, &serial_cmd).await,
 
             // The serial port emitted a frame
-            Ok(frame) = serial_listener.recv() => main_loop_handle_frame(&storage, frame, &serial_cmd).await
+            Ok(frame) = serial_listener.recv() => main_loop_handle_frame(&storage, frame, &serial_cmd, &shared_storage).await
         }
     }
 
@@ -541,11 +551,38 @@ async fn main_loop_handle_command(
     }
 }
 
+fn persist_cc_values(cc: &WithAddress<CC>, cache: &mut ValueCache) {
+    // FIXME: Recurse through encapsulation CCs
+    cache.write_many(cc.to_values().into_iter().map(|(value_id, value)| {
+        let value_id = EndpointValueId::new(
+            cc.address().source_node_id,
+            cc.address().endpoint_index,
+            value_id,
+        );
+        println!("Persisting {:?} = {:?}", value_id, value);
+        (value_id, value)
+    }));
+}
+
 async fn main_loop_handle_frame(
     storage: &MainLoopStorage,
     frame: SerialFrame,
     _serial_cmd: &SerialTaskCommandSender,
+    shared_storage: &Arc<DriverStorageShared>,
 ) {
+    // Persist CC values. TODO: test first if we should
+    if let SerialFrame::Command(cmd) = &frame {
+        let cc = match cmd {
+            Command::ApplicationCommandRequest(cmd) => Some(&cmd.command),
+            Command::BridgeApplicationCommandRequest(cmd) => Some(&cmd.command),
+            _ => None,
+        };
+        if let Some(cc) = cc {
+            let mut cache = ValueCache::new(shared_storage);
+            persist_cc_values(cc, &mut cache);
+        }
+    }
+
     // TODO: Consider if we need to always handle something here
     match &frame {
         SerialFrame::ControlFlow(cf) => {

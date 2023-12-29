@@ -1,32 +1,44 @@
+use std::sync::Arc;
+
 use zwave_core::{
     cache::{Cache, CacheValue},
-    value_id::NodeValueId,
+    value_id::EndpointValueId,
 };
 
 use crate::{Driver, Ready};
 
+use super::storage::DriverStorageShared;
+
 pub struct ValueCache<'a> {
-    driver: &'a Driver<Ready>,
+    storage: &'a Arc<DriverStorageShared>,
 }
 
-impl<'a> ValueCache<'a> {}
+impl<'a> ValueCache<'a> {
+    pub fn new(storage: &'a Arc<DriverStorageShared>) -> Self {
+        Self { storage }
+    }
+}
 
-impl Cache<NodeValueId> for ValueCache<'_> {
-    fn read(&self, key: &NodeValueId) -> Option<CacheValue> {
-        self.driver.storage.value_cache().get(key).cloned()
+impl Cache<EndpointValueId> for ValueCache<'_> {
+    fn read(&self, key: &EndpointValueId) -> Option<CacheValue> {
+        self.storage.value_cache().get(key).cloned()
     }
 
-    fn write(&mut self, key: &NodeValueId, value: CacheValue) {
-        self.driver.storage.value_cache_mut().insert(*key, value);
+    fn write(&mut self, key: &EndpointValueId, value: CacheValue) {
+        self.storage.value_cache_mut().insert(*key, value);
     }
 
-    fn delete(&mut self, key: &NodeValueId) {
-        self.driver.storage.value_cache_mut().remove(key);
+    fn write_many(&mut self, values: impl Iterator<Item = (EndpointValueId, CacheValue)>) {
+        self.storage.value_cache_mut().extend(values);
+    }
+
+    fn delete(&mut self, key: &EndpointValueId) {
+        self.storage.value_cache_mut().remove(key);
     }
 }
 
 impl Driver<Ready> {
-    pub fn value_cache(&self) -> ValueCache {
-        ValueCache { driver: self }
+    pub fn value_cache(&self) -> ValueCache<'_> {
+        ValueCache::new(&self.shared_storage)
     }
 }
