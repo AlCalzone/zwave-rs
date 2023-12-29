@@ -27,6 +27,18 @@ impl PartialEq<EndpointIndex> for EndpointIndex {
     }
 }
 
+impl core::hash::Hash for EndpointIndex {
+    // Adapted from the derived implementation
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let canonical = self.to_canonical();
+        core::mem::discriminant(&canonical).hash(state);
+        match canonical {
+            EndpointIndex::Root => {}
+            EndpointIndex::Endpoint(index) => index.hash(state),
+        }
+    }
+}
+
 impl Ord for EndpointIndex {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self.to_canonical(), other.to_canonical()) {

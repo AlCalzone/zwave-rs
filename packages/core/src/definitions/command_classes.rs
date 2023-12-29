@@ -12,7 +12,7 @@ use std::fmt::Display;
 
 pub const COMMAND_CLASS_SUPPORT_CONTROL_MARK: u8 = 0xef;
 
-#[derive(Debug, Clone, Copy, PartialEq, Sequence, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence, TryFromPrimitive, Hash)]
 #[repr(u16)]
 pub enum CommandClasses {
     AlarmSensor = 0x9c,

@@ -1,4 +1,4 @@
-use crate::{Driver, Endpoint, Ready};
+use crate::{Driver, Endpoint, Ready, Node};
 use proc_macros::impl_cc_apis;
 use zwave_core::definitions::*;
 
@@ -21,4 +21,10 @@ pub trait CCAPI<'a> {
 
 // Auto-generate CC APIs and dispatching interview methods
 // Changes to the trait implementations require proc-macro recompilation or changes to this file in order to be picked up.
-impl_cc_apis!("src/driver/cc_api");
+impl_cc_apis!("src/node/cc_api");
+
+impl<'a> Node<'a> {
+    pub fn cc_api(&self) -> CCAPIs {
+        CCAPIs::new(self)
+    }
+}

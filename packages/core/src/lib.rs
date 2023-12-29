@@ -5,3 +5,5 @@ pub mod state_machine;
 pub mod util;
 pub mod values;
 pub mod wrapping_counter;
+pub mod value_id;
+pub mod cache;

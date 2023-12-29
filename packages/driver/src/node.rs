@@ -1,13 +1,12 @@
 use zwave_cc::commandclass::{CCAddressable, NoOperationCC};
 use zwave_core::{definitions::*, submodule};
 
-use crate::{
-    ControllerCommandResult, Driver,
-    ExecNodeCommandError, Ready, CCAPIs,
-};
+use crate::{ControllerCommandResult, Driver, ExecNodeCommandError, Ready};
 
 submodule!(interview);
 submodule!(storage);
+submodule!(cc_api);
+mod cache;
 
 macro_rules! read {
     ($self:ident, $node_id:expr, $field:ident) => {
@@ -146,10 +145,6 @@ impl<'a> Node<'a> {
 
     pub fn can_sleep(&self) -> bool {
         !self.protocol_data.listening && self.protocol_data.frequent_listening.is_none()
-    }
-
-    pub fn cc_api(&self) -> CCAPIs {
-        CCAPIs::new(self)
     }
 
     /// Pings the node and returns whether it responded or not.

@@ -30,13 +30,13 @@ mod init_controller_and_nodes;
 mod interview_nodes;
 mod serial_api_machine;
 mod storage;
+pub(crate) mod cache;
 
 submodule!(driver_state);
 submodule!(controller_commands);
 submodule!(node_commands);
 submodule!(node_api);
 submodule!(controller_api);
-submodule!(cc_api);
 
 type TaskCommandSender<T> = mpsc::Sender<T>;
 type TaskCommandReceiver<T> = mpsc::Receiver<T>;

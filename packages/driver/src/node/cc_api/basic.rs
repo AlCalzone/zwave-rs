@@ -40,6 +40,7 @@ impl BasicCCAPI<'_> {
             .target_value(value)
             .build()
             .with_destination(node.id().into());
-        driver.exec_node_command(&cc, None).await.map(|_| ())
+        driver.exec_node_command(&cc, None).await?;
+        Ok(())
     }
 }

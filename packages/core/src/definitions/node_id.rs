@@ -4,7 +4,7 @@ use cookie_factory as cf;
 use nom::number::complete::{be_u16, be_u8};
 use std::fmt::{Debug, Display};
 
-#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NodeId(u16);
 
 pub const NODE_ID_UNSPECIFIED: NodeId = NodeId(0);
