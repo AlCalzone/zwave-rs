@@ -3,7 +3,7 @@ use zwave_core::{definitions::*, submodule};
 
 use crate::{
     ControllerCommandResult, Driver,
-    ExecNodeCommandError, Ready,
+    ExecNodeCommandError, Ready, CCAPIs,
 };
 
 submodule!(interview);
@@ -106,6 +106,10 @@ impl<'a> Node<'a> {
         }
     }
 
+    pub fn driver(&self) -> &Driver<Ready> {
+        self.driver
+    }
+
     pub fn id(&self) -> NodeId {
         self.id
     }
@@ -142,6 +146,10 @@ impl<'a> Node<'a> {
 
     pub fn can_sleep(&self) -> bool {
         !self.protocol_data.listening && self.protocol_data.frequent_listening.is_none()
+    }
+
+    pub fn cc_api(&self) -> CCAPIs {
+        CCAPIs::new(self)
     }
 
     /// Pings the node and returns whether it responded or not.

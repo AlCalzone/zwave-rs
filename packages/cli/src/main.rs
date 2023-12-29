@@ -1,4 +1,4 @@
-use zwave_core::definitions::NodeId;
+use zwave_core::{definitions::NodeId, values::LevelSet};
 
 #[cfg(target_os = "linux")]
 // const PORT: &str = "/dev/ttyUSB0";
@@ -21,8 +21,10 @@ async fn main() {
 
     let node = driver.get_node(&NodeId::new(2u8)).unwrap();
 
-    let ping_result = node.ping().await.unwrap();
-    println!("ping result: {:?}", ping_result);
+    node.cc_api().basic().set(LevelSet::Off).await.unwrap();
+
+    // let ping_result = node.ping().await.unwrap();
+    // println!("ping result: {:?}", ping_result);
 
     // driver
     //     .register_command_handler(Box::new(|cmd| {

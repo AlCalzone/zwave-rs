@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use impl_cc_enum::{CCInfo, CCInfoExtractor};
-use impl_cc_interviews::CCInterviewInfoExtractor;
+use impl_cc_apis::CCAPIInfoExtractor;
 use impl_command_enum::{CommandInfo, CommandInfoExtractor};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
@@ -11,7 +11,7 @@ use syn::visit;
 use util::{parse_dirname_from_macro_input, parse_files_in_dir};
 
 mod impl_cc_enum;
-mod impl_cc_interviews;
+mod impl_cc_apis;
 mod impl_command_enum;
 mod util;
 
@@ -249,22 +249,8 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
     TokenStream::from(tokens)
 }
 
-/// This attribute is used to mark the implementation of a Command Class interview.
-/// Usage:
-/// ```ignore
-/// #[interview(CommandClasses::Basic)]
-/// pub fn interview_basic_cc(...) {
-///   // ...
-/// }
-/// ```
-#[proc_macro_attribute]
-pub fn interview(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    // Do not change anything, this is merely a marker attribute
-    item
-}
-
 #[proc_macro]
-pub fn impl_cc_interviews(input: TokenStream) -> TokenStream {
+pub fn impl_cc_apis(input: TokenStream) -> TokenStream {
     // Figure out which files to look at
     let dirname = parse_dirname_from_macro_input(input);
     let files = parse_files_in_dir(&dirname);
@@ -272,7 +258,7 @@ pub fn impl_cc_interviews(input: TokenStream) -> TokenStream {
     let ccs: Vec<_> = files
         .iter()
         .filter_map(|(file, ast)| {
-            let mut extractor = CCInterviewInfoExtractor { interview: None };
+            let mut extractor = CCAPIInfoExtractor { interview: None };
             visit::visit_file(&mut extractor, ast);
             extractor.interview.map(|interview| (file, interview))
         })
@@ -287,10 +273,20 @@ pub fn impl_cc_interviews(input: TokenStream) -> TokenStream {
 
     let serializable_match_arms = ccs.iter().map(|(m, c)| {
         let module = format_ident!("{}", m);
-        let cc_id = &c.cc_id;
-        let fn_name = c.interview_fn;
+        let cc_id = c.cc_id;
+        let api_name = c.api_name;
         quote! {
-            #cc_id => #module::#fn_name(ctx).await,
+            #cc_id => CCAPIs::new(ctx.endpoint).#module().interview(ctx).await,
+        }
+    });
+
+    let cc_apis_methods = ccs.iter().map(|(m, c)| {
+        let module = format_ident!("{}", m);
+        let api_name = c.api_name;
+        quote! {
+            pub fn #module(&self) -> #module::#api_name {
+                #module::#api_name::new(self.endpoint)
+            }
         }
     });
 
@@ -306,6 +302,17 @@ pub fn impl_cc_interviews(input: TokenStream) -> TokenStream {
                     // No interview procedure
                 }
             }
+        }
+
+        pub struct CCAPIs<'a> {
+            endpoint: &'a dyn Endpoint,
+        }
+        impl<'a> CCAPIs<'a> {
+            pub fn new(endpoint: &'a dyn Endpoint) -> Self {
+                Self { endpoint }
+            }
+
+            #( #cc_apis_methods )*
         }
     };
 
