@@ -41,7 +41,7 @@ impl<'a> CCAPI<'a> for BasicCCAPI<'a> {
 
         // Remove Basic CC support when there was no response
         if cache
-            .read_level_report(&BasicCCValues::current_value())
+            .read_level_report(&BasicCCValues::current_value().id)
             .is_none()
         {
             println!(
