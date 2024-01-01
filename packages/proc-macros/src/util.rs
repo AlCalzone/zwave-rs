@@ -55,7 +55,7 @@ pub(crate) fn parse_files_in_dir(dirname: &str) -> Vec<(String, File)> {
         .iter()
         .map(|file| {
             let file_content = std::fs::read_to_string(file).unwrap();
-            syn::parse_file(&file_content).unwrap()
+            syn::parse_file(&file_content).expect("Parse file should not fail")
         })
         .collect();
 

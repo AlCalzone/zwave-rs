@@ -96,11 +96,10 @@ impl<'ast> Visit<'ast> for CCInfoExtractor<'ast> {
                 match p {
                     // If the method returns `None`, we return `None`
                     Expr::Path(ExprPath { path, .. }) => {
-                        let ident = path.get_ident();
-                        if ident.is_none() {
+                        let Some(ident) = path.get_ident() else {
                             return;
-                        }
-                        let ident = ident.unwrap().to_string();
+                        };
+                        let ident = ident.to_string();
                         if ident != "None" {
                             return;
                         }

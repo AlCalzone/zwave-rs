@@ -2,7 +2,7 @@ use std::sync::OnceLock;
 
 use crate::{
     prelude::*,
-    values::{CCValue, CCValueOptions, ValueMetadata},
+    values::{cc_value_static_property, CCValue, CCValueOptions, ValueMetadata},
 };
 use zwave_core::{cache::CacheValue, prelude::*, value_id::ValueId};
 
@@ -15,16 +15,19 @@ use nom::{
 use typed_builder::TypedBuilder;
 use zwave_core::encoding::{self, encoders::empty};
 
-// FIXME: Find a way to tie the metadata into this
 enum BasicCCProperties {
     CurrentValue = 0x00,
     TargetValue = 0x01,
     Duration = 0x02,
 }
 
-impl From<BasicCCProperties> for u32 {
+impl From<BasicCCProperties> for (u32, Option<u32>) {
     fn from(val: BasicCCProperties) -> Self {
-        val as u32
+        match val {
+            BasicCCProperties::CurrentValue => (val as u32, None),
+            BasicCCProperties::TargetValue => (val as u32, None),
+            BasicCCProperties::Duration => (val as u32, None),
+        }
     }
 }
 
@@ -32,68 +35,29 @@ pub struct BasicCCValues;
 
 // FIXME: Macro the shit out of this
 impl BasicCCValues {
-    pub fn current_value() -> &'static CCValue {
-        static RET: OnceLock<CCValue> = OnceLock::new();
-        RET.get_or_init(|| {
-            let value_id =
-                ValueId::new(CommandClasses::Basic, BasicCCProperties::CurrentValue, None);
-            let is = Box::new(|id: &ValueId| {
-                id.property() == BasicCCProperties::CurrentValue.into()
-                    && id.property_key().is_none()
-            });
-            let metadata = ValueMetadata::any();
-            let options = CCValueOptions {};
+    cc_value_static_property!(
+        current_value,
+        Basic,
+        CurrentValue,
+        ValueMetadata::any(),
+        CCValueOptions {}
+    );
 
-            CCValue {
-                id: value_id,
-                is,
-                metadata,
-                options,
-            }
-        })
-    }
+    cc_value_static_property!(
+        target_value,
+        Basic,
+        TargetValue,
+        ValueMetadata::any(),
+        CCValueOptions {}
+    );
 
-    pub fn target_value() -> &'static CCValue {
-        static RET: OnceLock<CCValue> = OnceLock::new();
-        RET.get_or_init(|| {
-            let value_id =
-                ValueId::new(CommandClasses::Basic, BasicCCProperties::TargetValue, None);
-            let is = Box::new(|id: &ValueId| {
-                id.property() == BasicCCProperties::TargetValue.into()
-                    && id.property_key().is_none()
-            });
-            let metadata = ValueMetadata::any();
-            let options = CCValueOptions {};
-
-            CCValue {
-                id: value_id,
-                is,
-                metadata,
-                options,
-            }
-        })
-    }
-
-    pub fn duration() -> &'static CCValue {
-        static RET: OnceLock<CCValue> = OnceLock::new();
-        RET.get_or_init(|| {
-            let value_id =
-                ValueId::new(CommandClasses::Basic, BasicCCProperties::Duration, None);
-            let is = Box::new(|id: &ValueId| {
-                id.property() == BasicCCProperties::Duration.into()
-                    && id.property_key().is_none()
-            });
-            let metadata = ValueMetadata::any();
-            let options = CCValueOptions {};
-
-            CCValue {
-                id: value_id,
-                is,
-                metadata,
-                options,
-            }
-        })
-    }
+    cc_value_static_property!(
+        duration,
+        Basic,
+        Duration,
+        ValueMetadata::any(),
+        CCValueOptions {}
+    );
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
@@ -264,5 +228,22 @@ impl CCSerializable for BasicCCReport {
             self.current_value.serialize(),
             serialize_target_and_duration,
         ))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_basic_cc_values() {
+        let current_value = BasicCCValues::current_value();
+        assert!(current_value.is(&current_value.id));
+
+        let target_value = BasicCCValues::target_value();
+        assert!(target_value.is(&target_value.id));
+
+        let duration = BasicCCValues::duration();
+        assert!(duration.is(&duration.id));
     }
 }

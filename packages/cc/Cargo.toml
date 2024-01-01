@@ -17,3 +17,4 @@ ux.workspace = true
 zwave-core.workspace = true
 typed-builder.workspace = true
 proc-macros.workspace = true
+paste.workspace = true
