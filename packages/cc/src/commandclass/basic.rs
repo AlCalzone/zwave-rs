@@ -23,41 +23,17 @@ enum BasicCCProperties {
 
 impl From<BasicCCProperties> for (u32, Option<u32>) {
     fn from(val: BasicCCProperties) -> Self {
-        match val {
-            BasicCCProperties::CurrentValue => (val as u32, None),
-            BasicCCProperties::TargetValue => (val as u32, None),
-            BasicCCProperties::Duration => (val as u32, None),
-        }
+        (val as u32, None)
     }
 }
 
 pub struct BasicCCValues;
-
-// FIXME: Macro the shit out of this
 impl BasicCCValues {
-    cc_value_static_property!(
-        current_value,
-        Basic,
-        CurrentValue,
-        ValueMetadata::any(),
-        CCValueOptions {}
-    );
+    cc_value_static_property!(Basic, CurrentValue, ValueMetadata::any(), CCValueOptions {});
 
-    cc_value_static_property!(
-        target_value,
-        Basic,
-        TargetValue,
-        ValueMetadata::any(),
-        CCValueOptions {}
-    );
+    cc_value_static_property!(Basic, TargetValue, ValueMetadata::any(), CCValueOptions {});
 
-    cc_value_static_property!(
-        duration,
-        Basic,
-        Duration,
-        ValueMetadata::any(),
-        CCValueOptions {}
-    );
+    cc_value_static_property!(Basic, Duration, ValueMetadata::any(), CCValueOptions {});
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
