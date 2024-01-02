@@ -2,7 +2,10 @@ use std::sync::OnceLock;
 
 use crate::{
     prelude::*,
-    values::{cc_value_static_property, CCValue, CCValueOptions, ValueMetadata},
+    values::{
+        cc_value_static_property, CCValue, CCValueOptions, ValueMetadata, ValueMetadataBoolean,
+        ValueMetadataCommon, ValueMetadataNumeric,
+    },
 };
 use zwave_core::{cache::CacheValue, prelude::*, value_id::ValueId};
 
@@ -19,6 +22,7 @@ enum BasicCCProperties {
     CurrentValue = 0x00,
     TargetValue = 0x01,
     Duration = 0x02,
+    RestorePrevious = 0x03,
 }
 
 impl From<BasicCCProperties> for (u32, Option<u32>) {
@@ -29,11 +33,42 @@ impl From<BasicCCProperties> for (u32, Option<u32>) {
 
 pub struct BasicCCValues;
 impl BasicCCValues {
-    cc_value_static_property!(Basic, CurrentValue, ValueMetadata::any(), CCValueOptions {});
+    cc_value_static_property!(
+        Basic,
+        CurrentValue,
+        ValueMetadata::LevelReport(ValueMetadataCommon::default_readonly().label("Current value")),
+        CCValueOptions::default()
+    );
 
-    cc_value_static_property!(Basic, TargetValue, ValueMetadata::any(), CCValueOptions {});
+    cc_value_static_property!(
+        Basic,
+        TargetValue,
+        ValueMetadata::LevelSet(ValueMetadataCommon::default().label("Target value"),),
+        CCValueOptions::default()
+    );
 
-    cc_value_static_property!(Basic, Duration, ValueMetadata::any(), CCValueOptions {});
+    cc_value_static_property!(
+        Basic,
+        Duration,
+        ValueMetadata::DurationReport(
+            ValueMetadataCommon::default_readonly().label("Remaining duration"),
+        ),
+        CCValueOptions::default().min_version(2)
+    );
+
+    // Convenience value to restore the previous non-zero value
+    cc_value_static_property!(
+        Basic,
+        RestorePrevious,
+        ValueMetadata::Boolean(
+            ValueMetadataBoolean::default().common(
+                ValueMetadataCommon::default_writeonly()
+                    .label("Restore previous value")
+                    .states(vec![(true, "Restore"),])
+            ),
+        ),
+        CCValueOptions::default()
+    );
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
