@@ -1,6 +1,6 @@
 use super::Ready;
 use crate::{Driver, EndpointStorage, Node};
-use crate::{Endpoint, NodeStorage};
+use crate::{EndpointLike, NodeStorage};
 use zwave_core::definitions::*;
 
 // API for node instances

@@ -12,7 +12,7 @@ use std::fmt::Display;
 
 pub const COMMAND_CLASS_SUPPORT_CONTROL_MARK: u8 = 0xef;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence, TryFromPrimitive, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Sequence, TryFromPrimitive, Hash)]
 #[repr(u16)]
 pub enum CommandClasses {
     AlarmSensor = 0x9c,
@@ -474,11 +474,47 @@ impl Display for CommandClasses {
     }
 }
 
+#[test]
+fn test_non_application_ccs() {
+    let nac = CommandClasses::non_application_ccs().collect::<Vec<_>>();
+    assert!(nac.contains(&CommandClasses::Association));
+}
+
+impl Parsable for CommandClasses {
+    fn parse(i: crate::encoding::Input) -> crate::prelude::ParseResult<Self> {
+        let (i, cc_id) = peek(be_u8)(i)?;
+        // FIXME: Support unknown CCs
+        let (i, cc) = if CommandClasses::is_extended(cc_id) {
+            map_res(be_u16, CommandClasses::try_from_primitive)(i)?
+        } else {
+            map_res(be_u8, |x| CommandClasses::try_from_primitive(x as u16))(i)?
+        };
+        Ok((i, cc))
+    }
+}
+
+impl Serializable for CommandClasses {
+    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
+        use cookie_factory::bytes::{be_u16, be_u8};
+        move |out| {
+            if self.is_extended_cc() {
+                be_u16(*self as u16)(out)
+            } else {
+                be_u8(*self as u8)(out)
+            }
+        }
+    }
+}
+
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct CommandClassInfo {
+    /// Whether the node or endpoint supports the CC, meaning others can control the CC oh it
     supported: bool,
+    /// Whether the node or endpoint controls this CC (in others)
     controlled: bool,
+    /// Whether the CC is ONLY supported securely
     secure: bool,
+    /// The maximum version of the CC that is supported by the node or endpoint
     version: u8,
 }
 
@@ -523,36 +559,69 @@ impl CommandClassInfo {
     pub fn set_version(&mut self, version: u8) {
         self.version = version;
     }
-}
 
-#[test]
-fn test_non_application_ccs() {
-    let nac = CommandClasses::non_application_ccs().collect::<Vec<_>>();
-    assert!(nac.contains(&CommandClasses::Association));
-}
-
-impl Parsable for CommandClasses {
-    fn parse(i: crate::encoding::Input) -> crate::prelude::ParseResult<Self> {
-        let (i, cc_id) = peek(be_u8)(i)?;
-        // FIXME: Support unknown CCs
-        let (i, cc) = if CommandClasses::is_extended(cc_id) {
-            map_res(be_u16, CommandClasses::try_from_primitive)(i)?
-        } else {
-            map_res(be_u8, |x| CommandClasses::try_from_primitive(x as u16))(i)?
-        };
-        Ok((i, cc))
+    pub fn merge(&mut self, other: &PartialCommandClassInfo) {
+        if let Some(supported) = other.supported {
+            self.set_supported(supported);
+        }
+        if let Some(controlled) = other.controlled {
+            self.set_controlled(controlled);
+        }
+        if let Some(secure) = other.secure {
+            self.set_secure(secure);
+        }
+        if let Some(version) = other.version {
+            self.set_version(version);
+        }
     }
 }
 
-impl Serializable for CommandClasses {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cookie_factory::bytes::{be_u16, be_u8};
-        move |out| {
-            if self.is_extended_cc() {
-                be_u16(*self as u16)(out)
-            } else {
-                be_u8(*self as u8)(out)
-            }
-        }
+impl From<PartialCommandClassInfo> for CommandClassInfo {
+    fn from(value: PartialCommandClassInfo) -> Self {
+        let mut ret = CommandClassInfo::default();
+        ret.merge(&value);
+        ret
+    }
+}
+
+impl From<&PartialCommandClassInfo> for CommandClassInfo {
+    fn from(value: &PartialCommandClassInfo) -> Self {
+        let mut ret = CommandClassInfo::default();
+        ret.merge(value);
+        ret
+    }
+}
+
+#[derive(Default, Debug, Clone, PartialEq)]
+pub struct PartialCommandClassInfo {
+    /// Whether the node or endpoint supports the CC, meaning others can control the CC oh it
+    supported: Option<bool>,
+    /// Whether the node or endpoint controls this CC (in others)
+    controlled: Option<bool>,
+    /// Whether the CC is ONLY supported securely
+    secure: Option<bool>,
+    /// The maximum version of the CC that is supported by the node or endpoint
+    version: Option<u8>,
+}
+
+impl PartialCommandClassInfo {
+    pub fn supported(mut self) -> Self {
+        self.supported = Some(true);
+        self
+    }
+
+    pub fn controlled(mut self) -> Self {
+        self.controlled = Some(true);
+        self
+    }
+
+    pub fn secure(mut self) -> Self {
+        self.secure = Some(true);
+        self
+    }
+
+    pub fn version(mut self, version: u8) -> Self {
+        self.version = Some(version);
+        self
     }
 }

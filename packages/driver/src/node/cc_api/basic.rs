@@ -1,13 +1,13 @@
-use crate::{expect_cc_or_timeout, CCAPIResult, CCInterviewContext, Endpoint, CCAPI};
+use crate::{expect_cc_or_timeout, CCAPIResult, CCInterviewContext, EndpointLike, CCAPI};
 use zwave_cc::commandclass::{BasicCCGet, BasicCCReport, BasicCCSet, BasicCCValues, CCAddressable};
 use zwave_core::{cache::CacheExt, prelude::*};
 
 pub struct BasicCCAPI<'a> {
-    endpoint: &'a dyn Endpoint<'a>,
+    endpoint: &'a dyn EndpointLike<'a>,
 }
 
 impl<'a> CCAPI<'a> for BasicCCAPI<'a> {
-    fn new(endpoint: &'a dyn Endpoint<'a>) -> Self
+    fn new(endpoint: &'a dyn EndpointLike<'a>) -> Self
     where
         Self: Sized,
     {

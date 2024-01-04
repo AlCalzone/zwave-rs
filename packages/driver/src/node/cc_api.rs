@@ -1,15 +1,15 @@
-use crate::{ControllerCommandError, Driver, Endpoint, ExecNodeCommandError, Node, Ready};
+use crate::{ControllerCommandError, Driver, EndpointLike, ExecNodeCommandError, Node, Ready};
 use proc_macros::impl_cc_apis;
 use thiserror::Error;
 use zwave_core::definitions::*;
 
 pub struct CCInterviewContext<'a> {
     pub driver: &'a Driver<Ready>,
-    pub endpoint: &'a dyn Endpoint<'a>,
+    pub endpoint: &'a dyn EndpointLike<'a>,
 }
 
 pub trait CCAPI<'a> {
-    fn new(endpoint: &'a dyn Endpoint<'a>) -> Self
+    fn new(endpoint: &'a dyn EndpointLike<'a>) -> Self
     where
         Self: Sized;
 

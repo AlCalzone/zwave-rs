@@ -1,16 +1,16 @@
-use crate::{driver::cache::ValueCache, Endpoint};
+use crate::{driver::cache::ValueCache, EndpointLike};
 use zwave_core::{
     cache::{Cache, CacheValue},
     value_id::{EndpointValueId, ValueId},
 };
 
 pub struct EndpointValueCache<'a> {
-    endpoint: &'a dyn Endpoint<'a>,
+    endpoint: &'a dyn EndpointLike<'a>,
     driver_value_cache: ValueCache<'a>,
 }
 
 impl<'a> EndpointValueCache<'a> {
-    pub fn new(endpoint: &'a dyn Endpoint<'a>, driver_value_cache: ValueCache<'a>) -> Self {
+    pub fn new(endpoint: &'a dyn EndpointLike<'a>, driver_value_cache: ValueCache<'a>) -> Self {
         Self {
             endpoint,
             driver_value_cache,

@@ -1,4 +1,4 @@
-use zwave_cc::commandclass::{CCAddressable, NoOperationCC};
+use zwave_cc::commandclass::{CCAddressable, CCInfo, NoOperationCC};
 use zwave_core::{definitions::*, submodule};
 
 use crate::{ControllerCommandResult, Driver, ExecNodeCommandError, Ready};
@@ -86,16 +86,17 @@ pub struct Node<'a> {
 }
 
 // FIXME: We probably want a struct with this name, so this needs a rename
-pub trait Endpoint<'a> {
+pub trait EndpointLike<'a> {
     fn node_id(&self) -> NodeId;
     fn get_node(&'a self) -> &Node<'a>;
     fn index(&self) -> EndpointIndex;
     fn value_cache(&'a self) -> EndpointValueCache<'a>;
 
-    fn supported_command_classes(&self) -> Vec<CommandClasses>;
-    // FIXME: We need an easier way to modify CC support on nodes and endpoints -> Separate trait!
-    fn set_supported_command_classes(&self, ccs: Vec<CommandClasses>);
+    fn modify_cc_info(&self, cc: CommandClasses, info: &PartialCommandClassInfo);
+    fn remove_cc(&self, cc: CommandClasses);
 
+    fn supported_command_classes(&self) -> Vec<CommandClasses>;
+    fn controlled_command_classes(&self) -> Vec<CommandClasses>;
     fn get_cc_version(&self, cc: CommandClasses) -> Option<u8>;
 
     // TODO: Add the rest
@@ -154,7 +155,7 @@ impl<'a> Node<'a> {
     }
 }
 
-impl<'a> Endpoint<'a> for Node<'a> {
+impl<'a> EndpointLike<'a> for Node<'a> {
     fn node_id(&self) -> NodeId {
         self.id
     }
@@ -172,23 +173,44 @@ impl<'a> Endpoint<'a> for Node<'a> {
         EndpointValueCache::new(self, self.driver.value_cache())
     }
 
-    fn supported_command_classes(&self) -> Vec<CommandClasses> {
-        read_endpoint_locked!(self, &self.id, &self.index(), supported_command_classes)
-            .map(|ccs| ccs.clone())
-            .unwrap_or_default()
-    }
-
-    fn set_supported_command_classes(&self, ccs: Vec<CommandClasses>) {
-        if let Some(mut handle) =
-            write_endpoint_locked!(self, &self.id, &self.index(), supported_command_classes)
-        {
-            *handle = ccs;
+    fn modify_cc_info(&self, cc: CommandClasses, info: &PartialCommandClassInfo) {
+        if let Some(mut cc_info) = write_endpoint_locked!(self, &self.id, &self.index(), cc_info) {
+            cc_info
+                .entry(cc)
+                .and_modify(|cc_info| cc_info.merge(info))
+                .or_insert_with(|| info.into());
         }
     }
 
+    fn remove_cc(&self, cc: CommandClasses) {
+        if let Some(mut cc_info) = write_endpoint_locked!(self, &self.id, &self.index(), cc_info) {
+            cc_info.remove(&cc);
+        }
+    }
+
+    fn supported_command_classes(&self) -> Vec<CommandClasses> {
+        read_endpoint_locked!(self, &self.id, &self.index(), cc_info)
+            .map(|map| {
+                map.iter()
+                    .filter_map(|(cc, info)| if info.supported() { Some(*cc) } else { None })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    fn controlled_command_classes(&self) -> Vec<CommandClasses> {
+        read_endpoint_locked!(self, &self.id, &self.index(), cc_info)
+            .map(|map| {
+                map.iter()
+                    .filter_map(|(cc, info)| if info.controlled() { Some(*cc) } else { None })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     fn get_cc_version(&self, cc: CommandClasses) -> Option<u8> {
-        // FIXME: Use the version from the node, not our implemented one
-        get_implemented_version(cc)
+        read_endpoint_locked!(self, &self.id, &self.index(), cc_info)
+            .map(|map| map.get(&cc).map(|cc| cc.version()))
+            .flatten()
     }
 }
-

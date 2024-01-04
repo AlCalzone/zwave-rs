@@ -320,10 +320,10 @@ pub fn impl_cc_apis(input: TokenStream) -> TokenStream {
         }
 
         pub struct CCAPIs<'a> {
-            endpoint: &'a dyn Endpoint<'a>,
+            endpoint: &'a dyn EndpointLike<'a>,
         }
         impl<'a> CCAPIs<'a> {
-            pub fn new(endpoint: &'a dyn Endpoint<'a>) -> Self {
+            pub fn new(endpoint: &'a dyn EndpointLike<'a>) -> Self {
                 Self { endpoint }
             }
 

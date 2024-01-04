@@ -1,4 +1,6 @@
-use crate::{error::Result, interview_cc, CCInterviewContext, Endpoint, Node};
+use zwave_core::definitions::PartialCommandClassInfo;
+
+use crate::{error::Result, interview_cc, CCInterviewContext, EndpointLike, Node};
 
 /// Specifies the progress of the interview process for a node
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -31,7 +33,9 @@ impl<'a> Node<'a> {
         if self.interview_stage() == InterviewStage::NodeInfo {
             // Query the node info and save supported CCs
             let node_info = self.driver.request_node_info(&self.id, None).await?;
-            self.set_supported_command_classes(node_info.supported_command_classes);
+            for cc in node_info.supported_command_classes {
+                self.modify_cc_info(cc, &PartialCommandClassInfo::default().supported());
+            }
 
             // Done, advance to the next stage
             self.set_interview_stage(InterviewStage::CommandClasses);

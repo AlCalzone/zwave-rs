@@ -32,15 +32,13 @@ impl NodeStorage {
 /// (application) code, in several locations at once, often simultaneously, we need to use
 /// interior mutability to allow for concurrent access without requiring a mutable reference.
 pub(crate) struct EndpointStorage {
-    pub(crate) supported_command_classes: RwLock<Vec<CommandClasses>>,
-    pub(crate) controlled_command_classes: RwLock<Vec<CommandClasses>>,
+    pub(crate) cc_info: RwLock<BTreeMap<CommandClasses, CommandClassInfo>>,
 }
 
 impl EndpointStorage {
     pub fn new() -> Self {
         Self {
-            supported_command_classes: RwLock::new(Vec::new()),
-            controlled_command_classes: RwLock::new(Vec::new()),
+            cc_info: RwLock::new(BTreeMap::new()),
         }
     }
 }

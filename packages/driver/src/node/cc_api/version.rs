@@ -1,5 +1,5 @@
 use crate::{
-    expect_cc_or_timeout, get_implemented_version, CCAPIResult, CCInterviewContext, Endpoint, CCAPI,
+    expect_cc_or_timeout, get_implemented_version, CCAPIResult, CCInterviewContext, EndpointLike, CCAPI,
 };
 use zwave_cc::commandclass::{
     CCAddressable, VersionCCCapabilitiesGet, VersionCCCapabilitiesReport, VersionCCCommandClassGet,
@@ -9,11 +9,11 @@ use zwave_cc::commandclass::{
 use zwave_core::{cache::CacheExt, prelude::*};
 
 pub struct VersionCCAPI<'a> {
-    endpoint: &'a dyn Endpoint<'a>,
+    endpoint: &'a dyn EndpointLike<'a>,
 }
 
 impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
-    fn new(endpoint: &'a dyn Endpoint<'a>) -> Self
+    fn new(endpoint: &'a dyn EndpointLike<'a>) -> Self
     where
         Self: Sized,
     {
@@ -67,10 +67,14 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
 
         // Query all other CC versions
         for cc in endpoint.supported_command_classes() {
+            // Skip Version CC itself which we already queried
             if cc == CommandClasses::Version {
                 continue;
             }
-            // FIXME: Skip the query of endpoint CCs that are also supported by the root device
+            // Skip the query of endpoint CCs that are also supported by the root device
+            if endpoint.index() > EndpointIndex::Root && node.get_cc_version(cc) > Some(0) {
+                continue;
+            }
 
             self.query_cc_version(cc, ctx).await?;
         }
