@@ -511,13 +511,37 @@
         "prefix": "zwcc",
         "body": [
             "use crate::prelude::*;",
+            "use crate::values::*;",
             "use zwave_core::prelude::*;",
+            "use zwave_core::encoding::{self, encoders::empty, parser_not_implemented};",
             "",
             "use cookie_factory as cf;",
             "use derive_try_from_primitive::TryFromPrimitive;"
             "use nom::{combinator::{map, opt}, sequence::tuple};",
             "use typed_builder::TypedBuilder;",
-            "use zwave_core::encoding::{self, encoders::empty, parser_not_implemented};",
+            "",
+            "enum ${1}CCProperties {",
+            "    ${0:CurrentValue} = 0x00,",
+            "}",
+            "",
+            "// TODO: If this CC uses dynamic values, consider implementing the unsafe trait",
+            "// ToDiscriminant for easier conversion of the static properties"
+            "// Note that this requires #[repr(...)] on the enum definition.",
+            "impl From<${1}CCProperties> for (u32, Option<u32>) {",
+            "    fn from(val: ${1}CCProperties) -> Self {",
+            "        (val as u32, None)",
+            "    }",
+            "}",
+            "",
+            "pub struct ${1}CCValues;",
+            "impl ${1}CCValues {",
+            "    cc_value_static_property!(",
+            "        ${1}",
+            "        ${0}",
+            "        ValueMetadata::Numeric(ValueMetadataNumeric::default()),",
+            "        CCValueOptions::default()"
+            "    )",
+            "},"
             "",
             "#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]",
             "#[repr(u8)]",
@@ -527,6 +551,34 @@
             "    ${6:Report} = ${7:0x03},",
             "}",
             ""
+        ]
+    },
+    "CC value definitions": {
+        "scope": "rust",
+        "prefix": "zwccvalues",
+        "body": [
+            "enum ${1:${TM_FILENAME_BASE/(.*)$/${1:/pascalcase}/}}CCProperties {",
+            "    ${0:CurrentValue} = 0x00,",
+            "}",
+            "",
+            "// TODO: If this CC uses dynamic values, consider implementing the unsafe trait",
+            "// ToDiscriminant for easier conversion of the static properties.",
+            "// Note that this requires #[repr(...)] on the enum definition.",
+            "impl From<${1}CCProperties> for (u32, Option<u32>) {",
+            "    fn from(val: ${1}CCProperties) -> Self {",
+            "        (val as u32, None)",
+            "    }",
+            "}",
+            "",
+            "pub struct ${1}CCValues;",
+            "impl ${1}CCValues {",
+            "    cc_value_static_property!(",
+            "        ${1}",
+            "        ${0}",
+            "        ValueMetadata::Numeric(ValueMetadataNumeric::default()),",
+            "        CCValueOptions::default()"
+            "    )",
+            "}"
         ]
     },
     "CC implementation (request, no response)": {
@@ -627,7 +679,7 @@
         "scope": "rust",
         "prefix": "zwccemptyget",
         "body": [
-            "#[derive(Debug, Clone, PartialEq, TypedBuilder)]",
+            "#[derive(Default, Debug, Clone, PartialEq)]",
             "pub struct ${1:${TM_FILENAME_BASE/(.*)$/${1:/pascalcase}/}}CC${2:Get} {}",
             "",
             "impl CCBase for ${1}CC${2} {}",

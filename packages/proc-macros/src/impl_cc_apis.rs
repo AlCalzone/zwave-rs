@@ -6,6 +6,7 @@ use crate::util::{try_get_impl_fn, try_get_single_value_from_fn};
 pub(crate) struct CCAPIInfo<'ast> {
     pub api_name: &'ast Ident,
     pub cc_id: &'ast Expr,
+    pub cc_version: &'ast Expr,
 }
 
 pub(crate) struct CCAPIInfoExtractor<'ast> {
@@ -18,7 +19,6 @@ impl<'ast> Visit<'ast> for CCAPIInfoExtractor<'ast> {
             return;
         }
         let (_, trait_path, _) = &i.trait_.as_ref().expect("trait_ should be Some");
-        eprintln!("trait_path: {:?}", trait_path);
         let trait_name = trait_path
             .get_ident()
             .unwrap_or_else(|| &trait_path.segments.first().unwrap().ident);
@@ -44,6 +44,20 @@ impl<'ast> Visit<'ast> for CCAPIInfoExtractor<'ast> {
             _ => return,
         };
 
-        self.interview = Some(CCAPIInfo { api_name, cc_id });
+        let cc_version_fn = match try_get_impl_fn(i, "cc_version") {
+            Some(f) => f,
+            None => return,
+        };
+
+        let cc_version = match try_get_single_value_from_fn(cc_version_fn) {
+            Some(p) => p,
+            _ => return,
+        };
+
+        self.interview = Some(CCAPIInfo {
+            api_name,
+            cc_id,
+            cc_version,
+        });
     }
 }

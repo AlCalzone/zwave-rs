@@ -1,3 +1,5 @@
+#![feature(lint_reasons)]
+
 use zwave_core::submodule;
 
 submodule!(driver);

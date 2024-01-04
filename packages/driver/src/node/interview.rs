@@ -1,4 +1,4 @@
-use crate::{error::Result, interview_cc, CCInterviewContext, Node};
+use crate::{error::Result, interview_cc, CCInterviewContext, Endpoint, Node};
 
 /// Specifies the progress of the interview process for a node
 #[derive(Debug, Copy, Clone, PartialEq)]

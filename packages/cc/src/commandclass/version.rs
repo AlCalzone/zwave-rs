@@ -1,4 +1,7 @@
 use crate::prelude::*;
+use crate::values::*;
+use zwave_core::cache::CacheValue;
+use zwave_core::value_id::ValueId;
 use zwave_core::{encoding::parsers, prelude::*};
 
 use cookie_factory as cf;
@@ -11,6 +14,203 @@ use nom::{
 };
 use typed_builder::TypedBuilder;
 use zwave_core::encoding::{self, encoders::empty};
+
+enum VersionCCProperties {
+    FirmwareVersions = 0x00,
+    LibraryType = 0x01,
+    ProtocolVersion = 0x02,
+    HardwareVersion = 0x03,
+    SupportsZWaveSoftwareGet = 0x04,
+    SDKVersion = 0x05,
+    ApplicationFrameworkAPIVersion = 0x06,
+    ApplicationFrameworkBuildNumber = 0x07,
+    SerialAPIVersion = 0x08,
+    SerialAPIBuildNumber = 0x09,
+    ZWaveProtocolVersion = 0x0A,
+    ZWaveProtocolBuildNumber = 0x0B,
+    ApplicationVersion = 0x0C,
+    ApplicationBuildNumber = 0x0D,
+}
+
+pub struct VersionCCValues;
+impl VersionCCValues {
+    cc_value_static_property!(
+        Version,
+        FirmwareVersions,
+        ValueMetadata::StringArray(
+            ValueMetadataString::default()
+                .label("Z-Wave chip firmware versions")
+                .readonly()
+        ),
+        CCValueOptions::default().supports_endpoints(false)
+    );
+
+    cc_value_static_property!(
+        Version,
+        LibraryType,
+        ValueMetadata::Numeric(
+            // FIXME: This should be limited to the ZWaveLibraryType enum range and states
+            ValueMetadataNumeric::default()
+                .label("Library type")
+                .readonly()
+        ),
+        CCValueOptions::default().supports_endpoints(false)
+    );
+
+    cc_value_static_property!(
+        Version,
+        ProtocolVersion,
+        ValueMetadata::String(
+            ValueMetadataString::default()
+                .label("Z-Wave protocol version")
+                .readonly()
+        ),
+        CCValueOptions::default().supports_endpoints(false)
+    );
+
+    cc_value_static_property!(
+        Version,
+        HardwareVersion,
+        ValueMetadata::Numeric(
+            ValueMetadataNumeric::default()
+                .readonly()
+                .label("Z-Wave chip hardware version")
+        ),
+        CCValueOptions::default()
+            .min_version(2)
+            .supports_endpoints(false)
+    );
+
+    cc_value_static_property!(
+        Version,
+        SupportsZWaveSoftwareGet,
+        ValueMetadata::Boolean(ValueMetadataBoolean::default().readonly()),
+        CCValueOptions::default().min_version(3).internal()
+    );
+
+    cc_value_static_property!(
+        Version,
+        SDKVersion,
+        ValueMetadata::Numeric(
+            ValueMetadataNumeric::default()
+                .readonly()
+                .label("SDK version")
+        ),
+        CCValueOptions::default()
+            .min_version(3)
+            .supports_endpoints(false)
+    );
+
+    cc_value_static_property!(
+        Version,
+        ApplicationFrameworkAPIVersion,
+        ValueMetadata::Numeric(
+            ValueMetadataNumeric::default()
+                .readonly()
+                .label("Z-Wave application framework API version")
+        ),
+        CCValueOptions::default()
+            .min_version(3)
+            .supports_endpoints(false)
+    );
+
+    cc_value_static_property!(
+        Version,
+        ApplicationFrameworkBuildNumber,
+        ValueMetadata::Numeric(
+            ValueMetadataNumeric::default()
+                .readonly()
+                .label("Z-Wave application framework API build number")
+        ),
+        CCValueOptions::default()
+            .min_version(3)
+            .supports_endpoints(false)
+    );
+
+    cc_value_static_property!(
+        Version,
+        SerialAPIVersion,
+        ValueMetadata::Numeric(
+            ValueMetadataNumeric::default()
+                .readonly()
+                .label("Serial API version")
+        ),
+        CCValueOptions::default()
+            .min_version(3)
+            .supports_endpoints(false)
+    );
+
+    cc_value_static_property!(
+        Version,
+        SerialAPIBuildNumber,
+        ValueMetadata::Numeric(
+            ValueMetadataNumeric::default()
+                .readonly()
+                .label("Serial API build number")
+        ),
+        CCValueOptions::default()
+            .min_version(3)
+            .supports_endpoints(false)
+    );
+
+    cc_value_static_property!(
+        Version,
+        ZWaveProtocolVersion,
+        ValueMetadata::Numeric(
+            ValueMetadataNumeric::default()
+                .readonly()
+                .label("Z-Wave protocol version")
+        ),
+        CCValueOptions::default()
+            .min_version(3)
+            .supports_endpoints(false)
+    );
+
+    cc_value_static_property!(
+        Version,
+        ZWaveProtocolBuildNumber,
+        ValueMetadata::Numeric(
+            ValueMetadataNumeric::default()
+                .readonly()
+                .label("Z-Wave protocol build number")
+        ),
+        CCValueOptions::default()
+            .min_version(3)
+            .supports_endpoints(false)
+    );
+
+    cc_value_static_property!(
+        Version,
+        ApplicationVersion,
+        ValueMetadata::Numeric(
+            ValueMetadataNumeric::default()
+                .readonly()
+                .label("Application version")
+        ),
+        CCValueOptions::default()
+            .min_version(3)
+            .supports_endpoints(false)
+    );
+
+    cc_value_static_property!(
+        Version,
+        ApplicationBuildNumber,
+        ValueMetadata::Numeric(
+            ValueMetadataNumeric::default()
+                .readonly()
+                .label("Application build number")
+        ),
+        CCValueOptions::default()
+            .min_version(3)
+            .supports_endpoints(false)
+    );
+}
+
+impl From<VersionCCProperties> for (u32, Option<u32>) {
+    fn from(val: VersionCCProperties) -> Self {
+        (val as u32, None)
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
@@ -25,7 +225,7 @@ pub enum VersionCCCommand {
     ZWaveSoftwareReport = 0x18,
 }
 
-#[derive(Debug, Clone, PartialEq, TypedBuilder)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct VersionCCGet {}
 
 impl CCBase for VersionCCGet {}
@@ -67,15 +267,48 @@ impl CCSerializable for VersionCCGet {
 
 #[derive(Debug, Clone, PartialEq, TypedBuilder)]
 pub struct VersionCCReport {
-    library_type: ZWaveLibraryType,
-    protocol_version: Version,
-    firmware_versions: Vec<Version>,
-    hardware_version: Option<u8>,
+    pub library_type: ZWaveLibraryType,
+    pub protocol_version: Version,
+    pub firmware_versions: Vec<Version>,
+    pub hardware_version: Option<u8>,
 }
 
 impl CCBase for VersionCCReport {}
 
-impl CCValues for VersionCCReport {}
+impl CCValues for VersionCCReport {
+    fn to_values(&self) -> Vec<(ValueId, CacheValue)> {
+        let mut ret = vec![
+            (
+                VersionCCValues::library_type().id,
+                CacheValue::from(self.library_type as u8),
+            ),
+            (
+                VersionCCValues::protocol_version().id,
+                CacheValue::from(self.protocol_version.to_string()),
+            ),
+            (
+                // FIXME: This should be an array
+                VersionCCValues::firmware_versions().id,
+                CacheValue::from(
+                    self.firmware_versions
+                        .iter()
+                        .map(|v| v.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                ),
+            ),
+        ];
+
+        if let Some(hardware_version) = self.hardware_version {
+            ret.push((
+                VersionCCValues::hardware_version().id,
+                CacheValue::from(hardware_version),
+            ));
+        }
+
+        ret
+    }
+}
 
 impl CCId for VersionCCReport {
     fn cc_id(&self) -> CommandClasses {
@@ -175,8 +408,8 @@ impl CCSerializable for VersionCCCommandClassGet {
 
 #[derive(Debug, Clone, PartialEq, TypedBuilder)]
 pub struct VersionCCCommandClassReport {
-    requested_cc: CommandClasses,
-    version: u8,
+    pub requested_cc: CommandClasses,
+    pub version: u8,
 }
 
 impl CCBase for VersionCCCommandClassReport {}
@@ -216,7 +449,7 @@ impl CCSerializable for VersionCCCommandClassReport {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, TypedBuilder)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct VersionCCCapabilitiesGet {}
 
 impl CCBase for VersionCCCapabilitiesGet {}
@@ -258,12 +491,19 @@ impl CCSerializable for VersionCCCapabilitiesGet {
 
 #[derive(Debug, Clone, PartialEq, TypedBuilder)]
 pub struct VersionCCCapabilitiesReport {
-    supports_zwave_software_get: bool,
+    pub supports_z_wave_software_get: bool,
 }
 
 impl CCBase for VersionCCCapabilitiesReport {}
 
-impl CCValues for VersionCCCapabilitiesReport {}
+impl CCValues for VersionCCCapabilitiesReport {
+    fn to_values(&self) -> Vec<(ValueId, CacheValue)> {
+        vec![(
+            VersionCCValues::supports_z_wave_software_get().id,
+            CacheValue::from(self.supports_z_wave_software_get),
+        )]
+    }
+}
 
 impl CCId for VersionCCCapabilitiesReport {
     fn cc_id(&self) -> CommandClasses {
@@ -283,7 +523,7 @@ impl CCParsable for VersionCCCapabilitiesReport {
         Ok((
             i,
             Self {
-                supports_zwave_software_get,
+                supports_z_wave_software_get: supports_zwave_software_get,
             },
         ))
     }
@@ -292,7 +532,7 @@ impl CCParsable for VersionCCCapabilitiesReport {
 impl CCSerializable for VersionCCCapabilitiesReport {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
         use cf::bytes::be_u8;
-        let capabilities = if self.supports_zwave_software_get {
+        let capabilities = if self.supports_z_wave_software_get {
             0b100
         } else {
             0
@@ -301,7 +541,7 @@ impl CCSerializable for VersionCCCapabilitiesReport {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, TypedBuilder)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct VersionCCZWaveSoftwareGet {}
 
 impl CCBase for VersionCCZWaveSoftwareGet {}
@@ -352,7 +592,61 @@ pub struct VersionCCZWaveSoftwareReport {
 
 impl CCBase for VersionCCZWaveSoftwareReport {}
 
-impl CCValues for VersionCCZWaveSoftwareReport {}
+impl CCValues for VersionCCZWaveSoftwareReport {
+    fn to_values(&self) -> Vec<(ValueId, CacheValue)> {
+        let mut ret = vec![(
+            // FIXME: we should have an override for the name
+            VersionCCValues::s_d_k_version().id,
+            CacheValue::from(self.sdk_version.to_string()),
+        )];
+
+        if let Some((v, b)) = self.application_framework_version {
+            ret.push((
+                VersionCCValues::application_framework_a_p_i_version().id,
+                CacheValue::from(v.to_string()),
+            ));
+            ret.push((
+                VersionCCValues::application_framework_build_number().id,
+                CacheValue::from(b),
+            ));
+        }
+
+        if let Some((v, b)) = self.host_interface_version {
+            ret.push((
+                VersionCCValues::serial_a_p_i_version().id,
+                CacheValue::from(v.to_string()),
+            ));
+            ret.push((
+                VersionCCValues::serial_a_p_i_build_number().id,
+                CacheValue::from(b),
+            ));
+        }
+
+        if let Some((v, b)) = self.zwave_protocol_version {
+            ret.push((
+                VersionCCValues::z_wave_protocol_version().id,
+                CacheValue::from(v.to_string()),
+            ));
+            ret.push((
+                VersionCCValues::z_wave_protocol_build_number().id,
+                CacheValue::from(b),
+            ));
+        }
+
+        if let Some((v, b)) = self.application_version {
+            ret.push((
+                VersionCCValues::application_version().id,
+                CacheValue::from(v.to_string()),
+            ));
+            ret.push((
+                VersionCCValues::application_build_number().id,
+                CacheValue::from(b),
+            ));
+        }
+
+        ret
+    }
+}
 
 impl CCId for VersionCCZWaveSoftwareReport {
     fn cc_id(&self) -> CommandClasses {

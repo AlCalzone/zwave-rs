@@ -23,6 +23,12 @@ pub enum ValueMetadata {
     // TODO: Color
     Buffer(ValueMetadataBuffer),
 
+    // Primitive arrays
+    // TODO: Check if keeping the payload makes sense
+    NumericArray(ValueMetadataNumeric),
+    BooleanArray(ValueMetadataBoolean),
+    StringArray(ValueMetadataString),
+
     // Z-Wave specific value metadata - we have to distinguish between
     // SET and REPORT values, as they have different semantics
     DurationSet(ValueMetadataCommon<()>),
@@ -132,6 +138,40 @@ impl<T> ValueMetadataCommon<T> {
     }
 }
 
+macro_rules! impl_common_metadata_accessors {
+    ($t:ty) => {
+        pub fn label(mut self, label: &'static str) -> Self {
+            self.common = self.common.label(label);
+            self
+        }
+
+        pub fn description(mut self, description: &'static str) -> Self {
+            self.common = self.common.description(description);
+            self
+        }
+
+        pub fn readonly(mut self) -> Self {
+            self.common = self.common.readonly();
+            self
+        }
+
+        pub fn writeonly(mut self) -> Self {
+            self.common = self.common.writeonly();
+            self
+        }
+
+        pub fn states(mut self, states: Vec<($t, &'static str)>) -> Self {
+            self.common = self.common.states(states);
+            self
+        }
+
+        pub fn allow_manual_entry(mut self, allow_manual_entry: bool) -> Self {
+            self.common = self.common.allow_manual_entry(allow_manual_entry);
+            self
+        }
+    };
+}
+
 #[derive(Default)]
 pub struct ValueMetadataNumeric {
     // In order to keep complexity low, we choose i64 as the only numeric type
@@ -157,15 +197,7 @@ impl ValueMetadataNumeric {
         self
     }
 
-    pub fn readonly(mut self) -> Self {
-        self.common = self.common.readonly();
-        self
-    }
-
-    pub fn writeonly(mut self) -> Self {
-        self.common = self.common.writeonly();
-        self
-    }
+    impl_common_metadata_accessors!(i64);
 
     pub fn min(mut self, min: i64) -> Self {
         self.min = Some(min);
@@ -207,15 +239,7 @@ impl ValueMetadataBoolean {
         self
     }
 
-    pub fn readonly(mut self) -> Self {
-        self.common = self.common.readonly();
-        self
-    }
-
-    pub fn writeonly(mut self) -> Self {
-        self.common = self.common.writeonly();
-        self
-    }
+    impl_common_metadata_accessors!(bool);
 
     pub fn default_value(mut self, default: bool) -> Self {
         self.default = Some(default);
@@ -242,15 +266,7 @@ impl ValueMetadataString {
         self
     }
 
-    pub fn readonly(mut self) -> Self {
-        self.common = self.common.readonly();
-        self
-    }
-
-    pub fn writeonly(mut self) -> Self {
-        self.common = self.common.writeonly();
-        self
-    }
+    impl_common_metadata_accessors!(());
 
     pub fn min_length(mut self, min_length: usize) -> Self {
         self.min_length = Some(min_length);
@@ -279,15 +295,7 @@ impl ValueMetadataBuffer {
         self
     }
 
-    pub fn readonly(mut self) -> Self {
-        self.common = self.common.readonly();
-        self
-    }
-
-    pub fn writeonly(mut self) -> Self {
-        self.common = self.common.writeonly();
-        self
-    }
+    impl_common_metadata_accessors!(());
 
     pub fn min_length(mut self, min_length: usize) -> Self {
         self.min_length = Some(min_length);
@@ -379,8 +387,8 @@ impl CCValueOptions {
 /// cc_value_static_property!(
 ///     CCName, // Must exist in CommandClasses enum
 ///     ValueName, // Must exist in <CCName>CCProperties enum
-///     ValueMetadata::any(), // or any other metadata
-///     CCValueOptions {} // or any other value options
+///     ValueMetadata::Numeric(ValueMetadataNumeric::default()), // or any other metadata
+///     CCValueOptions::default() // or any other value options
 /// );
 /// ```
 ///
@@ -393,6 +401,9 @@ macro_rules! cc_value_static_property {
     ($cc:ident, $name:ident, $metadata:expr, $options:expr) => {
         paste::paste! {
             pub fn [<$name:snake>]() -> &'static CCValue {
+                use std::sync::OnceLock;
+                use zwave_core::value_id::ValueId;
+
                 static RET: OnceLock<CCValue> = OnceLock::new();
                 RET.get_or_init(|| {
                     let property_and_key: (u32, Option<u32>) = [<$cc CCProperties>]::$name.into();

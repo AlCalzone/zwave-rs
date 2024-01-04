@@ -1,7 +1,4 @@
-use crate::{
-    ControllerCommandError, Driver, Endpoint, ExecNodeCommandError, Node,
-    Ready,
-};
+use crate::{ControllerCommandError, Driver, Endpoint, ExecNodeCommandError, Node, Ready};
 use proc_macros::impl_cc_apis;
 use thiserror::Error;
 use zwave_core::definitions::*;
@@ -18,6 +15,10 @@ pub trait CCAPI<'a> {
 
     fn cc_id(&self) -> CommandClasses;
     fn cc_version(&self) -> u8;
+
+    fn interview_depends_on(&self) -> &'static [CommandClasses] {
+        &[]
+    }
 
     #[allow(async_fn_in_trait)]
     async fn interview(&self, ctx: &CCInterviewContext<'_>) -> CCAPIResult<()>;

@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display};
 
 use crate::encoding::SimpleParseError;
 
@@ -24,6 +24,12 @@ impl std::fmt::Debug for Version {
         } else {
             write!(f, "{}.{}", self.major, self.minor)
         }
+    }
+}
+
+impl Display for Version {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
 

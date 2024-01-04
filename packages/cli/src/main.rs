@@ -19,9 +19,9 @@ async fn main() {
     driver.interview_nodes().await.unwrap();
     println!("all nodes interviewed");
 
-    let node = driver.get_node(&NodeId::new(2u8)).unwrap();
+    // let node = driver.get_node(&NodeId::new(2u8)).unwrap();
 
-    node.cc_api().basic().set(LevelSet::Off).await.unwrap();
+    // node.cc_api().basic().set(LevelSet::Off).await.unwrap();
 
     // let ping_result = node.ping().await.unwrap();
     // println!("ping result: {:?}", ping_result);

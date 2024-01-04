@@ -271,11 +271,19 @@ pub fn impl_cc_apis(input: TokenStream) -> TokenStream {
         }
     });
 
-    let serializable_match_arms = ccs.iter().map(|(m, c)| {
+    let interview_match_arms = ccs.iter().map(|(m, c)| {
         let module = format_ident!("{}", m);
         let cc_id = c.cc_id;
         quote! {
             #cc_id => CCAPIs::new(ctx.endpoint).#module().interview(ctx).await,
+        }
+    });
+
+    let implemented_version_match_arms = ccs.iter().map(|(_, c)| {
+        let cc_id = c.cc_id;
+        let cc_version = c.cc_version;
+        quote! {
+            #cc_id => Some(#cc_version),
         }
     });
 
@@ -294,13 +302,20 @@ pub fn impl_cc_apis(input: TokenStream) -> TokenStream {
         #(#submodules)*
 
         pub async fn interview_cc(cc: CommandClasses, ctx: &CCInterviewContext<'_>) -> CCAPIResult<()> {
-            // TODO: Generate this
             match cc {
-                #( #serializable_match_arms )*
+                #( #interview_match_arms )*
                 _ => {
                     // No interview procedure
                     Ok(())
                 }
+            }
+        }
+
+        /// Returns the version of the given CC this library implements
+        pub fn get_implemented_version(cc: CommandClasses) -> Option<u8> {
+            match cc {
+                #( #implemented_version_match_arms )*
+                _ => None
             }
         }
 

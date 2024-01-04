@@ -1,8 +1,5 @@
-use crate::{
-    expect_cc_or_timeout, CCAPIResult, CCInterviewContext,
-    Endpoint, CCAPI,
-};
-use zwave_cc::commandclass::{BasicCCGet, BasicCCReport, BasicCCSet, CCAddressable, BasicCCValues};
+use crate::{expect_cc_or_timeout, CCAPIResult, CCInterviewContext, Endpoint, CCAPI};
+use zwave_cc::commandclass::{BasicCCGet, BasicCCReport, BasicCCSet, BasicCCValues, CCAddressable};
 use zwave_core::{cache::CacheExt, prelude::*};
 
 pub struct BasicCCAPI<'a> {
@@ -67,7 +64,7 @@ impl<'a> CCAPI<'a> for BasicCCAPI<'a> {
 
 impl BasicCCAPI<'_> {
     pub async fn set(&self, value: LevelSet) -> CCAPIResult<()> {
-        let node: &crate::Node<'_> = self.endpoint.get_node();
+        let node = self.endpoint.get_node();
         let driver = node.driver();
         let cc = BasicCCSet::builder()
             .target_value(value)

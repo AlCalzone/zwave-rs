@@ -92,6 +92,12 @@ pub trait Endpoint<'a> {
     fn index(&self) -> EndpointIndex;
     fn value_cache(&'a self) -> EndpointValueCache<'a>;
 
+    fn supported_command_classes(&self) -> Vec<CommandClasses>;
+    // FIXME: We need an easier way to modify CC support on nodes and endpoints -> Separate trait!
+    fn set_supported_command_classes(&self, ccs: Vec<CommandClasses>);
+
+    fn get_cc_version(&self, cc: CommandClasses) -> Option<u8>;
+
     // TODO: Add the rest
 }
 
@@ -130,22 +136,6 @@ impl<'a> Node<'a> {
         &self.protocol_data
     }
 
-    pub fn supported_command_classes(&self) -> Vec<CommandClasses> {
-        read_endpoint_locked!(self, &self.id, &self.index(), supported_command_classes)
-            .map(|ccs| ccs.clone())
-            .unwrap_or_default()
-    }
-
-    // FIXME: We need an easier way to modify CC support on nodes and endpoints -> Separate trait!
-
-    pub fn set_supported_command_classes(&self, ccs: Vec<CommandClasses>) {
-        if let Some(mut handle) =
-            write_endpoint_locked!(self, &self.id, &self.index(), supported_command_classes)
-        {
-            *handle = ccs;
-        }
-    }
-
     pub fn can_sleep(&self) -> bool {
         !self.protocol_data.listening && self.protocol_data.frequent_listening.is_none()
     }
@@ -181,4 +171,24 @@ impl<'a> Endpoint<'a> for Node<'a> {
     fn value_cache(&'a self) -> EndpointValueCache<'a> {
         EndpointValueCache::new(self, self.driver.value_cache())
     }
+
+    fn supported_command_classes(&self) -> Vec<CommandClasses> {
+        read_endpoint_locked!(self, &self.id, &self.index(), supported_command_classes)
+            .map(|ccs| ccs.clone())
+            .unwrap_or_default()
+    }
+
+    fn set_supported_command_classes(&self, ccs: Vec<CommandClasses>) {
+        if let Some(mut handle) =
+            write_endpoint_locked!(self, &self.id, &self.index(), supported_command_classes)
+        {
+            *handle = ccs;
+        }
+    }
+
+    fn get_cc_version(&self, cc: CommandClasses) -> Option<u8> {
+        // FIXME: Use the version from the node, not our implemented one
+        get_implemented_version(cc)
+    }
 }
+

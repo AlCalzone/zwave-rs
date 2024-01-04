@@ -53,7 +53,7 @@ macro_rules! submodule {
 }
 
 /// Provides the `to_discriminant` method for enums implementing this trait.
-/// 
+///
 /// # Safety
 /// The implementer must ensure that the enum's `#[repr(...)]` matches the generic type of this trait.
 /// For example, an enum implementing `ToDiscriminant<u8>` MUST be marked with `#[repr(u8)]`.
