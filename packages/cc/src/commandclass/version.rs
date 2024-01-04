@@ -83,6 +83,7 @@ impl VersionCCValues {
 
     cc_value_static_property!(
         Version,
+        supports_zwave_software_get,
         SupportsZWaveSoftwareGet,
         ValueMetadata::Boolean(ValueMetadataBoolean::default().readonly()),
         CCValueOptions::default().min_version(3).internal()
@@ -90,6 +91,7 @@ impl VersionCCValues {
 
     cc_value_static_property!(
         Version,
+        sdk_version,
         SDKVersion,
         ValueMetadata::Numeric(
             ValueMetadataNumeric::default()
@@ -103,6 +105,7 @@ impl VersionCCValues {
 
     cc_value_static_property!(
         Version,
+        application_framework_api_version,
         ApplicationFrameworkAPIVersion,
         ValueMetadata::Numeric(
             ValueMetadataNumeric::default()
@@ -129,6 +132,7 @@ impl VersionCCValues {
 
     cc_value_static_property!(
         Version,
+        serial_api_version,
         SerialAPIVersion,
         ValueMetadata::Numeric(
             ValueMetadataNumeric::default()
@@ -142,6 +146,7 @@ impl VersionCCValues {
 
     cc_value_static_property!(
         Version,
+        serial_api_build_number,
         SerialAPIBuildNumber,
         ValueMetadata::Numeric(
             ValueMetadataNumeric::default()
@@ -155,6 +160,7 @@ impl VersionCCValues {
 
     cc_value_static_property!(
         Version,
+        zwave_protocol_version,
         ZWaveProtocolVersion,
         ValueMetadata::Numeric(
             ValueMetadataNumeric::default()
@@ -168,6 +174,7 @@ impl VersionCCValues {
 
     cc_value_static_property!(
         Version,
+        zwave_protocol_build_number,
         ZWaveProtocolBuildNumber,
         ValueMetadata::Numeric(
             ValueMetadataNumeric::default()
@@ -491,7 +498,7 @@ impl CCSerializable for VersionCCCapabilitiesGet {
 
 #[derive(Debug, Clone, PartialEq, TypedBuilder)]
 pub struct VersionCCCapabilitiesReport {
-    pub supports_z_wave_software_get: bool,
+    pub supports_zwave_software_get: bool,
 }
 
 impl CCBase for VersionCCCapabilitiesReport {}
@@ -499,8 +506,8 @@ impl CCBase for VersionCCCapabilitiesReport {}
 impl CCValues for VersionCCCapabilitiesReport {
     fn to_values(&self) -> Vec<(ValueId, CacheValue)> {
         vec![(
-            VersionCCValues::supports_z_wave_software_get().id,
-            CacheValue::from(self.supports_z_wave_software_get),
+            VersionCCValues::supports_zwave_software_get().id,
+            CacheValue::from(self.supports_zwave_software_get),
         )]
     }
 }
@@ -523,7 +530,7 @@ impl CCParsable for VersionCCCapabilitiesReport {
         Ok((
             i,
             Self {
-                supports_z_wave_software_get: supports_zwave_software_get,
+                supports_zwave_software_get,
             },
         ))
     }
@@ -532,7 +539,7 @@ impl CCParsable for VersionCCCapabilitiesReport {
 impl CCSerializable for VersionCCCapabilitiesReport {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
         use cf::bytes::be_u8;
-        let capabilities = if self.supports_z_wave_software_get {
+        let capabilities = if self.supports_zwave_software_get {
             0b100
         } else {
             0
@@ -596,13 +603,13 @@ impl CCValues for VersionCCZWaveSoftwareReport {
     fn to_values(&self) -> Vec<(ValueId, CacheValue)> {
         let mut ret = vec![(
             // FIXME: we should have an override for the name
-            VersionCCValues::s_d_k_version().id,
+            VersionCCValues::sdk_version().id,
             CacheValue::from(self.sdk_version.to_string()),
         )];
 
         if let Some((v, b)) = self.application_framework_version {
             ret.push((
-                VersionCCValues::application_framework_a_p_i_version().id,
+                VersionCCValues::application_framework_api_version().id,
                 CacheValue::from(v.to_string()),
             ));
             ret.push((
@@ -613,22 +620,22 @@ impl CCValues for VersionCCZWaveSoftwareReport {
 
         if let Some((v, b)) = self.host_interface_version {
             ret.push((
-                VersionCCValues::serial_a_p_i_version().id,
+                VersionCCValues::serial_api_version().id,
                 CacheValue::from(v.to_string()),
             ));
             ret.push((
-                VersionCCValues::serial_a_p_i_build_number().id,
+                VersionCCValues::serial_api_build_number().id,
                 CacheValue::from(b),
             ));
         }
 
         if let Some((v, b)) = self.zwave_protocol_version {
             ret.push((
-                VersionCCValues::z_wave_protocol_version().id,
+                VersionCCValues::zwave_protocol_version().id,
                 CacheValue::from(v.to_string()),
             ));
             ret.push((
-                VersionCCValues::z_wave_protocol_build_number().id,
+                VersionCCValues::zwave_protocol_build_number().id,
                 CacheValue::from(b),
             ));
         }

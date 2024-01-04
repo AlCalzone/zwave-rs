@@ -90,7 +90,7 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
                     response
                 );
 
-                if cache.read_bool(&VersionCCValues::supports_z_wave_software_get().id)
+                if cache.read_bool(&VersionCCValues::supports_zwave_software_get().id)
                     == Some(true)
                 {
                     println!("Querying Z-Wave software version...");

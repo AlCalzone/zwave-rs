@@ -397,16 +397,35 @@ impl CCValueOptions {
 /// pub fn value_name() -> &'static CCValue {
 ///     // ...
 /// }
+/// ```
+///
+/// To override the method name, you can provide it as the second parameter
+/// ```ignore
+/// cc_value_static_property!(
+///     CCName, // Must exist in CommandClasses enum
+///     abc,
+///     ABC, // would end up as a_b_c() without the override
+///     ValueMetadata::Numeric(ValueMetadataNumeric::default()),
+///     CCValueOptions::default()
+/// );
+/// ```
+///
+/// Output:
+/// ```ignore
+/// pub fn abc() -> &'static CCValue {
+///     // ...
+/// }
+/// ```
 macro_rules! cc_value_static_property {
-    ($cc:ident, $name:ident, $metadata:expr, $options:expr) => {
+    ($cc:ident, $method_name:ident, $property_name:ident, $metadata:expr, $options:expr) => {
         paste::paste! {
-            pub fn [<$name:snake>]() -> &'static CCValue {
+            pub fn $method_name() -> &'static CCValue {
                 use std::sync::OnceLock;
                 use zwave_core::value_id::ValueId;
 
                 static RET: OnceLock<CCValue> = OnceLock::new();
                 RET.get_or_init(|| {
-                    let property_and_key: (u32, Option<u32>) = [<$cc CCProperties>]::$name.into();
+                    let property_and_key: (u32, Option<u32>) = [<$cc CCProperties>]::$property_name.into();
                     let value_id = ValueId::new(
                         CommandClasses::$cc,
                         property_and_key.0,
@@ -428,6 +447,17 @@ macro_rules! cc_value_static_property {
             }
         }
     };
+    ($cc:ident, $name:ident, $metadata:expr, $options:expr) => {
+        paste::paste! {
+            cc_value_static_property!(
+                $cc,
+                [<$name:snake>],
+                $name,
+                $metadata,
+                $options
+            );
+        }
+    }
 }
 pub(crate) use cc_value_static_property;
 
@@ -457,8 +487,28 @@ pub(crate) use cc_value_static_property;
 /// pub fn value_name(arg1: u8, arg2: bool) -> &'static CCValue {
 ///     // ...
 /// }
+/// ```
+///
+/// To override the method name, you can provide it as the second parameter
+/// ```ignore
+/// cc_value_dynamic_property!(
+///     CCName, // Must exist in CommandClasses enum
+///     abc,
+///     ABC, // would end up as a_b_c() without the override
+///     (arg1: u8, arg2: bool),
+///     ValueMetadata::Numeric(ValueMetadataNumeric::default()),
+///     CCValueOptions::default()
+/// );
+/// ```
+///
+/// Output:
+/// ```ignore
+/// pub fn abc() -> &'static CCValue {
+///     // ...
+/// }
+/// ```
 macro_rules! cc_value_dynamic_property {
-    ($cc:ident, $name:ident, ($($param:ident: $type:ty),*), $metadata:expr, $options:expr) => {
+    ($cc:ident, $method_name:ident, $property_name:ident, ($($param:ident: $type:ty),*), $metadata:expr, $options:expr) => {
         paste::paste! {
             pub fn [<$name:snake>]($($param: $type),*) -> &'static CCValue {
                 static RET: OnceLock<CCValue> = OnceLock::new();
@@ -485,5 +535,17 @@ macro_rules! cc_value_dynamic_property {
             }
         }
     };
+    ($cc:ident, $name:ident, $params:tt, $metadata:expr, $options:expr) => {
+        paste::paste! {
+            cc_value_dynamic_property!(
+                $cc,
+                [<$name:snake>],
+                $name,
+                $params,
+                $metadata,
+                $options
+            );
+        }
+    }
 }
 pub(crate) use cc_value_dynamic_property;
