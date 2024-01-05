@@ -756,4 +756,17 @@
             ""
         ]
     },
+    "CC API test support": {
+        "scope": "rust",
+        "prefix": "zwccapisupp",
+        "body": [
+            "pub fn supports_${1:get}(&self) -> Option<bool> {",
+            "    // Example: Test version of the CC",
+            "    self.endpoint.get_cc_version(self.cc_id()).map(|v| v >= 2)",
+            "    // Example: Read value from cache",
+            "    // self.endpoint.value_cache().read_bool(&${2:${TM_FILENAME_BASE/(.*)$/${1:/pascalcase}/}}CCValues::supports_${1}().id)",
+            "}",
+            ""
+        ]
+    },
 }

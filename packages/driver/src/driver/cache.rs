@@ -14,7 +14,7 @@ pub struct ValueCache<'a> {
 }
 
 impl<'a> ValueCache<'a> {
-    pub fn new(storage: &'a Arc<DriverStorageShared>) -> Self {
+    pub(crate) fn new(storage: &'a Arc<DriverStorageShared>) -> Self {
         Self { storage }
     }
 }

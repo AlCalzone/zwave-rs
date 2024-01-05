@@ -153,7 +153,11 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
     let submodule_imports = files.iter().map(|(file, _)| {
         let module = format_ident!("{}", file);
         quote! {
-            submodule!(#module);
+            // Expose each CC separately
+            pub mod #module;
+            // but also make the all available via the commandclass:: namespace
+            pub use #module::*;
+            // submodule!(#module);
         }
     });
 

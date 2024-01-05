@@ -1,5 +1,5 @@
 use crate::{expect_cc_or_timeout, CCAPIResult, CCInterviewContext, EndpointLike, CCAPI};
-use zwave_cc::commandclass::{BasicCCGet, BasicCCReport, BasicCCSet, BasicCCValues, CCAddressable};
+use zwave_cc::commandclass::{basic::*, CCAddressable};
 use zwave_core::{cache::CacheExt, prelude::*};
 
 pub struct BasicCCAPI<'a> {

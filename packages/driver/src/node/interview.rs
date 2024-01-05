@@ -64,7 +64,7 @@ impl<'a> Node<'a> {
         // * Security S2
         // * Security S0
         // * Manufacturer Specific
-        // * Version
+        // * Version ✅
         // * Wake Up
         // * ...other non-application CCs
         // Endpoints:

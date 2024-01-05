@@ -43,6 +43,12 @@ pub type CCAPIResult<T> = Result<T, CCAPIError>;
 #[derive(Error, Debug)]
 /// Defines the possible errors for a CC API call
 pub enum CCAPIError {
+    #[error("Node {node_id}, endpoint {endpoint} does not support the API command {api_command}")]
+    NotSupported {
+        node_id: NodeId,
+        endpoint: EndpointIndex,
+        api_command: &'static str,
+    },
     #[error("Controller command error: {0}")]
     Controller(ControllerCommandError),
     #[error("The node did not acknowledge the command")]
@@ -79,3 +85,19 @@ macro_rules! expect_cc_or_timeout {
     };
 }
 pub(crate) use expect_cc_or_timeout;
+
+macro_rules! cc_api_assert_supported {
+    ($self:ident, $cmd:ident) => {
+        paste::paste! {
+            match $self.[<supports_ $cmd>]() {
+                Some(true) => Ok(()),
+                _ => Err(crate::CCAPIError::NotSupported {
+                    node_id: $self.endpoint.node_id(),
+                    endpoint: $self.endpoint.index(),
+                    api_command: stringify!($cmd),
+                }),
+            }?;
+        }
+    };
+}
+pub(crate) use cc_api_assert_supported;

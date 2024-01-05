@@ -122,8 +122,8 @@ impl<T> ValueMetadataCommon<T> {
         self
     }
 
-    pub fn states(mut self, states: Vec<(T, Cow<'static, str>)>) -> Self {
-        self.states = Some(states);
+    pub fn states(mut self, states: Vec<(T, impl Into<Cow<'static, str>>)>) -> Self {
+        self.states = Some(states.into_iter().map(|(v, s)| (v, s.into())).collect());
         self
     }
 
@@ -155,8 +155,10 @@ macro_rules! impl_common_metadata_accessors {
             self
         }
 
-        pub fn states(mut self, states: Vec<($t, Cow<'static, str>)>) -> Self {
-            self.common = self.common.states(states);
+        pub fn states(mut self, states: Vec<($t, impl Into<Cow<'static, str>>)>) -> Self {
+            self.common = self
+                .common
+                .states(states.into_iter().map(|(v, s)| (v, s.into())).collect());
             self
         }
 

@@ -1,12 +1,6 @@
-use crate::{
-    expect_cc_or_timeout, get_implemented_version, CCAPIResult, CCInterviewContext, EndpointLike,
-    CCAPI,
-};
-use zwave_cc::commandclass::{
-    CCAddressable, VersionCCCapabilitiesGet, VersionCCCapabilitiesReport, VersionCCCommandClassGet,
-    VersionCCGet, VersionCCReport, VersionCCValues, VersionCCZWaveSoftwareGet,
-    VersionCCZWaveSoftwareReport,
-};
+use crate::{cc_api_assert_supported, expect_cc_or_timeout, get_implemented_version};
+use crate::{CCAPIResult, CCInterviewContext, EndpointLike, CCAPI};
+use zwave_cc::commandclass::{version::*, CCAddressable};
 use zwave_core::{cache::CacheExt, prelude::*};
 
 pub struct VersionCCAPI<'a> {
@@ -153,8 +147,6 @@ impl VersionCCAPI<'_> {
 }
 
 impl VersionCCAPI<'_> {
-    // FIXME: Implement a way to query support for API commands
-
     pub async fn get(&self) -> CCAPIResult<Option<VersionCCReport>> {
         let node = self.endpoint.get_node();
         let driver = node.driver();
@@ -178,7 +170,13 @@ impl VersionCCAPI<'_> {
         Ok(response.map(|r| r.version))
     }
 
+    pub fn supports_get_capabilities(&self) -> Option<bool> {
+        self.endpoint.get_cc_version(self.cc_id()).map(|v| v >= 3)
+    }
+
     pub async fn get_capabilities(&self) -> CCAPIResult<Option<VersionCCCapabilitiesReport>> {
+        cc_api_assert_supported!(self, get_capabilities);
+
         let node = self.endpoint.get_node();
         let driver = node.driver();
         let cc = VersionCCCapabilitiesGet::default().with_destination(node.id().into());
@@ -186,6 +184,12 @@ impl VersionCCAPI<'_> {
         let response = expect_cc_or_timeout!(response, VersionCCCapabilitiesReport);
 
         Ok(response)
+    }
+
+    pub fn supports_get_zwave_software(&self) -> Option<bool> {
+        self.endpoint
+            .value_cache()
+            .read_bool(&VersionCCValues::supports_zwave_software_get().id)
     }
 
     pub async fn get_zwave_software(&self) -> CCAPIResult<Option<VersionCCZWaveSoftwareReport>> {
