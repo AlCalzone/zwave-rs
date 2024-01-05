@@ -38,8 +38,6 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
         let node = endpoint.get_node();
         let cache = node.value_cache();
 
-        // FIXME: Use the root endpoint for all queries
-
         // In a Multi Channel device, the Version Command Class MUST be supported by the Root Device, while
         // the Version Command Class SHOULD NOT be supported by individual End Points.
         //
@@ -47,6 +45,9 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
         // Channel device. However, the Root Device MUST respond to Version requests for any Command Class
         // implemented by the Multi Channel device; also in cases where the actual Command Class is only
         // provided by an End Point.
+
+        // Therefore we use the root endpoint for all queries
+        let api = Self::new(node);
 
         println!(
             "Node {}, {} - Interviewing Version CC",
@@ -56,12 +57,12 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
 
         // On the root endpoint, query the VersionCC version and static version information
         if endpoint.index() == EndpointIndex::Root {
-            self.query_cc_version(CommandClasses::Version, ctx).await?;
+            api.query_cc_version(CommandClasses::Version, ctx).await?;
             // TODO: When we use CC versions to check support for features,
             // we might have to update the version after this call
 
             println!("Querying node versions...");
-            if let Some(response) = self.get().await? {
+            if let Some(response) = api.get().await? {
                 println!("received response for node versions: {:?}", response);
             }
         }
@@ -77,7 +78,7 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
                 continue;
             }
 
-            self.query_cc_version(cc, ctx).await?;
+            api.query_cc_version(cc, ctx).await?;
         }
 
         // On the root device, query Version CC capabilities
@@ -85,7 +86,7 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
             && node.get_cc_version(CommandClasses::Version) >= Some(3)
         {
             println!("Querying Version CC capabilities...");
-            if let Some(response) = self.get_capabilities().await? {
+            if let Some(response) = api.get_capabilities().await? {
                 println!(
                     "received Version CC capabilities capabilities: {:?}",
                     response
@@ -94,7 +95,7 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
                 if cache.read_bool(&VersionCCValues::supports_zwave_software_get().id) == Some(true)
                 {
                     println!("Querying Z-Wave software version...");
-                    if let Some(response) = self.get_zwave_software().await? {
+                    if let Some(response) = api.get_zwave_software().await? {
                         println!("received Z-Wave software version: {:?}", response);
                     }
                 }
