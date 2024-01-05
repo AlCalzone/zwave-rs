@@ -5,7 +5,7 @@ use std::{
 
 use enum_dispatch::enum_dispatch;
 use typed_builder::TypedBuilder;
-use zwave_core::{cache::CacheValue, encoding::Input, prelude::*, submodule, value_id::ValueId};
+use zwave_core::{cache::CacheValue, encoding::Input, prelude::*, value_id::ValueId};
 
 use crate::commandclass_raw::CCRaw;
 

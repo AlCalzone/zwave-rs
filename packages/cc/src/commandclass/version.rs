@@ -36,6 +36,8 @@ enum VersionCCProperties {
     ApplicationBuildNumber = 0x0D,
 }
 
+unsafe impl ToDiscriminant<u8> for VersionCCProperties {}
+
 impl From<VersionCCProperties> for (u32, Option<u32>) {
     fn from(val: VersionCCProperties) -> Self {
         match val {
@@ -47,14 +49,11 @@ impl From<VersionCCProperties> for (u32, Option<u32>) {
     }
 }
 
-unsafe impl ToDiscriminant<u8> for VersionCCProperties {}
-
 pub struct VersionCCValues;
 impl VersionCCValues {
     cc_value_dynamic_property!(
         Version,
         FirmwareVersion,
-        (chip_index: u8),
         |chip_index: u8| ValueMetadata::String(
             ValueMetadataString::default()
                 .label(
@@ -378,7 +377,7 @@ impl CCParsable for VersionCCReport {
 impl CCSerializable for VersionCCReport {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
         // use cf::{bytes::be_u8, sequence::tuple};
-        move |out| todo!("ERROR: VersionCCReport::serialize() not implemented")
+        move |_out| todo!("ERROR: VersionCCReport::serialize() not implemented")
     }
 }
 
@@ -721,7 +720,7 @@ impl CCParsable for VersionCCZWaveSoftwareReport {
 
 impl CCSerializable for VersionCCZWaveSoftwareReport {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, sequence::tuple};
-        move |out| todo!("ERROR: VersionCCZWaveSoftwareReport::serialize() not implemented")
+        
+        move |_out| todo!("ERROR: VersionCCZWaveSoftwareReport::serialize() not implemented")
     }
 }

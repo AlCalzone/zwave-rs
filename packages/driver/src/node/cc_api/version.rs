@@ -109,7 +109,7 @@ impl VersionCCAPI<'_> {
     async fn query_cc_version<'ctx>(
         &self,
         cc: CommandClasses,
-        ctx: &CCInterviewContext<'ctx>,
+        _ctx: &CCInterviewContext<'ctx>,
     ) -> CCAPIResult<()> {
         if get_implemented_version(cc).is_none() {
             println!("Skipping query for not yet implemented CC {}", cc);

@@ -1,4 +1,4 @@
-use zwave_cc::commandclass::{CCAddressable, CCInfo, NoOperationCC};
+use zwave_cc::commandclass::{CCAddressable, NoOperationCC};
 use zwave_core::{definitions::*, submodule};
 
 use crate::{ControllerCommandResult, Driver, ExecNodeCommandError, Ready};

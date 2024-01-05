@@ -222,6 +222,12 @@ impl ValueMetadataNumeric {
     }
 }
 
+impl ValueMetadataNumeric {
+    pub fn readonly_u16() -> Self {
+        Self::default().readonly().min(0).max(0xffff)
+    }
+}
+
 #[derive(Default)]
 pub struct ValueMetadataBoolean {
     pub common: ValueMetadataCommon<bool>,
@@ -478,8 +484,9 @@ pub(crate) use cc_value_static_property;
 /// cc_value_dynamic_property!(
 ///     CCName, // Must exist in CommandClasses enum
 ///     ValueName, // Must exist in <CCName>CCProperties enum
-///     (arg1: u8, arg2: bool), // Must be compatible with the ValueName enum variant
-///     ValueMetadata::Numeric(ValueMetadataNumeric::default()), // or any other metadata
+///     |arg1: u8, arg2: bool| ValueMetadata::Numeric(
+///         ValueMetadataNumeric::default()
+///     ), // or any other metadata
 ///     CCValueOptions::default() // or any other value options
 /// );
 /// ```
@@ -497,8 +504,9 @@ pub(crate) use cc_value_static_property;
 ///     CCName, // Must exist in CommandClasses enum
 ///     abc,
 ///     ABC, // would end up as a_b_c() without the override
-///     (arg1: u8, arg2: bool),
-///     ValueMetadata::Numeric(ValueMetadataNumeric::default()),
+///     |arg1: u8, arg2: bool| ValueMetadata::Numeric(
+///         ValueMetadataNumeric::default()
+///     ),
 ///     CCValueOptions::default()
 /// );
 /// ```
@@ -510,7 +518,7 @@ pub(crate) use cc_value_static_property;
 /// }
 /// ```
 macro_rules! cc_value_dynamic_property {
-    ($cc:ident, $method_name:ident, $property_name:ident, ($($param:ident: $type:ty),*), $metadata:expr, $options:expr) => {
+    ($cc:ident, $method_name:ident, $property_name:ident, |$($param:ident: $type:ty),*| $metadata:expr, $options:expr) => {
         paste::paste! {
             pub fn $method_name($($param: $type),*) -> &'static CCValue {
                 use std::sync::OnceLock;
@@ -524,10 +532,11 @@ macro_rules! cc_value_dynamic_property {
                         property_and_key.0,
                         property_and_key.1,
                     );
+                    // FIXME: This is not correct, each value should be able to define this itself
                     let is = Box::new(move |id: &ValueId| {
                         (id.property(), id.property_key()) == property_and_key
                     });
-                    let metadata = ($metadata)($($param),*);
+                    let metadata = $metadata;
                     let options = $options;
 
                     CCValue {
@@ -540,13 +549,12 @@ macro_rules! cc_value_dynamic_property {
             }
         }
     };
-    ($cc:ident, $name:ident, $params:tt, $metadata:expr, $options:expr) => {
+    ($cc:ident, $name:ident, $metadata:expr, $options:expr) => {
         paste::paste! {
             cc_value_dynamic_property!(
                 $cc,
                 [<$name:snake>],
                 $name,
-                $params,
                 $metadata,
                 $options
             );
