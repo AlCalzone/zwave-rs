@@ -1,6 +1,9 @@
+use std::borrow::Cow;
+
 use crate::prelude::*;
 use crate::values::*;
 use zwave_core::cache::CacheValue;
+use zwave_core::util::ToDiscriminant;
 use zwave_core::value_id::ValueId;
 use zwave_core::{encoding::parsers, prelude::*};
 
@@ -15,8 +18,9 @@ use nom::{
 use typed_builder::TypedBuilder;
 use zwave_core::encoding::{self, encoders::empty};
 
+#[repr(u8)] // must match the ToDiscriminant impl
 enum VersionCCProperties {
-    FirmwareVersions = 0x00,
+    FirmwareVersion(u8) = 0x00,
     LibraryType = 0x01,
     ProtocolVersion = 0x02,
     HardwareVersion = 0x03,
@@ -32,14 +36,33 @@ enum VersionCCProperties {
     ApplicationBuildNumber = 0x0D,
 }
 
+impl From<VersionCCProperties> for (u32, Option<u32>) {
+    fn from(val: VersionCCProperties) -> Self {
+        match val {
+            VersionCCProperties::FirmwareVersion(index) => {
+                (val.to_discriminant() as u32, Some(index as u32))
+            }
+            _ => (val.to_discriminant() as u32, None),
+        }
+    }
+}
+
+unsafe impl ToDiscriminant<u8> for VersionCCProperties {}
+
 pub struct VersionCCValues;
 impl VersionCCValues {
-    cc_value_static_property!(
+    cc_value_dynamic_property!(
         Version,
-        FirmwareVersions,
-        ValueMetadata::StringArray(
+        FirmwareVersion,
+        (chip_index: u8),
+        |chip_index: u8| ValueMetadata::String(
             ValueMetadataString::default()
-                .label("Z-Wave chip firmware versions")
+                .label(
+                    if chip_index == 0 {
+                        Cow::from("Z-Wave chip firmware version")
+                    } else {
+                        Cow::from(format!("Firmware version (chip #{})", chip_index))
+                    })
                 .readonly()
         ),
         CCValueOptions::default().supports_endpoints(false)
@@ -213,12 +236,6 @@ impl VersionCCValues {
     );
 }
 
-impl From<VersionCCProperties> for (u32, Option<u32>) {
-    fn from(val: VersionCCProperties) -> Self {
-        (val as u32, None)
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum VersionCCCommand {
@@ -293,18 +310,19 @@ impl CCValues for VersionCCReport {
                 VersionCCValues::protocol_version().id,
                 CacheValue::from(self.protocol_version.to_string()),
             ),
-            (
-                // FIXME: This should be an array
-                VersionCCValues::firmware_versions().id,
-                CacheValue::from(
-                    self.firmware_versions
-                        .iter()
-                        .map(|v| v.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                ),
-            ),
         ];
+
+        ret.extend(
+            self.firmware_versions
+                .iter()
+                .enumerate()
+                .map(|(i, version)| {
+                    (
+                        VersionCCValues::firmware_version(i as u8).id,
+                        CacheValue::from(version.to_string()),
+                    )
+                }),
+        );
 
         if let Some(hardware_version) = self.hardware_version {
             ret.push((

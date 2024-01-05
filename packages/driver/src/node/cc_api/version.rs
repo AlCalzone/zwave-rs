@@ -1,5 +1,6 @@
 use crate::{
-    expect_cc_or_timeout, get_implemented_version, CCAPIResult, CCInterviewContext, EndpointLike, CCAPI,
+    expect_cc_or_timeout, get_implemented_version, CCAPIResult, CCInterviewContext, EndpointLike,
+    CCAPI,
 };
 use zwave_cc::commandclass::{
     CCAddressable, VersionCCCapabilitiesGet, VersionCCCapabilitiesReport, VersionCCCommandClassGet,
@@ -90,8 +91,7 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
                     response
                 );
 
-                if cache.read_bool(&VersionCCValues::supports_zwave_software_get().id)
-                    == Some(true)
+                if cache.read_bool(&VersionCCValues::supports_zwave_software_get().id) == Some(true)
                 {
                     println!("Querying Z-Wave software version...");
                     if let Some(response) = self.get_zwave_software().await? {
@@ -124,18 +124,27 @@ impl VersionCCAPI<'_> {
         println!("Querying version for CC {}", cc);
         if let Some(version) = self.get_cc_version(cc).await? {
             println!("received version for CC {}: {}", cc, version);
-            #[expect(clippy::if_same_then_else, reason = "Implementation pending")]
             if version > 0 {
-                // FIXME: Save version to the cache
+                println!("... supports CC {} in version {}", cc, version);
+                self.endpoint
+                    .modify_cc_info(cc, &PartialCommandClassInfo::default().version(version))
             } else {
                 // We were lied to - the NIF said this CC is supported, now the node claims it isn't
                 // Make sure this is not a critical CC, which must be supported though
-                // FIXME: Actually do this
-                // FIXME: Save version 1 to the cache
+                // FIXME: Actually check if the CC is critical and save version 1 to the cache
+
+                let is_critical = false;
+                if is_critical {
+                    todo!()
+                } else {
+                    println!("... does not support CC {}", cc);
+                    self.endpoint.remove_cc(cc);
+                }
             }
         } else {
             println!("CC version query for {} timed out. Assuming version 1", cc);
-            // FIXME: Save version 1 to the cache
+            self.endpoint
+                .modify_cc_info(cc, &PartialCommandClassInfo::default().version(1))
         }
 
         Ok(())

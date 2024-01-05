@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use zwave_core::value_id::ValueId;
 
 pub struct CCValue {
@@ -22,12 +23,6 @@ pub enum ValueMetadata {
     String(ValueMetadataString),
     // TODO: Color
     Buffer(ValueMetadataBuffer),
-
-    // Primitive arrays
-    // TODO: Check if keeping the payload makes sense
-    NumericArray(ValueMetadataNumeric),
-    BooleanArray(ValueMetadataBoolean),
-    StringArray(ValueMetadataString),
 
     // Z-Wave specific value metadata - we have to distinguish between
     // SET and REPORT values, as they have different semantics
@@ -55,9 +50,9 @@ impl ValueMetadata {
 
 pub struct ValueMetadataCommon<T> {
     /// A human-readable name for the value
-    pub label: Option<&'static str>,
+    pub label: Option<Cow<'static, str>>,
     /// A detailed description of the value
-    pub description: Option<&'static str>,
+    pub description: Option<Cow<'static, str>>,
 
     /// Whether the value can be read
     pub readable: bool,
@@ -65,7 +60,7 @@ pub struct ValueMetadataCommon<T> {
     pub writeable: bool,
 
     /// Human-readable names for some or all of the possible values
-    pub states: Option<Vec<(T, &'static str)>>,
+    pub states: Option<Vec<(T, Cow<'static, str>)>>,
 
     /// Whether a user should be able to manually enter all legal values in the range `min...max` (`true`),
     /// or if only the ones defined in `states` should be selectable in a dropdown (`false`).
@@ -105,13 +100,13 @@ impl<T> ValueMetadataCommon<T> {
         }
     }
 
-    pub fn label(mut self, label: &'static str) -> Self {
-        self.label = Some(label);
+    pub fn label(mut self, label: impl Into<Cow<'static, str>>) -> Self {
+        self.label = Some(label.into());
         self
     }
 
-    pub fn description(mut self, description: &'static str) -> Self {
-        self.description = Some(description);
+    pub fn description(mut self, description: impl Into<Cow<'static, str>>) -> Self {
+        self.description = Some(description.into());
         self
     }
 
@@ -127,7 +122,7 @@ impl<T> ValueMetadataCommon<T> {
         self
     }
 
-    pub fn states(mut self, states: Vec<(T, &'static str)>) -> Self {
+    pub fn states(mut self, states: Vec<(T, Cow<'static, str>)>) -> Self {
         self.states = Some(states);
         self
     }
@@ -140,13 +135,13 @@ impl<T> ValueMetadataCommon<T> {
 
 macro_rules! impl_common_metadata_accessors {
     ($t:ty) => {
-        pub fn label(mut self, label: &'static str) -> Self {
-            self.common = self.common.label(label);
+        pub fn label(mut self, label: impl Into<Cow<'static, str>>) -> Self {
+            self.common = self.common.label(label.into());
             self
         }
 
-        pub fn description(mut self, description: &'static str) -> Self {
-            self.common = self.common.description(description);
+        pub fn description(mut self, description: impl Into<Cow<'static, str>>) -> Self {
+            self.common = self.common.description(description.into());
             self
         }
 
@@ -160,7 +155,7 @@ macro_rules! impl_common_metadata_accessors {
             self
         }
 
-        pub fn states(mut self, states: Vec<($t, &'static str)>) -> Self {
+        pub fn states(mut self, states: Vec<($t, Cow<'static, str>)>) -> Self {
             self.common = self.common.states(states);
             self
         }
@@ -257,7 +252,7 @@ pub struct ValueMetadataString {
     pub max_length: Option<usize>,
 
     /// The default value
-    pub default: Option<String>,
+    pub default: Option<Cow<'static, str>>,
 }
 
 impl ValueMetadataString {
@@ -275,6 +270,11 @@ impl ValueMetadataString {
 
     pub fn max_length(mut self, max_length: usize) -> Self {
         self.max_length = Some(max_length);
+        self
+    }
+
+    pub fn default_value(mut self, default: impl Into<Cow<'static, str>>) -> Self {
+        self.default = Some(default.into());
         self
     }
 }
@@ -510,10 +510,13 @@ pub(crate) use cc_value_static_property;
 macro_rules! cc_value_dynamic_property {
     ($cc:ident, $method_name:ident, $property_name:ident, ($($param:ident: $type:ty),*), $metadata:expr, $options:expr) => {
         paste::paste! {
-            pub fn [<$name:snake>]($($param: $type),*) -> &'static CCValue {
+            pub fn $method_name($($param: $type),*) -> &'static CCValue {
+                use std::sync::OnceLock;
+                use zwave_core::value_id::ValueId;
+
                 static RET: OnceLock<CCValue> = OnceLock::new();
                 RET.get_or_init(|| {
-                    let property_and_key: (u32, Option<u32>) = [<$cc CCProperties>]::$name($($param),*).into();
+                    let property_and_key: (u32, Option<u32>) = [<$cc CCProperties>]::$property_name($($param),*).into();
                     let value_id = ValueId::new(
                         CommandClasses::$cc,
                         property_and_key.0,
@@ -522,7 +525,7 @@ macro_rules! cc_value_dynamic_property {
                     let is = Box::new(move |id: &ValueId| {
                         (id.property(), id.property_key()) == property_and_key
                     });
-                    let metadata = $metadata;
+                    let metadata = ($metadata)($($param),*);
                     let options = $options;
 
                     CCValue {
