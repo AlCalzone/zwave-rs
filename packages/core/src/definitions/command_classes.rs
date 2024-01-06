@@ -1,8 +1,6 @@
-use crate::{
-    encoding::NomTryFromPrimitive,
-    prelude::{Parsable, Serializable},
-};
-use derive_try_from_primitive::TryFromPrimitive;
+use crate::prelude::*;
+use crate::encoding;
+use proc_macros::TryFromRepr;
 use enum_iterator::Sequence;
 use nom::{
     combinator::{map_res, peek},
@@ -12,7 +10,7 @@ use std::fmt::Display;
 
 pub const COMMAND_CLASS_SUPPORT_CONTROL_MARK: u8 = 0xef;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Sequence, TryFromPrimitive, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Sequence, TryFromRepr, Hash)]
 #[repr(u16)]
 pub enum CommandClasses {
     AlarmSensor = 0x9c,

@@ -514,9 +514,9 @@
             "use crate::values::*;",
             "use zwave_core::prelude::*;",
             "use zwave_core::encoding::{self, encoders::empty, parser_not_implemented};",
+            "use proc_macros::TryFromRepr;"
             "",
             "use cookie_factory as cf;",
-            "use derive_try_from_primitive::TryFromPrimitive;"
             "use nom::{combinator::{map, opt}, sequence::tuple};",
             "use typed_builder::TypedBuilder;",
             "",
@@ -543,7 +543,7 @@
             "    )",
             "},"
             "",
-            "#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]",
+            "#[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]",
             "#[repr(u8)]",
             "pub enum ${1:${TM_FILENAME_BASE/(.*)$/${1:/pascalcase}/}}CCCommand {",
             "    ${2:Set} = ${3:0x01},",

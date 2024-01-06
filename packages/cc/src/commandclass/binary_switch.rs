@@ -1,8 +1,8 @@
 use crate::prelude::*;
+use proc_macros::TryFromRepr;
 use zwave_core::prelude::*;
 
 use cookie_factory as cf;
-use derive_try_from_primitive::TryFromPrimitive;
 use nom::{
     combinator::{map, opt},
     sequence::tuple,
@@ -11,7 +11,7 @@ use typed_builder::TypedBuilder;
 use zwave_core::encoding::{self, encoders::empty};
 
 
-#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)]
 pub enum BinarySwitchCCCommand {
     Set = 0x01,

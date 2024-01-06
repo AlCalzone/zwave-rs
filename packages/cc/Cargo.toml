@@ -9,7 +9,6 @@ edition.workspace = true
 [dependencies]
 cookie-factory.workspace = true
 custom_debug_derive.workspace = true
-derive-try-from-primitive.workspace = true
 enum_dispatch.workspace = true
 nom.workspace = true
 thiserror.workspace = true

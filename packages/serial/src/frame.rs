@@ -1,9 +1,5 @@
-use zwave_core::prelude::*;
-
 use crate::prelude::{Command, CommandEncodingContext};
-
 use cookie_factory as cf;
-use derive_try_from_primitive::*;
 use nom::{
     branch::alt,
     bytes::streaming::{tag, take, take_till1},
@@ -12,9 +8,11 @@ use nom::{
     number::streaming::be_u8,
     sequence::tuple,
 };
+use proc_macros::TryFromRepr;
 use zwave_core::encoding;
+use zwave_core::prelude::*;
 
-#[derive(Debug, TryFromPrimitive)]
+#[derive(Debug, TryFromRepr)]
 #[repr(u8)]
 pub enum SerialControlByte {
     SOF = 0x01,

@@ -2,9 +2,9 @@ use crate::prelude::*;
 use crate::values::*;
 use zwave_core::value_id::ValueIdProperties;
 use zwave_core::{cache::CacheValue, prelude::*, value_id::ValueId};
+use proc_macros::TryFromRepr;
 
 use cookie_factory as cf;
-use derive_try_from_primitive::TryFromPrimitive;
 use nom::{
     combinator::{map, opt},
     sequence::tuple,
@@ -12,7 +12,7 @@ use nom::{
 use typed_builder::TypedBuilder;
 use zwave_core::encoding::{self, encoders::empty};
 
-#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)]
 enum BasicCCProperties {
     CurrentValue = 0x00,
@@ -78,7 +78,7 @@ impl BasicCCValues {
     );
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)]
 pub enum BasicCCCommand {
     Set = 0x01,

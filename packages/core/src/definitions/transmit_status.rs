@@ -1,11 +1,11 @@
-use crate::encoding::{self, NomTryFromPrimitive, Parsable, Serializable};
-
+use crate::encoding;
+use crate::prelude::*;
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
-use derive_try_from_primitive::*;
 use nom::{combinator::map_res, error::context, number::complete::be_u8};
+use proc_macros::TryFromRepr;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
 #[repr(u8)]
 pub enum TransmitStatus {
     Ok = 0x00,

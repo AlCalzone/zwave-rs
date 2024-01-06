@@ -2,17 +2,19 @@
 
 use std::collections::HashMap;
 
+use derive_try_from_repr::try_from_repr_for_enum;
 use impl_cc_apis::CCAPIInfoExtractor;
 use impl_cc_enum::{CCInfo, CCInfoExtractor};
 use impl_command_enum::{CommandInfo, CommandInfoExtractor};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::visit;
+use syn::{visit, parse_macro_input, DeriveInput};
 use util::{parse_dirname_from_macro_input, parse_files_in_dir};
 
 mod impl_cc_apis;
 mod impl_cc_enum;
 mod impl_command_enum;
+mod derive_try_from_repr;
 mod util;
 
 #[proc_macro]
@@ -336,4 +338,20 @@ pub fn impl_cc_apis(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(tokens)
+}
+
+#[proc_macro_derive(TryFromRepr)]
+pub fn derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let result = match &input.data {
+        syn::Data::Enum(data) => {
+            try_from_repr_for_enum(&input, data.variants.iter().cloned().collect())
+        }
+        syn::Data::Struct(_) => panic!("#[derive(TryFromRepr)] not supported for structs"),
+        syn::Data::Union(_) => panic!("#[derive(TryFromRepr)] not supported for unions"),
+    };
+    result
+        // .to_string()
+        // .parse()
+        // .expect("Couldn't parse string to tokens")
 }

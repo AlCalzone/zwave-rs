@@ -188,6 +188,15 @@ impl<'a> fmt::Debug for NomError<&'a [u8]> {
     }
 }
 
+#[derive(Error, Debug)]
+pub enum TryFromReprError<T: std::fmt::Debug> {
+    #[error("{0:?} is not a valid value for this enum")]
+    Invalid(T),
+    #[error("{0:?} resolves to a non-primitive enum variant")]
+    NonPrimitive(T),
+}
+
+
 pub struct NomTryFromPrimitiveError(String);
 
 impl<I> FromExternalError<I, NomTryFromPrimitiveError> for NomError<I> {

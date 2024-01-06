@@ -1,24 +1,22 @@
-use std::borrow::Cow;
-
 use crate::prelude::*;
 use crate::values::*;
-use zwave_core::cache::CacheValue;
-use zwave_core::util::Discriminant;
-use zwave_core::value_id::{ValueId, ValueIdProperties};
-use zwave_core::{encoding::parsers, prelude::*};
-
 use cookie_factory as cf;
-use derive_try_from_primitive::TryFromPrimitive;
 use nom::{
     combinator::{map, opt},
     multi::length_count,
     number::complete::{be_u16, be_u8},
     sequence::tuple,
 };
+use proc_macros::TryFromRepr;
+use std::borrow::Cow;
 use typed_builder::TypedBuilder;
+use zwave_core::cache::CacheValue;
 use zwave_core::encoding::{self, encoders::empty};
+use zwave_core::util::ToDiscriminant;
+use zwave_core::value_id::{ValueId, ValueIdProperties};
+use zwave_core::{encoding::parsers, prelude::*};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)] // must match the ToDiscriminant impl
 enum VersionCCProperties {
     FirmwareVersion(u8) = 0x00,
@@ -37,8 +35,9 @@ enum VersionCCProperties {
     ApplicationBuildNumber = 0x0D,
 }
 
-unsafe impl Discriminant<u8> for VersionCCProperties {}
+unsafe impl ToDiscriminant<u8> for VersionCCProperties {}
 
+// FIXME: Turn this into a snippet
 impl From<VersionCCProperties> for ValueIdProperties {
     fn from(val: VersionCCProperties) -> Self {
         match val {
@@ -54,19 +53,24 @@ impl TryFrom<ValueIdProperties> for VersionCCProperties {
     type Error = ();
 
     fn try_from(value: ValueIdProperties) -> Result<Self, Self::Error> {
-        let firmware_version_u32 = VersionCCProperties::FirmwareVersion(0).to_discriminant() as u32;
-        let static_range = VersionCCProperties::LibraryType.to_discriminant() as u32
-            ..=VersionCCProperties::ApplicationBuildNumber.to_discriminant() as u32;
-
-        match (value.property(), value.property_key()) {
-            (v, Some(index)) if v == firmware_version_u32 && index <= u8::MAX as u32 => {
-                Ok(Self::FirmwareVersion(index as u8))
+        match (
+            Self::try_from(value.property() as u8),
+            value.property_key(),
+        ) {
+            // Static properties have no property key
+            (Ok(prop), None) => return Ok(prop),
+            // Dynamic properties have one
+            (Err(TryFromReprError::NonPrimitive(d)), Some(k)) => {
+                // Figure out which one it is
+                let firmware_version_discr = VersionCCProperties::FirmwareVersion(0).to_discriminant();
+                if d == firmware_version_discr && k <= u8::MAX as u32 {
+                    return Ok(VersionCCProperties::FirmwareVersion(k as u8));
+                }
             }
-            (v, None) if static_range.contains(&v) => {
-                Ok(unsafe { VersionCCProperties::from_discriminant(&(v as u8)) })
-            }
-            _ => Err(()),
+            _ => (),
         }
+
+        Err(())
     }
 }
 
@@ -255,7 +259,7 @@ impl VersionCCValues {
     );
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)]
 pub enum VersionCCCommand {
     Get = 0x11,

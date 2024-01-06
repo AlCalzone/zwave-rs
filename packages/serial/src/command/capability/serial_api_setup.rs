@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use derive_try_from_primitive::TryFromPrimitive;
+use proc_macros::TryFromRepr;
 use zwave_core::{
     encoding::{parsers::fixed_length_bitmask_u8, NomTryFromPrimitive},
     prelude::*,
@@ -14,7 +14,7 @@ use nom::{
 };
 use zwave_core::encoding::{self, encoders::empty, parser_not_implemented};
 
-#[derive(Debug, Copy, Clone, PartialEq, TryFromPrimitive)]
+#[derive(Debug, Copy, Clone, PartialEq, TryFromRepr)]
 #[repr(u8)]
 pub enum SerialApiSetupCommand {
     Unsupported = 0x00,

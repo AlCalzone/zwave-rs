@@ -1,9 +1,9 @@
-use crate::encoding::{
-    self, BitParsable, BitSerializable, NomTryFromPrimitive, Parsable, Serializable, WriteLastNBits,
-};
+use crate::encoding::WriteLastNBits;
+use crate::prelude::*;
+use crate::encoding;
+use proc_macros::TryFromRepr;
 
 use cookie_factory as cf;
-use derive_try_from_primitive::*;
 use encoding::{EncodingError, EncodingResult};
 use nom::{
     bits::complete::take as take_bits, combinator::map_res, error::context, number::complete::be_u8,
@@ -85,7 +85,7 @@ impl BitSerializable for ProtocolDataRate {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
 #[allow(non_camel_case_types)]
 #[repr(u8)]
 pub enum DataRate {

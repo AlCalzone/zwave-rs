@@ -1,11 +1,12 @@
-use crate::encoding::{self, NomTryFromPrimitive, Parsable, Serializable};
+use crate::prelude::*;
+use crate::encoding;
+use proc_macros::TryFromRepr;
 
 use cookie_factory as cf;
-use derive_try_from_primitive::*;
 use nom::{combinator::map_res, error::context, number::complete::be_u8};
 use std::fmt::Display;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
 #[repr(u8)]
 pub enum ProtocolType {
     ZWave,

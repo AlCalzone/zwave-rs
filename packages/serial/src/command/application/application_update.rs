@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use derive_try_from_primitive::TryFromPrimitive;
+use proc_macros::TryFromRepr;
 use nom::{
     combinator::map_res,
     number::complete::{be_u32, be_u8},
@@ -7,7 +7,7 @@ use nom::{
 use zwave_core::encoding::{self};
 use zwave_core::{encoding::NomTryFromPrimitive, prelude::*};
 
-#[derive(Debug, Copy, Clone, PartialEq, TryFromPrimitive)]
+#[derive(Debug, Copy, Clone, PartialEq, TryFromRepr)]
 #[repr(u8)]
 pub enum ApplicationUpdateType {
     SmartStartHomeIdReceivedLR = 0x87, // A smart start node requests inclusion via Z-Wave Long Range

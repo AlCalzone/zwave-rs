@@ -1,11 +1,10 @@
 use std::fmt::Display;
-
-use derive_try_from_primitive::TryFromPrimitive;
+use proc_macros::TryFromRepr;
 use nom::{bits::complete::take as take_bits, combinator::{map_res, map}, error::context};
+use crate::prelude::*;
+use crate::encoding;
 
-use crate::encoding::{self, BitParsable, NomTryFromPrimitive};
-
-#[derive(Debug, Clone, PartialEq, TryFromPrimitive)]
+#[derive(Debug, Clone, PartialEq, TryFromRepr)]
 #[repr(u8)]
 pub enum Beam {
     Beam250ms = 1,

@@ -1,10 +1,12 @@
-use crate::encoding::{self, BitParsable, BitSerializable, NomTryFromPrimitive, WriteLastNBits};
+use crate::encoding::WriteLastNBits;
+use crate::prelude::*;
+use crate::encoding;
+use proc_macros::TryFromRepr;
 
-use derive_try_from_primitive::*;
 use nom::{bits::complete::take as take_bits, combinator::map_res};
 use std::fmt::Display;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
 #[repr(u8)]
 pub enum NodeType {
     Controller = 0,

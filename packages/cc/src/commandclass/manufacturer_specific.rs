@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use crate::prelude::*;
 use crate::values::*;
+use proc_macros::TryFromRepr;
 use ux::{u3, u5};
 use zwave_core::cache::CacheValue;
 use zwave_core::value_id::ValueId;
@@ -9,11 +10,10 @@ use zwave_core::value_id::ValueIdProperties;
 use zwave_core::{
     encoding::{encoders, BitParsable, BitSerializable, NomTryFromPrimitive},
     prelude::*,
-    util::Discriminant,
+    util::ToDiscriminant,
 };
 
 use cookie_factory as cf;
-use derive_try_from_primitive::TryFromPrimitive;
 use nom::{
     bits, bits::complete::take as take_bits, bytes::complete::take, combinator::map_res,
     number::complete::be_u16, sequence::tuple,
@@ -21,7 +21,7 @@ use nom::{
 use typed_builder::TypedBuilder;
 use zwave_core::encoding::{self, encoders::empty};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)] // must match the ToDiscriminant impl
 enum ManufacturerSpecificCCProperties {
     ManufacturerId = 0x00,
@@ -30,7 +30,7 @@ enum ManufacturerSpecificCCProperties {
     DeviceId(DeviceIdType) = 0x03,
 }
 
-unsafe impl Discriminant<u8> for ManufacturerSpecificCCProperties {}
+unsafe impl ToDiscriminant<u8> for ManufacturerSpecificCCProperties {}
 
 impl From<ManufacturerSpecificCCProperties> for ValueIdProperties {
     fn from(val: ManufacturerSpecificCCProperties) -> Self {
@@ -47,23 +47,25 @@ impl TryFrom<ValueIdProperties> for ManufacturerSpecificCCProperties {
     type Error = ();
 
     fn try_from(value: ValueIdProperties) -> Result<Self, Self::Error> {
-        let device_id_u32 = ManufacturerSpecificCCProperties::DeviceId(DeviceIdType::FactoryDefault)
-            .to_discriminant() as u32;
-        let static_range = ManufacturerSpecificCCProperties::ManufacturerId.to_discriminant() as u32
-            ..=ManufacturerSpecificCCProperties::ProductId.to_discriminant() as u32;
-
-        match (value.property(), value.property_key()) {
-            (v, None) if static_range.contains(&v) => {
-                Ok(unsafe { ManufacturerSpecificCCProperties::from_discriminant(&(v as u8)) })
+        match (Self::try_from(value.property() as u8), value.property_key()) {
+            // Static properties have no property key
+            (Ok(prop), None) => return Ok(prop),
+            // Dynamic properties have one
+            (Err(TryFromReprError::NonPrimitive(d)), Some(k)) => {
+                // Figure out which one it is
+                let device_id_discr =
+                    Self::DeviceId(DeviceIdType::FactoryDefault).to_discriminant();
+                if d == device_id_discr {
+                    let Ok(device_id) = DeviceIdType::try_from(k as u8) else {
+                        return Err(());
+                    };
+                    return Ok(Self::DeviceId(device_id));
+                }
             }
-            (v, Some(device_id)) if v == device_id_u32 && device_id <= u8::MAX as u32 => {
-                let Ok(device_id) = DeviceIdType::try_from(device_id as u8) else {
-                    return Err(());
-                };
-                Ok(Self::DeviceId(device_id))
-            }
-            _ => Err(()),
+            _ => (),
         }
+
+        Err(())
     }
 }
 
@@ -127,7 +129,7 @@ impl ManufacturerSpecificCCValues {
     );
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)]
 pub enum ManufacturerSpecificCCCommand {
     Get = 0x04,
@@ -136,7 +138,7 @@ pub enum ManufacturerSpecificCCCommand {
     DeviceSpecificReport = 0x07,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)]
 pub enum DeviceIdType {
     FactoryDefault = 0x00,

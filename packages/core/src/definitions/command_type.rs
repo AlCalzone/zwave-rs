@@ -1,11 +1,12 @@
-use crate::encoding::{self, NomTryFromPrimitive};
+use crate::prelude::*;
+use crate::encoding;
+use proc_macros::TryFromRepr;
 
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
-use derive_try_from_primitive::*;
 use nom::{combinator::map_res, error::context, number::complete::be_u8};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
 #[repr(u8)]
 pub enum CommandType {
     Request = 0x00,

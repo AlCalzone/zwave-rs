@@ -1,15 +1,16 @@
-use crate::encoding::{self, BitParsable, BitSerializable, Parsable, WriteLastNBits, NomTryFromPrimitive};
-
+use crate::encoding;
+use crate::encoding::WriteLastNBits;
+use crate::prelude::*;
+use proc_macros::TryFromRepr;
 
 use custom_debug_derive::Debug;
-use derive_try_from_primitive::*;
 use nom::{
-    bits, bits::complete::take as take_bits, combinator::{map_res}, complete::bool, error::context,
+    bits, bits::complete::take as take_bits, combinator::map_res, complete::bool, error::context,
     sequence::tuple,
 };
 use ux::u1;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
 #[repr(u8)]
 pub enum FrameAddressing {
     Singlecast = 0b00,

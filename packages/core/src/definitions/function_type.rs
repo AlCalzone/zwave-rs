@@ -1,8 +1,9 @@
-use crate::encoding::{self, NomTryFromPrimitive};
+use crate::encoding;
+use crate::prelude::*;
+use proc_macros::TryFromRepr;
 
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
-use derive_try_from_primitive::*;
 use nom::{combinator::map_res, error::context, number::complete::be_u8};
 
 /// Complete list of function IDs for data messages.
@@ -10,7 +11,7 @@ use nom::{combinator::map_res, error::context, number::complete::be_u8};
 /// IDs starting with UNKNOWN_FUNC are taken from openhab-zwave and not implemented here yet.
 /// IDs starting with UNKNOWN_FUNC are also taken from https://github.com/yepher/RaZBerry/blob/master/README.md and not implemented yet
 /// IDs ending with UNKNOWN_<hex-code> are reported by the stick but we don't know what they mean.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 pub enum FunctionType {
