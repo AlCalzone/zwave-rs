@@ -1,6 +1,5 @@
-use typed_builder::TypedBuilder;
-
 use crate::prelude::*;
+use typed_builder::TypedBuilder;
 
 /// Uniquely identifies which CC and property a value belongs to
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, TypedBuilder)]
@@ -85,5 +84,51 @@ impl EndpointValueId {
 
     pub fn property_key(&self) -> Option<u32> {
         self.value_id.property_key
+    }
+}
+
+/// A subset of [ValueId] used for matching
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ValueIdProperties {
+    property: u32,
+    property_key: Option<u32>,
+}
+
+impl ValueIdProperties {
+    pub fn new(property: impl Into<u32>, property_key: Option<u32>) -> Self {
+        Self {
+            property: property.into(),
+            property_key,
+        }
+    }
+
+    pub fn property(&self) -> u32 {
+        self.property
+    }
+
+    pub fn property_key(&self) -> Option<u32> {
+        self.property_key
+    }
+
+    pub fn with_cc(&self, cc: CommandClasses) -> ValueId {
+        ValueId::new(cc, self.property, self.property_key)
+    }
+}
+
+impl From<ValueId> for ValueIdProperties {
+    fn from(value: ValueId) -> Self {
+        Self {
+            property: value.property,
+            property_key: value.property_key,
+        }
+    }
+}
+
+impl From<(u32, Option<u32>)> for ValueIdProperties {
+    fn from(value: (u32, Option<u32>)) -> Self {
+        Self {
+            property: value.0,
+            property_key: value.1,
+        }
     }
 }

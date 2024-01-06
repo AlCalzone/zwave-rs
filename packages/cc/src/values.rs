@@ -1,21 +1,57 @@
 use std::borrow::Cow;
 use zwave_core::value_id::ValueId;
 
-pub struct CCValue {
+pub type CCValuePredicate = Box<dyn Fn(&ValueId) -> bool + 'static + Sync + Send>;
+pub type CCValueEval = Box<dyn Fn(Box<dyn std::any::Any>) -> CCValue + 'static + Sync + Send>;
+
+pub struct StaticCCValue {
     pub id: ValueId,
     pub(crate) is: CCValuePredicate,
     pub metadata: ValueMetadata,
     pub options: CCValueOptions,
 }
 
-impl CCValue {
+impl StaticCCValue {
     pub fn is(&self, value_id: &ValueId) -> bool {
         (self.is)(value_id)
     }
 }
 
-pub type CCValuePredicate = Box<dyn Fn(&ValueId) -> bool + 'static + Sync + Send>;
+pub struct CCValue {
+    pub id: ValueId,
+    pub metadata: ValueMetadata,
+}
 
+pub struct DynamicCCValue<Args> {
+    pub(crate) eval: CCValueEval,
+    pub(crate) is: CCValuePredicate,
+    pub options: CCValueOptions,
+    _args: std::marker::PhantomData<Args>,
+}
+
+impl<Args> DynamicCCValue<Args>
+where
+    Args: 'static,
+{
+    pub fn new(eval: CCValueEval, is: CCValuePredicate, options: CCValueOptions) -> Self {
+        Self {
+            eval,
+            is,
+            options,
+            _args: std::marker::PhantomData,
+        }
+    }
+
+    pub fn is(&self, value_id: &ValueId) -> bool {
+        (self.is)(value_id)
+    }
+
+    pub fn eval(&self, args: Args) -> CCValue {
+        (self.eval)(Box::new(args))
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum ValueMetadata {
     // Generic value metadata
     Numeric(ValueMetadataNumeric),
@@ -48,6 +84,7 @@ impl ValueMetadata {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ValueMetadataCommon<T> {
     /// A human-readable name for the value
     pub label: Option<Cow<'static, str>>,
@@ -169,7 +206,7 @@ macro_rules! impl_common_metadata_accessors {
     };
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct ValueMetadataNumeric {
     // In order to keep complexity low, we choose i64 as the only numeric type
     // which should be sufficient to store any Z-Wave number we encounter.
@@ -228,7 +265,7 @@ impl ValueMetadataNumeric {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct ValueMetadataBoolean {
     pub common: ValueMetadataCommon<bool>,
 
@@ -250,7 +287,7 @@ impl ValueMetadataBoolean {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct ValueMetadataString {
     pub common: ValueMetadataCommon<()>,
 
@@ -287,7 +324,7 @@ impl ValueMetadataString {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct ValueMetadataBuffer {
     pub common: ValueMetadataCommon<()>,
 
@@ -427,25 +464,22 @@ impl CCValueOptions {
 macro_rules! cc_value_static_property {
     ($cc:ident, $method_name:ident, $property_name:ident, $metadata:expr, $options:expr) => {
         paste::paste! {
-            pub fn $method_name() -> &'static CCValue {
+            pub fn $method_name() -> &'static StaticCCValue {
                 use std::sync::OnceLock;
-                use zwave_core::value_id::ValueId;
+                use zwave_core::value_id::{ValueId, ValueIdProperties};
 
-                static RET: OnceLock<CCValue> = OnceLock::new();
+                static RET: OnceLock<StaticCCValue> = OnceLock::new();
                 RET.get_or_init(|| {
-                    let property_and_key: (u32, Option<u32>) = [<$cc CCProperties>]::$property_name.into();
-                    let value_id = ValueId::new(
-                        CommandClasses::$cc,
-                        property_and_key.0,
-                        property_and_key.1,
-                    );
+                    let property_and_key: ValueIdProperties = [<$cc CCProperties>]::$property_name.into();
+                    let value_id = property_and_key.with_cc(CommandClasses::$cc);
                     let is = Box::new(move |id: &ValueId| {
-                        (id.property(), id.property_key()) == property_and_key
+                        id.property() == property_and_key.property()
+                            && id.property_key() == property_and_key.property_key()
                     });
                     let metadata = $metadata;
                     let options = $options;
 
-                    CCValue {
+                    StaticCCValue {
                         id: value_id,
                         is,
                         metadata,
@@ -518,47 +552,62 @@ pub(crate) use cc_value_static_property;
 /// }
 /// ```
 macro_rules! cc_value_dynamic_property {
-    ($cc:ident, $method_name:ident, $property_name:ident, |$($param:ident: $type:ty),*| $metadata:expr, $options:expr) => {
+    ($cc:ident, $method_name:ident, $property_name:ident, |$($param:ident: $type:ty),+| $metadata:expr, $options:expr) => {
+        cc_value_dynamic_property!(
+            @inner;
+            $cc,
+            $method_name,
+            $property_name,
+            | $($param: $type),+ | $metadata,
+            $options
+        );
+    };
+    ($cc:ident, $name:ident, |$($param:ident: $type:ty),+| $metadata:expr, $options:expr) => {
         paste::paste! {
-            pub fn $method_name($($param: $type),*) -> &'static CCValue {
+            cc_value_dynamic_property!(
+                @inner;
+                $cc,
+                [<$name:snake>],
+                $name,
+                | $($param: $type),+ | $metadata,
+                $options
+            );
+        }
+    };
+    (@inner; $cc:ident, $method_name:ident, $property_name:ident, |$($param:ident: $type:ty),+| $metadata:expr, $options:expr) => {
+        paste::paste! {
+            pub fn $method_name() -> &'static DynamicCCValue<($($type,)*)> {
                 use std::sync::OnceLock;
-                use zwave_core::value_id::ValueId;
+                use zwave_core::value_id::{ValueId, ValueIdProperties};
 
-                static RET: OnceLock<CCValue> = OnceLock::new();
+                static RET: OnceLock<DynamicCCValue<($($type,)*)>> = OnceLock::new();
                 RET.get_or_init(|| {
-                    let property_and_key: (u32, Option<u32>) = [<$cc CCProperties>]::$property_name($($param),*).into();
-                    let value_id = ValueId::new(
-                        CommandClasses::$cc,
-                        property_and_key.0,
-                        property_and_key.1,
-                    );
-                    // FIXME: This is not correct, each value should be able to define this itself
                     let is = Box::new(move |id: &ValueId| {
-                        (id.property(), id.property_key()) == property_and_key
+                        // Test if the value ID can be converted back to the correct enum variant
+                        let properties = ValueIdProperties::from(*id);
+                        let Ok(prop) = [<$cc CCProperties>]::try_from(properties) else {
+                            return false;
+                        };
+                        matches!(prop, [<$cc CCProperties>]::$property_name(..))
                     });
-                    let metadata = $metadata;
+                    let eval = Box::new(|args: Box<dyn std::any::Any>| {
+                        let ($($param,)*) = *args.downcast::<($($type,)*)>().expect("Arguments should be of the correct type");
+
+                        let property_and_key: ValueIdProperties = [<$cc CCProperties>]::$property_name($($param),*).into();
+                        let value_id = property_and_key.with_cc(CommandClasses::$cc);
+                        let metadata = $metadata;
+
+                        CCValue {
+                            id: value_id,
+                            metadata,
+                        }
+                    });
                     let options = $options;
 
-                    CCValue {
-                        id: value_id,
-                        is,
-                        metadata,
-                        options,
-                    }
+                    DynamicCCValue::new(eval, is, options)
                 })
             }
         }
     };
-    ($cc:ident, $name:ident, $metadata:expr, $options:expr) => {
-        paste::paste! {
-            cc_value_dynamic_property!(
-                $cc,
-                [<$name:snake>],
-                $name,
-                $metadata,
-                $options
-            );
-        }
-    }
 }
 pub(crate) use cc_value_dynamic_property;

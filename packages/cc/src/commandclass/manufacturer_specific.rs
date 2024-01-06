@@ -5,10 +5,11 @@ use crate::values::*;
 use ux::{u3, u5};
 use zwave_core::cache::CacheValue;
 use zwave_core::value_id::ValueId;
+use zwave_core::value_id::ValueIdProperties;
 use zwave_core::{
     encoding::{encoders, BitParsable, BitSerializable, NomTryFromPrimitive},
     prelude::*,
-    util::ToDiscriminant,
+    util::Discriminant,
 };
 
 use cookie_factory as cf;
@@ -20,6 +21,7 @@ use nom::{
 use typed_builder::TypedBuilder;
 use zwave_core::encoding::{self, encoders::empty};
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u8)] // must match the ToDiscriminant impl
 enum ManufacturerSpecificCCProperties {
     ManufacturerId = 0x00,
@@ -28,16 +30,63 @@ enum ManufacturerSpecificCCProperties {
     DeviceId(DeviceIdType) = 0x03,
 }
 
-unsafe impl ToDiscriminant<u8> for ManufacturerSpecificCCProperties {}
+unsafe impl Discriminant<u8> for ManufacturerSpecificCCProperties {}
 
-impl From<ManufacturerSpecificCCProperties> for (u32, Option<u32>) {
+impl From<ManufacturerSpecificCCProperties> for ValueIdProperties {
     fn from(val: ManufacturerSpecificCCProperties) -> Self {
         match val {
             ManufacturerSpecificCCProperties::DeviceId(device_id_type) => {
-                (val.to_discriminant() as u32, Some(device_id_type as u32))
+                ValueIdProperties::new(val.to_discriminant(), Some(device_id_type as u32))
             }
-            _ => (val.to_discriminant() as u32, None),
+            _ => ValueIdProperties::new(val.to_discriminant(), None),
         }
+    }
+}
+
+impl TryFrom<ValueIdProperties> for ManufacturerSpecificCCProperties {
+    type Error = ();
+
+    fn try_from(value: ValueIdProperties) -> Result<Self, Self::Error> {
+        let device_id_u32 = ManufacturerSpecificCCProperties::DeviceId(DeviceIdType::FactoryDefault)
+            .to_discriminant() as u32;
+        let static_range = ManufacturerSpecificCCProperties::ManufacturerId.to_discriminant() as u32
+            ..=ManufacturerSpecificCCProperties::ProductId.to_discriminant() as u32;
+
+        match (value.property(), value.property_key()) {
+            (v, None) if static_range.contains(&v) => {
+                Ok(unsafe { ManufacturerSpecificCCProperties::from_discriminant(&(v as u8)) })
+            }
+            (v, Some(device_id)) if v == device_id_u32 && device_id <= u8::MAX as u32 => {
+                let Ok(device_id) = DeviceIdType::try_from(device_id as u8) else {
+                    return Err(());
+                };
+                Ok(Self::DeviceId(device_id))
+            }
+            _ => Err(()),
+        }
+    }
+}
+
+#[test]
+fn test_device_id_value() {
+    let value = ManufacturerSpecificCCValues::device_id();
+    let value_id = ValueId::new(
+        CommandClasses::ManufacturerSpecific,
+        0x03u32,
+        Some(DeviceIdType::SerialNumber as u32),
+    );
+    assert!(value.is(&value_id));
+    assert!(!value.options.supports_endpoints);
+
+    let evaluated = value.eval((DeviceIdType::SerialNumber,));
+    assert_eq!(evaluated.id, value_id);
+    match evaluated.metadata {
+        ValueMetadata::Buffer(meta) => {
+            assert_eq!(meta.common.label.unwrap(), "Device ID (serial number)");
+            assert!(meta.common.readable);
+            assert!(!meta.common.writeable);
+        }
+        _ => panic!("Unexpected metadata: {:?}", evaluated.metadata),
     }
 }
 
@@ -289,7 +338,9 @@ impl CCBase for ManufacturerSpecificCCDeviceSpecificReport {}
 impl CCValues for ManufacturerSpecificCCDeviceSpecificReport {
     fn to_values(&self) -> Vec<(ValueId, CacheValue)> {
         vec![(
-            ManufacturerSpecificCCValues::device_id(self.device_id_type).id,
+            ManufacturerSpecificCCValues::device_id()
+                .eval((self.device_id_type,))
+                .id,
             CacheValue::from(self.device_id.clone()),
         )]
     }

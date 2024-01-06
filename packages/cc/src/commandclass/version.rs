@@ -3,8 +3,8 @@ use std::borrow::Cow;
 use crate::prelude::*;
 use crate::values::*;
 use zwave_core::cache::CacheValue;
-use zwave_core::util::ToDiscriminant;
-use zwave_core::value_id::ValueId;
+use zwave_core::util::Discriminant;
+use zwave_core::value_id::{ValueId, ValueIdProperties};
 use zwave_core::{encoding::parsers, prelude::*};
 
 use cookie_factory as cf;
@@ -18,6 +18,7 @@ use nom::{
 use typed_builder::TypedBuilder;
 use zwave_core::encoding::{self, encoders::empty};
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u8)] // must match the ToDiscriminant impl
 enum VersionCCProperties {
     FirmwareVersion(u8) = 0x00,
@@ -36,15 +37,35 @@ enum VersionCCProperties {
     ApplicationBuildNumber = 0x0D,
 }
 
-unsafe impl ToDiscriminant<u8> for VersionCCProperties {}
+unsafe impl Discriminant<u8> for VersionCCProperties {}
 
-impl From<VersionCCProperties> for (u32, Option<u32>) {
+impl From<VersionCCProperties> for ValueIdProperties {
     fn from(val: VersionCCProperties) -> Self {
         match val {
             VersionCCProperties::FirmwareVersion(index) => {
-                (val.to_discriminant() as u32, Some(index as u32))
+                ValueIdProperties::new(val.to_discriminant(), Some(index as u32))
             }
-            _ => (val.to_discriminant() as u32, None),
+            _ => ValueIdProperties::new(val.to_discriminant(), None),
+        }
+    }
+}
+
+impl TryFrom<ValueIdProperties> for VersionCCProperties {
+    type Error = ();
+
+    fn try_from(value: ValueIdProperties) -> Result<Self, Self::Error> {
+        let firmware_version_u32 = VersionCCProperties::FirmwareVersion(0).to_discriminant() as u32;
+        let static_range = VersionCCProperties::LibraryType.to_discriminant() as u32
+            ..=VersionCCProperties::ApplicationBuildNumber.to_discriminant() as u32;
+
+        match (value.property(), value.property_key()) {
+            (v, Some(index)) if v == firmware_version_u32 && index <= u8::MAX as u32 => {
+                Ok(Self::FirmwareVersion(index as u8))
+            }
+            (v, None) if static_range.contains(&v) => {
+                Ok(unsafe { VersionCCProperties::from_discriminant(&(v as u8)) })
+            }
+            _ => Err(()),
         }
     }
 }
@@ -56,12 +77,11 @@ impl VersionCCValues {
         FirmwareVersion,
         |chip_index: u8| ValueMetadata::String(
             ValueMetadataString::default()
-                .label(
-                    if chip_index == 0 {
-                        Cow::from("Z-Wave chip firmware version")
-                    } else {
-                        Cow::from(format!("Firmware version (chip #{})", chip_index))
-                    })
+                .label(if chip_index == 0 {
+                    Cow::from("Z-Wave chip firmware version")
+                } else {
+                    Cow::from(format!("Firmware version (chip #{})", chip_index))
+                })
                 .readonly()
         ),
         CCValueOptions::default().supports_endpoints(false)
@@ -317,7 +337,7 @@ impl CCValues for VersionCCReport {
                 .enumerate()
                 .map(|(i, version)| {
                     (
-                        VersionCCValues::firmware_version(i as u8).id,
+                        VersionCCValues::firmware_version().eval((i as u8,)).id,
                         CacheValue::from(version.to_string()),
                     )
                 }),
@@ -720,7 +740,6 @@ impl CCParsable for VersionCCZWaveSoftwareReport {
 
 impl CCSerializable for VersionCCZWaveSoftwareReport {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        
         move |_out| todo!("ERROR: VersionCCZWaveSoftwareReport::serialize() not implemented")
     }
 }

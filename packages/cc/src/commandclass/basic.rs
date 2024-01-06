@@ -1,5 +1,6 @@
 use crate::prelude::*;
 use crate::values::*;
+use zwave_core::value_id::ValueIdProperties;
 use zwave_core::{cache::CacheValue, prelude::*, value_id::ValueId};
 
 use cookie_factory as cf;
@@ -11,6 +12,8 @@ use nom::{
 use typed_builder::TypedBuilder;
 use zwave_core::encoding::{self, encoders::empty};
 
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[repr(u8)]
 enum BasicCCProperties {
     CurrentValue = 0x00,
     TargetValue = 0x01,
@@ -18,9 +21,20 @@ enum BasicCCProperties {
     RestorePrevious = 0x03,
 }
 
-impl From<BasicCCProperties> for (u32, Option<u32>) {
+impl From<BasicCCProperties> for ValueIdProperties {
     fn from(val: BasicCCProperties) -> Self {
-        (val as u32, None)
+        ValueIdProperties::new(val as u8, None)
+    }
+}
+
+impl TryFrom<ValueIdProperties> for BasicCCProperties {
+    type Error = ();
+
+    fn try_from(val: ValueIdProperties) -> Result<Self, Self::Error> {
+        match (Self::try_from(val.property() as u8), val.property_key()) {
+            (Ok(prop), None) => Ok(prop),
+            _ => Err(()),
+        }
     }
 }
 
