@@ -5,16 +5,18 @@ use nom::{
     combinator::{map, opt},
     sequence::tuple,
 };
-use proc_macros::TryFromRepr;
+use proc_macros::{CCValues, TryFromRepr};
 use typed_builder::TypedBuilder;
 use zwave_core::cache::CacheValue;
-use zwave_core::encoding::{self, encoders::empty, parsers};
+use zwave_core::encoding::{self, encoders::empty};
 use zwave_core::prelude::*;
-use zwave_core::util::ToDiscriminant;
 use zwave_core::value_id::{ValueId, ValueIdProperties};
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)]
+// FIXME: Create derive macro to implement
+// From<...> for ValueIdProperties and TryFrom<ValueIdProperties>
+// for static-only CC properties
 enum BinarySwitchCCProperties {
     CurrentValue = 0x00,
     TargetValue = 0x01,
@@ -78,7 +80,7 @@ pub enum BinarySwitchCCCommand {
     Report = 0x03,
 }
 
-#[derive(Debug, Clone, PartialEq, TypedBuilder)]
+#[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]
 pub struct BinarySwitchCCSet {
     pub target_value: BinarySet,
     #[builder(default, setter(strip_option))]
@@ -86,8 +88,6 @@ pub struct BinarySwitchCCSet {
 }
 
 impl CCBase for BinarySwitchCCSet {}
-
-impl CCValues for BinarySwitchCCSet {}
 
 impl CCId for BinarySwitchCCSet {
     fn cc_id(&self) -> CommandClasses {
@@ -131,12 +131,10 @@ impl CCSerializable for BinarySwitchCCSet {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, TypedBuilder)]
+#[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]
 pub struct BinarySwitchCCGet {}
 
 impl CCBase for BinarySwitchCCGet {}
-
-impl CCValues for BinarySwitchCCGet {}
 
 impl CCId for BinarySwitchCCGet {
     fn cc_id(&self) -> CommandClasses {
@@ -171,16 +169,17 @@ impl CCSerializable for BinarySwitchCCGet {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, TypedBuilder)]
+#[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]
 pub struct BinarySwitchCCReport {
+    #[cc_value(BinarySwitchCCValues::current_value)]
     current_value: BinaryReport,
+    #[cc_value(BinarySwitchCCValues::target_value)]
     target_value: Option<BinaryReport>,
+    #[cc_value(BinarySwitchCCValues::duration)]
     duration: Option<DurationReport>,
 }
 
 impl CCBase for BinarySwitchCCReport {}
-
-impl CCValues for BinarySwitchCCReport {}
 
 impl CCId for BinarySwitchCCReport {
     fn cc_id(&self) -> CommandClasses {

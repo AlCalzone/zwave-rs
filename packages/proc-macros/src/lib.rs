@@ -2,19 +2,21 @@
 
 use std::collections::HashMap;
 
+use derive_cc_values::impl_derive_cc_values;
 use derive_try_from_repr::try_from_repr_for_enum;
 use impl_cc_apis::CCAPIInfoExtractor;
 use impl_cc_enum::{CCInfo, CCInfoExtractor};
 use impl_command_enum::{CommandInfo, CommandInfoExtractor};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{visit, parse_macro_input, DeriveInput};
+use syn::{parse_macro_input, visit, DeriveInput};
 use util::{parse_dirname_from_macro_input, parse_files_in_dir};
 
+mod derive_cc_values;
+mod derive_try_from_repr;
 mod impl_cc_apis;
 mod impl_cc_enum;
 mod impl_command_enum;
-mod derive_try_from_repr;
 mod util;
 
 #[proc_macro]
@@ -341,7 +343,7 @@ pub fn impl_cc_apis(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_derive(TryFromRepr)]
-pub fn derive(input: TokenStream) -> TokenStream {
+pub fn derive_try_from_repr(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let result = match &input.data {
         syn::Data::Enum(data) => {
@@ -351,7 +353,13 @@ pub fn derive(input: TokenStream) -> TokenStream {
         syn::Data::Union(_) => panic!("#[derive(TryFromRepr)] not supported for unions"),
     };
     result
-        // .to_string()
-        // .parse()
-        // .expect("Couldn't parse string to tokens")
+}
+
+#[proc_macro_derive(CCValues, attributes(cc_value))]
+pub fn derive_cc_values(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    match impl_derive_cc_values(&input) {
+        Ok(output) => output,
+        Err(error) => error.to_compile_error().into(),
+    }
 }

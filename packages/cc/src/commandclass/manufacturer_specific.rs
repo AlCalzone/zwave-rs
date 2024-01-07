@@ -5,14 +5,13 @@ use nom::{
     bits, bits::complete::take as take_bits, bytes::complete::take, combinator::map_res,
     number::complete::be_u16, sequence::tuple,
 };
-use proc_macros::TryFromRepr;
+use proc_macros::{CCValues, TryFromRepr};
 use std::fmt::Display;
 use typed_builder::TypedBuilder;
 use ux::{u3, u5};
 use zwave_core::cache::CacheValue;
 use zwave_core::encoding::{self, encoders::empty};
-use zwave_core::value_id::ValueId;
-use zwave_core::value_id::ValueIdProperties;
+use zwave_core::value_id::{ValueId, ValueIdProperties};
 use zwave_core::{
     encoding::{encoders, BitParsable, BitSerializable, NomTryFromPrimitive},
     prelude::*,
@@ -162,12 +161,10 @@ impl Display for DeviceIdType {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq, CCValues)]
 pub struct ManufacturerSpecificCCGet {}
 
 impl CCBase for ManufacturerSpecificCCGet {}
-
-impl CCValues for ManufacturerSpecificCCGet {}
 
 impl CCId for ManufacturerSpecificCCGet {
     fn cc_id(&self) -> CommandClasses {
@@ -202,33 +199,17 @@ impl CCSerializable for ManufacturerSpecificCCGet {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, TypedBuilder)]
+#[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]
 pub struct ManufacturerSpecificCCReport {
+    #[cc_value(ManufacturerSpecificCCValues::manufacturer_id)]
     pub manufacturer_id: u16,
+    #[cc_value(ManufacturerSpecificCCValues::product_type)]
     pub product_type: u16,
+    #[cc_value(ManufacturerSpecificCCValues::product_id)]
     pub product_id: u16,
 }
 
 impl CCBase for ManufacturerSpecificCCReport {}
-
-impl CCValues for ManufacturerSpecificCCReport {
-    fn to_values(&self) -> Vec<(ValueId, CacheValue)> {
-        vec![
-            (
-                ManufacturerSpecificCCValues::manufacturer_id().id,
-                CacheValue::from(self.manufacturer_id),
-            ),
-            (
-                ManufacturerSpecificCCValues::product_type().id,
-                CacheValue::from(self.product_type),
-            ),
-            (
-                ManufacturerSpecificCCValues::product_id().id,
-                CacheValue::from(self.product_id),
-            ),
-        ]
-    }
-}
 
 impl CCId for ManufacturerSpecificCCReport {
     fn cc_id(&self) -> CommandClasses {
@@ -268,14 +249,12 @@ impl CCSerializable for ManufacturerSpecificCCReport {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, TypedBuilder)]
+#[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]
 pub struct ManufacturerSpecificCCDeviceSpecificGet {
     device_id_type: DeviceIdType,
 }
 
 impl CCBase for ManufacturerSpecificCCDeviceSpecificGet {}
-
-impl CCValues for ManufacturerSpecificCCDeviceSpecificGet {}
 
 impl CCId for ManufacturerSpecificCCDeviceSpecificGet {
     fn cc_id(&self) -> CommandClasses {
@@ -329,6 +308,7 @@ impl CCSerializable for ManufacturerSpecificCCDeviceSpecificGet {
 
 #[derive(Debug, Clone, PartialEq, TypedBuilder)]
 pub struct ManufacturerSpecificCCDeviceSpecificReport {
+    // FIXME: Extend the CCValues derive macro to support dynamic values with cross-references
     pub device_id_type: DeviceIdType,
     pub device_id: Vec<u8>, // FIXME: Actually string or buffer
 }

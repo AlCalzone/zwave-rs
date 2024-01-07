@@ -7,7 +7,7 @@ use nom::{
     number::complete::{be_u16, be_u8},
     sequence::tuple,
 };
-use proc_macros::TryFromRepr;
+use proc_macros::{CCValues, TryFromRepr};
 use std::borrow::Cow;
 use typed_builder::TypedBuilder;
 use zwave_core::cache::CacheValue;
@@ -268,12 +268,10 @@ pub enum VersionCCCommand {
     ZWaveSoftwareReport = 0x18,
 }
 
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq, CCValues)]
 pub struct VersionCCGet {}
 
 impl CCBase for VersionCCGet {}
-
-impl CCValues for VersionCCGet {}
 
 impl CCId for VersionCCGet {
     fn cc_id(&self) -> CommandClasses {
@@ -401,14 +399,12 @@ impl CCSerializable for VersionCCReport {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, TypedBuilder)]
+#[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]
 pub struct VersionCCCommandClassGet {
     requested_cc: CommandClasses,
 }
 
 impl CCBase for VersionCCCommandClassGet {}
-
-impl CCValues for VersionCCCommandClassGet {}
 
 impl CCId for VersionCCCommandClassGet {
     fn cc_id(&self) -> CommandClasses {
@@ -450,15 +446,13 @@ impl CCSerializable for VersionCCCommandClassGet {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, TypedBuilder)]
+#[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]
 pub struct VersionCCCommandClassReport {
     pub requested_cc: CommandClasses,
     pub version: u8,
 }
 
 impl CCBase for VersionCCCommandClassReport {}
-
-impl CCValues for VersionCCCommandClassReport {}
 
 impl CCId for VersionCCCommandClassReport {
     fn cc_id(&self) -> CommandClasses {
@@ -493,12 +487,10 @@ impl CCSerializable for VersionCCCommandClassReport {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq, CCValues)]
 pub struct VersionCCCapabilitiesGet {}
 
 impl CCBase for VersionCCCapabilitiesGet {}
-
-impl CCValues for VersionCCCapabilitiesGet {}
 
 impl CCId for VersionCCCapabilitiesGet {
     fn cc_id(&self) -> CommandClasses {
@@ -533,21 +525,13 @@ impl CCSerializable for VersionCCCapabilitiesGet {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, TypedBuilder)]
+#[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]
 pub struct VersionCCCapabilitiesReport {
+    #[cc_value(VersionCCValues::supports_zwave_software_get)]
     pub supports_zwave_software_get: bool,
 }
 
 impl CCBase for VersionCCCapabilitiesReport {}
-
-impl CCValues for VersionCCCapabilitiesReport {
-    fn to_values(&self) -> Vec<(ValueId, CacheValue)> {
-        vec![(
-            VersionCCValues::supports_zwave_software_get().id,
-            CacheValue::from(self.supports_zwave_software_get),
-        )]
-    }
-}
 
 impl CCId for VersionCCCapabilitiesReport {
     fn cc_id(&self) -> CommandClasses {
@@ -585,12 +569,10 @@ impl CCSerializable for VersionCCCapabilitiesReport {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq, CCValues)]
 pub struct VersionCCZWaveSoftwareGet {}
 
 impl CCBase for VersionCCZWaveSoftwareGet {}
-
-impl CCValues for VersionCCZWaveSoftwareGet {}
 
 impl CCId for VersionCCZWaveSoftwareGet {
     fn cc_id(&self) -> CommandClasses {
@@ -639,7 +621,6 @@ impl CCBase for VersionCCZWaveSoftwareReport {}
 impl CCValues for VersionCCZWaveSoftwareReport {
     fn to_values(&self) -> Vec<(ValueId, CacheValue)> {
         let mut ret = vec![(
-            // FIXME: we should have an override for the name
             VersionCCValues::sdk_version().id,
             CacheValue::from(self.sdk_version.to_string()),
         )];

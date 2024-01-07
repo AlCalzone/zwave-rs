@@ -514,7 +514,7 @@
             "use crate::prelude::*;",
             "use crate::values::*;",
             "use nom::{combinator::{map, opt}, sequence::tuple};",
-            "use proc_macros::TryFromRepr;",
+            "use proc_macros::{CCValues, TryFromRepr};",
             "use typed_builder::TypedBuilder;",
             "use zwave_core::cache::CacheValue;",
             "use zwave_core::encoding::{self, encoders::empty, parser_not_implemented};",
@@ -663,7 +663,7 @@
         "scope": "rust",
         "prefix": "zwccreqnoresp",
         "body": [
-            "#[derive(Debug, Clone, PartialEq, TypedBuilder)]",
+            "#[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]",
             "pub struct ${1:${TM_FILENAME_BASE/(.*)$/${1:/pascalcase}/}}CC${2:Set} {",
             "    ${0}",
             "}",
@@ -710,7 +710,7 @@
         "scope": "rust",
         "prefix": "zwccget",
         "body": [
-            "#[derive(Debug, Clone, PartialEq, TypedBuilder)]",
+            "#[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]",
             "pub struct ${1:${TM_FILENAME_BASE/(.*)$/${1:/pascalcase}/}}CC${2:Get} {",
             "    ${0}",
             "}",
@@ -757,7 +757,7 @@
         "scope": "rust",
         "prefix": "zwccemptyget",
         "body": [
-            "#[derive(Default, Debug, Clone, PartialEq)]",
+            "#[derive(Default, Debug, Clone, PartialEq, CCValues)]",
             "pub struct ${1:${TM_FILENAME_BASE/(.*)$/${1:/pascalcase}/}}CC${2:Get} {}",
             "",
             "impl CCBase for ${1}CC${2} {}",
@@ -801,8 +801,9 @@
         "scope": "rust",
         "prefix": "zwccreport",
         "body": [
-            "#[derive(Debug, Clone, PartialEq, TypedBuilder)]",
+            "#[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]",
             "pub struct ${1:${TM_FILENAME_BASE/(.*)$/${1:/pascalcase}/}}CC${2:Report} {",
+            "    #[cc_values(${1}CC::${0})]",
             "    ${0}",
             "}",
             "",

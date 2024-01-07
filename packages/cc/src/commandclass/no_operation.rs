@@ -1,16 +1,15 @@
 use crate::prelude::*;
+use proc_macros::CCValues;
 use zwave_core::prelude::*;
 use cookie_factory as cf;
 use zwave_core::encoding::{self, encoders::empty};
 
 // No Operation CC has no subcommands
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, CCValues)]
 pub struct NoOperationCC {}
 
 impl CCBase for NoOperationCC {}
-
-impl CCValues for NoOperationCC {}
 
 impl CCId for NoOperationCC {
     fn cc_id(&self) -> CommandClasses {
