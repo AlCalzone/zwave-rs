@@ -11,10 +11,10 @@ use proc_macros::TryFromRepr;
 use std::borrow::Cow;
 use typed_builder::TypedBuilder;
 use zwave_core::cache::CacheValue;
-use zwave_core::encoding::{self, encoders::empty};
+use zwave_core::encoding::{self, encoders::empty, parsers};
+use zwave_core::prelude::*;
 use zwave_core::util::ToDiscriminant;
 use zwave_core::value_id::{ValueId, ValueIdProperties};
-use zwave_core::{encoding::parsers, prelude::*};
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)] // must match the ToDiscriminant impl
@@ -37,14 +37,13 @@ enum VersionCCProperties {
 
 unsafe impl ToDiscriminant<u8> for VersionCCProperties {}
 
-// FIXME: Turn this into a snippet
 impl From<VersionCCProperties> for ValueIdProperties {
     fn from(val: VersionCCProperties) -> Self {
         match val {
             VersionCCProperties::FirmwareVersion(index) => {
-                ValueIdProperties::new(val.to_discriminant(), Some(index as u32))
+                Self::new(val.to_discriminant(), Some(index as u32))
             }
-            _ => ValueIdProperties::new(val.to_discriminant(), None),
+            _ => Self::new(val.to_discriminant(), None),
         }
     }
 }
@@ -53,18 +52,15 @@ impl TryFrom<ValueIdProperties> for VersionCCProperties {
     type Error = ();
 
     fn try_from(value: ValueIdProperties) -> Result<Self, Self::Error> {
-        match (
-            Self::try_from(value.property() as u8),
-            value.property_key(),
-        ) {
+        match (Self::try_from(value.property() as u8), value.property_key()) {
             // Static properties have no property key
             (Ok(prop), None) => return Ok(prop),
             // Dynamic properties have one
             (Err(TryFromReprError::NonPrimitive(d)), Some(k)) => {
                 // Figure out which one it is
-                let firmware_version_discr = VersionCCProperties::FirmwareVersion(0).to_discriminant();
+                let firmware_version_discr = Self::FirmwareVersion(0).to_discriminant();
                 if d == firmware_version_discr && k <= u8::MAX as u32 {
-                    return Ok(VersionCCProperties::FirmwareVersion(k as u8));
+                    return Ok(Self::FirmwareVersion(k as u8));
                 }
             }
             _ => (),

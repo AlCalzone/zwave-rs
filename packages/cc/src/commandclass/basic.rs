@@ -23,7 +23,7 @@ enum BasicCCProperties {
 
 impl From<BasicCCProperties> for ValueIdProperties {
     fn from(val: BasicCCProperties) -> Self {
-        ValueIdProperties::new(val as u8, None)
+        Self::new(val as u32, None)
     }
 }
 

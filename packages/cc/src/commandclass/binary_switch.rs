@@ -1,15 +1,74 @@
 use crate::prelude::*;
-use proc_macros::TryFromRepr;
-use zwave_core::prelude::*;
-
+use crate::values::*;
 use cookie_factory as cf;
 use nom::{
     combinator::{map, opt},
     sequence::tuple,
 };
+use proc_macros::TryFromRepr;
 use typed_builder::TypedBuilder;
-use zwave_core::encoding::{self, encoders::empty};
+use zwave_core::cache::CacheValue;
+use zwave_core::encoding::{self, encoders::empty, parsers};
+use zwave_core::prelude::*;
+use zwave_core::util::ToDiscriminant;
+use zwave_core::value_id::{ValueId, ValueIdProperties};
 
+#[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
+#[repr(u8)]
+enum BinarySwitchCCProperties {
+    CurrentValue = 0x00,
+    TargetValue = 0x01,
+    Duration = 0x02,
+}
+
+impl From<BinarySwitchCCProperties> for ValueIdProperties {
+    fn from(val: BinarySwitchCCProperties) -> Self {
+        Self::new(val as u32, None)
+    }
+}
+
+impl TryFrom<ValueIdProperties> for BinarySwitchCCProperties {
+    type Error = ();
+
+    fn try_from(val: ValueIdProperties) -> Result<Self, Self::Error> {
+        match (Self::try_from(val.property() as u8), val.property_key()) {
+            (Ok(prop), None) => Ok(prop),
+            _ => Err(()),
+        }
+    }
+}
+
+pub struct BinarySwitchCCValues;
+impl BinarySwitchCCValues {
+    cc_value_static_property!(
+        BinarySwitch,
+        CurrentValue,
+        ValueMetadata::Boolean(
+            ValueMetadataBoolean::default()
+                .readonly()
+                .label("Current value")
+        ),
+        CCValueOptions::default()
+    );
+
+    cc_value_static_property!(
+        BinarySwitch,
+        TargetValue,
+        ValueMetadata::Boolean(
+            ValueMetadataBoolean::default().label("Target value") // TODO: valueChangeOptions: ["transitionDuration"]
+        ),
+        CCValueOptions::default()
+    );
+
+    cc_value_static_property!(
+        BinarySwitch,
+        Duration,
+        ValueMetadata::DurationReport(
+            ValueMetadataCommon::default_readonly().label("Remaining duration"),
+        ),
+        CCValueOptions::default().min_version(2)
+    );
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)]
@@ -67,7 +126,7 @@ impl CCParsable for BinarySwitchCCSet {
 
 impl CCSerializable for BinarySwitchCCSet {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        use cf::{sequence::tuple};
+        use cf::sequence::tuple;
         tuple((self.target_value.serialize(), self.duration.serialize()))
     }
 }

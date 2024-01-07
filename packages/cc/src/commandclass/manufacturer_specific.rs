@@ -1,10 +1,16 @@
-use std::fmt::Display;
-
 use crate::prelude::*;
 use crate::values::*;
+use cookie_factory as cf;
+use nom::{
+    bits, bits::complete::take as take_bits, bytes::complete::take, combinator::map_res,
+    number::complete::be_u16, sequence::tuple,
+};
 use proc_macros::TryFromRepr;
+use std::fmt::Display;
+use typed_builder::TypedBuilder;
 use ux::{u3, u5};
 use zwave_core::cache::CacheValue;
+use zwave_core::encoding::{self, encoders::empty};
 use zwave_core::value_id::ValueId;
 use zwave_core::value_id::ValueIdProperties;
 use zwave_core::{
@@ -12,14 +18,6 @@ use zwave_core::{
     prelude::*,
     util::ToDiscriminant,
 };
-
-use cookie_factory as cf;
-use nom::{
-    bits, bits::complete::take as take_bits, bytes::complete::take, combinator::map_res,
-    number::complete::be_u16, sequence::tuple,
-};
-use typed_builder::TypedBuilder;
-use zwave_core::encoding::{self, encoders::empty};
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)] // must match the ToDiscriminant impl
@@ -36,9 +34,9 @@ impl From<ManufacturerSpecificCCProperties> for ValueIdProperties {
     fn from(val: ManufacturerSpecificCCProperties) -> Self {
         match val {
             ManufacturerSpecificCCProperties::DeviceId(device_id_type) => {
-                ValueIdProperties::new(val.to_discriminant(), Some(device_id_type as u32))
+                Self::new(val.to_discriminant(), Some(device_id_type as u32))
             }
-            _ => ValueIdProperties::new(val.to_discriminant(), None),
+            _ => Self::new(val.to_discriminant(), None),
         }
     }
 }
