@@ -83,7 +83,7 @@ pub enum BinarySwitchCCCommand {
 #[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]
 pub struct BinarySwitchCCSet {
     pub target_value: BinarySet,
-    #[builder(default, setter(strip_option))]
+    #[builder(default, setter(into))]
     pub duration: Option<DurationSet>,
 }
 
@@ -131,7 +131,7 @@ impl CCSerializable for BinarySwitchCCSet {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]
+#[derive(Default, Debug, Clone, PartialEq, CCValues)]
 pub struct BinarySwitchCCGet {}
 
 impl CCBase for BinarySwitchCCGet {}
@@ -172,11 +172,11 @@ impl CCSerializable for BinarySwitchCCGet {
 #[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]
 pub struct BinarySwitchCCReport {
     #[cc_value(BinarySwitchCCValues::current_value)]
-    current_value: BinaryReport,
+    pub current_value: BinaryReport,
     #[cc_value(BinarySwitchCCValues::target_value)]
-    target_value: Option<BinaryReport>,
+    pub target_value: Option<BinaryReport>,
     #[cc_value(BinarySwitchCCValues::duration)]
-    duration: Option<DurationReport>,
+    pub duration: Option<DurationReport>,
 }
 
 impl CCBase for BinarySwitchCCReport {}

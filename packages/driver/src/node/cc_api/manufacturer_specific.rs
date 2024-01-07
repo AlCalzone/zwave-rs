@@ -23,11 +23,13 @@ impl<'a> CCAPI<'a> for ManufacturerSpecificCCAPI<'a> {
         2
     }
 
-    async fn interview<'ctx>(&self, ctx: &CCInterviewContext<'ctx>) -> CCAPIResult<()> {
+    async fn interview<'ctx: 'a>(&self, ctx: &CCInterviewContext<'ctx>) -> CCAPIResult<()> {
+        let endpoint = ctx.endpoint;
+
         println!(
             "Node {}, {} - Interviewing ManufacturerSpecific CC",
-            ctx.endpoint.node_id(),
-            ctx.endpoint.index(),
+            endpoint.node_id(),
+            endpoint.index(),
         );
 
         println!("Querying manufacturer information...");

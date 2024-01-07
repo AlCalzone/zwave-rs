@@ -22,15 +22,15 @@ impl<'a> CCAPI<'a> for BasicCCAPI<'a> {
         2
     }
 
-    async fn interview<'ctx>(&self, ctx: &CCInterviewContext<'ctx>) -> CCAPIResult<()> {
-        let endpoint = self.endpoint;
+    async fn interview<'ctx: 'a>(&self, ctx: &CCInterviewContext<'ctx>) -> CCAPIResult<()> {
+        let endpoint = ctx.endpoint;
         let node = endpoint.get_node();
         let cache = node.value_cache();
 
         println!(
             "Node {}, {} - Interviewing Basic CC",
-            ctx.endpoint.node_id(),
-            ctx.endpoint.index(),
+            endpoint.node_id(),
+            endpoint.index(),
         );
 
         // Try to query the current state

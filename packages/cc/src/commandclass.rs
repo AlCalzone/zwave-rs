@@ -12,7 +12,7 @@ use crate::commandclass_raw::CCRaw;
 #[derive(Default, Clone, PartialEq, TypedBuilder)]
 #[builder(field_defaults(default))]
 pub struct CCParsingContext {
-    #[builder(setter(strip_option))]
+    #[builder(default, setter(into))]
     frame_addressing: Option<FrameAddressing>,
 }
 

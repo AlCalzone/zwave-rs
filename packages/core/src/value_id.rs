@@ -7,7 +7,7 @@ pub struct ValueId {
     command_class: CommandClasses,
     #[builder(setter(into))]
     property: u32,
-    #[builder(default, setter(strip_option))]
+    #[builder(default, setter(into))]
     property_key: Option<u32>,
 }
 

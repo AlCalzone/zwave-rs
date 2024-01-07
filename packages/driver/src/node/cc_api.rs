@@ -21,7 +21,7 @@ pub trait CCAPI<'a> {
     }
 
     #[allow(async_fn_in_trait)]
-    async fn interview(&self, ctx: &CCInterviewContext<'_>) -> CCAPIResult<()>;
+    async fn interview<'ctx: 'a>(&self, ctx: &CCInterviewContext<'ctx>) -> CCAPIResult<()>;
 
     #[allow(async_fn_in_trait)]
     async fn refresh_values(&self) -> CCAPIResult<()>;

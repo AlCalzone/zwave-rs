@@ -27,8 +27,8 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
         &[CommandClasses::ManufacturerSpecific]
     }
 
-    async fn interview<'ctx>(&self, ctx: &CCInterviewContext<'ctx>) -> CCAPIResult<()> {
-        let endpoint = self.endpoint;
+    async fn interview<'ctx: 'a>(&self, ctx: &CCInterviewContext<'ctx>) -> CCAPIResult<()> {
+        let endpoint = ctx.endpoint;
         let node = endpoint.get_node();
         let cache = node.value_cache();
 
@@ -45,8 +45,8 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
 
         println!(
             "Node {}, {} - Interviewing Version CC",
-            ctx.endpoint.node_id(),
-            ctx.endpoint.index(),
+            endpoint.node_id(),
+            endpoint.index(),
         );
 
         // On the root endpoint, query the VersionCC version and static version information
