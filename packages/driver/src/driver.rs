@@ -1,6 +1,15 @@
+use self::awaited::{AwaitedRef, AwaitedRegistry, Predicate};
+use self::cache::ValueCache;
+use self::serial_api_machine::{
+    SerialApiMachine, SerialApiMachineCondition, SerialApiMachineInput, SerialApiMachineState,
+};
+use self::storage::{DriverStorage, DriverStorageShared};
+use crate::error::{Error, Result};
 use std::sync::Arc;
+use std::thread::{self};
 use std::time::Duration;
-
+use tokio::sync::{broadcast, mpsc, oneshot, Notify};
+use tokio::task::JoinHandle;
 use zwave_cc::commandclass::{CCValues, WithAddress, CC};
 use zwave_core::cache::Cache;
 use zwave_core::state_machine::{StateMachine, StateMachineTransition};
@@ -8,23 +17,13 @@ use zwave_core::util::now;
 use zwave_core::value_id::EndpointValueId;
 use zwave_core::wrapping_counter::WrappingCounter;
 use zwave_core::{prelude::*, submodule};
-use zwave_serial::prelude::*;
-
+use zwave_logging::loggers::base::BaseLogger;
+use zwave_logging::loggers::driver::DriverLogger;
+use zwave_logging::{LogInfo, Logger, Loglevel};
 use zwave_serial::binding::SerialBinding;
 use zwave_serial::frame::{ControlFlow, RawSerialFrame, SerialFrame};
+use zwave_serial::prelude::*;
 use zwave_serial::serialport::SerialPort;
-
-use crate::error::{Error, Result};
-
-use tokio::sync::{broadcast, mpsc, oneshot, Notify};
-use tokio::task::JoinHandle;
-
-use self::awaited::{AwaitedRef, AwaitedRegistry, Predicate};
-use self::cache::ValueCache;
-use self::serial_api_machine::{
-    SerialApiMachine, SerialApiMachineCondition, SerialApiMachineInput, SerialApiMachineState,
-};
-use self::storage::{DriverStorage, DriverStorageShared};
 
 pub use serial_api_machine::SerialApiMachineResult;
 
@@ -40,6 +39,7 @@ submodule!(controller_commands);
 submodule!(node_commands);
 submodule!(node_api);
 submodule!(controller_api);
+submodule!(background_logger);
 
 type TaskCommandSender<T> = mpsc::Sender<T>;
 type TaskCommandReceiver<T> = mpsc::Receiver<T>;
@@ -65,6 +65,9 @@ struct DriverTasks {
     serial_cmd: SerialTaskCommandSender,
     serial_listener: SerialListener,
     serial_task_shutdown: Arc<Notify>,
+
+    log_thread: std::thread::JoinHandle<()>,
+    log_cmd: LogTaskCommandSender,
 }
 
 impl Drop for DriverTasks {
@@ -72,6 +75,7 @@ impl Drop for DriverTasks {
         // We need to stop the background tasks, otherwise they will stick around until the process exits
         self.serial_task_shutdown.notify_one();
         self.main_task_shutdown.notify_one();
+        // The thread(s) will exit when the channel is closed
     }
 }
 
@@ -95,6 +99,10 @@ impl Driver<Init> {
         let main_task_shutdown = Arc::new(Notify::new());
         let main_task_shutdown2 = main_task_shutdown.clone();
 
+        // Logging happens in a separate **thread** in order to not interfere with the main logic.
+        let (log_cmd_tx, log_cmd_rx) = std::sync::mpsc::channel::<LogTaskCommand>();
+        let bg_logger = BackgroundLogger::new(log_cmd_tx.clone(), Loglevel::Debug);
+
         let shared_storage = Arc::new(DriverStorageShared::default());
 
         // Start the background task for the main logic
@@ -114,6 +122,9 @@ impl Driver<Init> {
             serial_listener_tx,
         ));
 
+        // Start the background task for logging
+        let log_thread = thread::spawn(move || log_loop(log_cmd_rx));
+
         let tasks = DriverTasks {
             main_task,
             main_cmd: main_cmd_tx,
@@ -122,12 +133,17 @@ impl Driver<Init> {
             serial_cmd: serial_cmd_tx,
             serial_task_shutdown,
             serial_listener: serial_listener_rx,
+            log_cmd: log_cmd_tx,
+            log_thread,
         };
+
+        let storage =
+            DriverStorage::new(Default::default(), DriverLogger::new(Box::new(bg_logger)));
 
         Ok(Self {
             tasks,
             state: Init,
-            storage: DriverStorage::default(),
+            storage,
             shared_storage,
         })
     }
@@ -373,6 +389,10 @@ where
                 final_state
             ),
         }
+    }
+
+    pub fn logger(&self) -> &DriverLogger {
+        self.storage.logger()
     }
 }
 
@@ -788,6 +808,64 @@ async fn serial_loop_handle_frame(
     }
 }
 
+// FIXME: We need a variant for threads
+define_task_commands!(LogTaskCommand {
+    // Set the log level of the given logger
+    UseLogLevel -> () {
+        level: Loglevel,
+    },
+    // Log the given message
+    Log -> () {
+        log: LogInfo,
+        level: Loglevel,
+    },
+});
+
+type LogTaskCommandSender = std::sync::mpsc::Sender<LogTaskCommand>;
+type LogTaskCommandReceiver = std::sync::mpsc::Receiver<LogTaskCommand>;
+
+struct LogLoopStorage {
+    logger: Box<dyn Logger>,
+}
+
+fn log_loop(cmd_rx: LogTaskCommandReceiver) {
+    let logger = BaseLogger {
+        level: Loglevel::Debug,
+        writer: Box::new(termcolor::StandardStream::stdout(
+            termcolor::ColorChoice::Auto,
+        )),
+        formatter: Box::new(zwave_logging::formatters::DefaultFormatter::new()),
+    };
+
+    let mut storage = LogLoopStorage {
+        logger: Box::new(logger),
+    };
+    while let Ok(cmd) = cmd_rx.recv() {
+        log_loop_handle_command(&mut storage, cmd);
+    }
+
+    println!("log task stopped")
+}
+
+fn log_loop_handle_command(storage: &mut LogLoopStorage, cmd: LogTaskCommand) {
+    match cmd {
+        LogTaskCommand::UseLogLevel(UseLogLevel { level, callback: _ }) => {
+            storage.logger.set_log_level(level);
+        }
+
+        LogTaskCommand::Log(Log {
+            callback: _,
+            log,
+            level,
+        }) => {
+            storage.logger.log(log, level);
+        }
+
+        // Ignore other commands
+        _ => {}
+    }
+}
+
 macro_rules! exec_background_task {
     ($command_sender:expr, $command_type:ident::$variant:ident, $($new_args:tt)*) => {
         {
@@ -804,3 +882,20 @@ macro_rules! exec_background_task {
 
 }
 pub(crate) use exec_background_task;
+
+// FIXME: This is a shitty name
+macro_rules! exec_background_task2 {
+    ($command_sender:expr, $command_type:ident::$variant:ident, $($new_args:tt)*) => {
+        {
+            let (cmd, _rx) = $variant::new($($new_args)*);
+            let cmd = $command_type::$variant(cmd);
+            $command_sender.send(cmd).map_err(|_| $crate::error::Error::Internal)
+        }
+    };
+
+    ($command_sender:expr, $command_type:ident::$variant:ident) => {
+        exec_background_task2!($command_sender, $command_type::$variant,)
+    }
+
+}
+pub(crate) use exec_background_task2;

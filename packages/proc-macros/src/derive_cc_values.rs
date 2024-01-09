@@ -1,7 +1,5 @@
-use core::panic;
 use quote::quote;
-use std::path;
-use syn::{parse::Error, parse_macro_input, spanned::Spanned, DeriveInput};
+use syn::{parse::Error, spanned::Spanned};
 
 pub(crate) fn impl_derive_cc_values(
     ast: &syn::DeriveInput,

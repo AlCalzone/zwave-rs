@@ -19,3 +19,5 @@ unique_id.workspace = true
 zwave-cc.workspace = true
 zwave-core.workspace = true
 zwave-serial.workspace = true
+zwave-logging.workspace = true
+termcolor.workspace = true

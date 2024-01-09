@@ -1,11 +1,10 @@
 use crate::prelude::*;
-use crate::encoding;
-use proc_macros::TryFromRepr;
 use enum_iterator::Sequence;
 use nom::{
     combinator::{map_res, peek},
     number::complete::{be_u16, be_u8},
 };
+use proc_macros::TryFromRepr;
 use std::fmt::Display;
 
 pub const COMMAND_CLASS_SUPPORT_CONTROL_MARK: u8 = 0xef;

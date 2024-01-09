@@ -16,8 +16,10 @@ async fn main() {
         .unwrap();
     println!("driver started");
 
-    driver.interview_nodes().await.unwrap();
-    println!("all nodes interviewed");
+    driver.logger().message("FOOOOO");
+
+    // driver.interview_nodes().await.unwrap();
+    // println!("all nodes interviewed");
 
     // let node = driver.get_node(&NodeId::new(2u8)).unwrap();
 

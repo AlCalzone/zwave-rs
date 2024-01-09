@@ -1,7 +1,7 @@
-use crate::{cc_api_assert_supported, expect_cc_or_timeout, get_implemented_version};
+use crate::expect_cc_or_timeout;
 use crate::{CCAPIResult, CCInterviewContext, EndpointLike, CCAPI};
 use zwave_cc::commandclass::{binary_switch::*, CCAddressable};
-use zwave_core::{cache::CacheExt, prelude::*};
+use zwave_core::prelude::*;
 
 pub struct BinarySwitchCCAPI<'a> {
     endpoint: &'a dyn EndpointLike<'a>,
