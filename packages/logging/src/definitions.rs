@@ -1,6 +1,7 @@
-use std::{borrow::Cow, time::Instant};
-
+use chrono::{DateTime, Utc};
+use std::borrow::Cow;
 use termcolor::ColorSpec;
+use typed_builder::TypedBuilder;
 
 pub trait ToLogPayload {
     fn to_log_payload(&self) -> LogPayload;
@@ -21,17 +22,26 @@ pub trait WithColor {
 
 impl FormattedString {
     pub fn new(string: impl Into<Cow<'static, str>>, color: Option<ColorSpec>) -> Self {
-        Self { string: string.into(), color }
+        Self {
+            string: string.into(),
+            color,
+        }
     }
 }
 
-impl<T> From<T> for FormattedString where T: Into<Cow<'static, str>> {
+impl<T> From<T> for FormattedString
+where
+    T: Into<Cow<'static, str>>,
+{
     fn from(string: T) -> Self {
         Self::new(string, None)
     }
 }
 
-impl<T> WithColor for T where T: Into<Cow<'static, str>> {
+impl<T> WithColor for T
+where
+    T: Into<Cow<'static, str>>,
+{
     fn with_color(self, color: ColorSpec) -> FormattedString {
         FormattedString::new(self, Some(color))
     }
@@ -47,7 +57,7 @@ pub trait Logger {
 
 /// A variant of the [Logger] trait that does not require mutability. This is typically an abstraction
 /// over a message channel to another thread handling the actual logging.
-pub trait ImmutableLogger {
+pub trait ImmutableLogger: Send + Sync {
     fn log(&self, log: LogInfo, level: Loglevel);
 
     fn log_level(&self) -> Loglevel;
@@ -59,23 +69,28 @@ pub enum Loglevel {
     Info,
     Verbose,
     Debug,
-    Silly
+    Silly,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
+    #[default]
     None,
     Inbound,
     Outbound,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, TypedBuilder)]
 pub struct LogInfo {
-    pub timestamp: Instant,
+    #[builder(default = Utc::now())]
+    pub timestamp: DateTime<Utc>,
+    #[builder(default)]
     pub direction: Direction,
     pub label: &'static str,
+    #[builder(default, setter(strip_option))]
     pub primary_tags: Option<Vec<Cow<'static, str>>>,
-    pub secondary_tags: Option<Vec<Cow<'static, str>>>,
+    #[builder(default, setter(strip_option))]
+    pub secondary_tag: Option<Cow<'static, str>>,
     pub payload: LogPayload,
     // FIXME: Context
 }

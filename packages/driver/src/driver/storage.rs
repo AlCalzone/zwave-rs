@@ -1,27 +1,28 @@
 use std::{
     collections::HashMap,
-    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard, Arc},
 };
 use zwave_core::{cache::CacheValue, prelude::*, value_id::EndpointValueId};
-use zwave_logging::loggers::driver::DriverLogger;
+
+use crate::BackgroundLogger;
 
 /// Internal storage for the driver instance. Since the driver is meant be used from external
 /// (application) code, in several locations at once, often simultaneously, we need to use
 /// interior mutability to allow for concurrent access without requiring a mutable reference.
 pub(crate) struct DriverStorage {
     node_id_type: RwLock<NodeIdType>,
-    logger: DriverLogger,
+    logger: Arc<BackgroundLogger>,
 }
 
 impl DriverStorage {
-    pub fn new(node_id_type: NodeIdType, logger: DriverLogger) -> Self {
+    pub fn new(node_id_type: NodeIdType, logger: Arc<BackgroundLogger>) -> Self {
         Self {
             node_id_type: RwLock::new(node_id_type),
             logger,
         }
     }
 
-    pub fn logger(&self) -> &DriverLogger {
+    pub fn logger(&self) -> &Arc<BackgroundLogger> {
         &self.logger
     }
 

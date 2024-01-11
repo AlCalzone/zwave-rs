@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::prelude::{Command, CommandEncodingContext};
 use cookie_factory as cf;
 use nom::{
@@ -32,6 +34,16 @@ pub enum ControlFlow {
     ACK = SerialControlByte::ACK as u8,
     NAK = SerialControlByte::NAK as u8,
     CAN = SerialControlByte::CAN as u8,
+}
+
+impl Display for ControlFlow {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ControlFlow::ACK => write!(f, "ACK"),
+            ControlFlow::NAK => write!(f, "NAK"),
+            ControlFlow::CAN => write!(f, "CAN"),
+        }
+    }
 }
 
 /// A raw serial frame, as received from the serial port

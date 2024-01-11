@@ -1,3 +1,5 @@
+use std::{process::exit, time::Duration};
+
 use zwave_core::{definitions::NodeId, values::LevelSet};
 
 #[cfg(target_os = "linux")]
@@ -7,16 +9,13 @@ const PORT: &str = "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5479014030-if00
 #[cfg(target_os = "windows")]
 const PORT: &str = "COM6";
 
+
 #[tokio::main]
 async fn main() {
-    let driver = zwave_driver::Driver::new(PORT)
-        .unwrap()
-        .init()
-        .await
-        .unwrap();
-    println!("driver started");
+    let driver = zwave_driver::Driver::new(PORT).unwrap();
 
-    driver.logger().message("FOOOOO");
+    let driver = driver.init().await.unwrap();
+    println!("driver started");
 
     // driver.interview_nodes().await.unwrap();
     // println!("all nodes interviewed");
@@ -125,8 +124,6 @@ async fn main() {
 
     // // let result = driver.execute_serial_api_command(cmd).await.unwrap();
     // println!("execute result: {:?}", result);
-
-    // thread::sleep(Duration::from_millis(2000));
 
     drop(driver);
     println!("driver stopped");

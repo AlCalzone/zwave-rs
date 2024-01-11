@@ -19,6 +19,7 @@ use zwave_core::wrapping_counter::WrappingCounter;
 use zwave_core::{prelude::*, submodule};
 use zwave_logging::loggers::base::BaseLogger;
 use zwave_logging::loggers::driver::DriverLogger;
+use zwave_logging::loggers::serial::SerialLogger;
 use zwave_logging::{LogInfo, Logger, Loglevel};
 use zwave_serial::binding::SerialBinding;
 use zwave_serial::frame::{ControlFlow, RawSerialFrame, SerialFrame};
@@ -101,8 +102,10 @@ impl Driver<Init> {
 
         // Logging happens in a separate **thread** in order to not interfere with the main logic.
         let (log_cmd_tx, log_cmd_rx) = std::sync::mpsc::channel::<LogTaskCommand>();
-        let bg_logger = BackgroundLogger::new(log_cmd_tx.clone(), Loglevel::Debug);
+        let bg_logger = Arc::new(BackgroundLogger::new(log_cmd_tx.clone(), Loglevel::Debug));
+        let serial_logger = SerialLogger::new(bg_logger.clone());
 
+        let storage = DriverStorage::new(Default::default(), bg_logger);
         let shared_storage = Arc::new(DriverStorageShared::default());
 
         // Start the background task for the main logic
@@ -117,6 +120,7 @@ impl Driver<Init> {
         // Start the background task for the serial port communication
         let serial_task = tokio::spawn(serial_loop(
             port,
+            serial_logger,
             serial_cmd_rx,
             serial_task_shutdown2,
             serial_listener_tx,
@@ -137,9 +141,6 @@ impl Driver<Init> {
             log_thread,
         };
 
-        let storage =
-            DriverStorage::new(Default::default(), DriverLogger::new(Box::new(bg_logger)));
-
         Ok(Self {
             tasks,
             state: Init,
@@ -149,6 +150,9 @@ impl Driver<Init> {
     }
 
     pub async fn init(self) -> Result<Driver<Ready>> {
+        let logger = self.logger();
+        logger.logo();
+
         // Synchronize the serial port
         exec_background_task!(
             self.tasks.serial_cmd,
@@ -391,8 +395,8 @@ where
         }
     }
 
-    pub fn logger(&self) -> &DriverLogger {
-        self.storage.logger()
+    pub fn logger(&self) -> DriverLogger {
+        DriverLogger::new(self.storage.logger().clone())
     }
 }
 
@@ -678,18 +682,23 @@ define_task_commands!(SerialTaskCommand {
 type SerialTaskCommandSender = TaskCommandSender<SerialTaskCommand>;
 type SerialTaskCommandReceiver = TaskCommandReceiver<SerialTaskCommand>;
 
-#[derive(Default)]
 struct SerialLoopStorage {
     node_id_type: NodeIdType,
+    logger: SerialLogger,
 }
 
 async fn serial_loop(
     mut port: SerialPort,
+    logger: SerialLogger,
     mut cmd_rx: SerialTaskCommandReceiver,
     shutdown: Arc<Notify>,
     frame_emitter: SerialFrameEmitter,
 ) {
-    let mut storage = SerialLoopStorage::default();
+    let mut storage = SerialLoopStorage {
+        node_id_type: Default::default(),
+        logger,
+    };
+
     loop {
         // Whatever happens first gets handled first.
         tokio::select! {
@@ -725,7 +734,7 @@ async fn serial_loop_handle_command(
             let result = frame.try_into_raw(&ctx).map_err(|_| Error::Internal);
 
             let result = if let Ok(raw) = result {
-                port.write(raw).await.map_err(|e| e.into())
+                write_serial(port, raw, &storage.logger).await
             } else {
                 result.map(|_| ())
             };
@@ -754,14 +763,18 @@ async fn serial_loop_handle_frame(
 ) {
     let emit = match &frame {
         RawSerialFrame::Data(data) => {
-            println!("{} << {}", now(), hex::encode(data));
+            storage.logger.data(data, zwave_logging::Direction::Inbound);
             // Try to parse the frame
             match zwave_serial::command_raw::CommandRaw::parse(data) {
                 Ok((_, raw)) => {
                     // The first step of parsing was successful, ACK the frame
-                    port.write(RawSerialFrame::ControlFlow(ControlFlow::ACK))
-                        .await
-                        .unwrap();
+                    write_serial(
+                        port,
+                        RawSerialFrame::ControlFlow(ControlFlow::ACK),
+                        &storage.logger,
+                    )
+                    .await
+                    .unwrap();
 
                     // Now try to convert it into an actual command
                     let ctx = CommandEncodingContext::builder()
@@ -782,23 +795,33 @@ async fn serial_loop_handle_frame(
                 Err(e) => {
                     println!("{} error: {:?}", now(), e);
                     // Parsing failed, this means we've received garbage after all
-                    port.write(RawSerialFrame::ControlFlow(ControlFlow::NAK))
-                        .await
-                        .unwrap();
+                    write_serial(
+                        port,
+                        RawSerialFrame::ControlFlow(ControlFlow::NAK),
+                        &storage.logger,
+                    )
+                    .await
+                    .unwrap();
                     None
                 }
             }
         }
         RawSerialFrame::Garbage(data) => {
-            println!("{} xx: {}", now(), hex::encode(data));
+            storage.logger.discarded(data);
             // After receiving garbage, try to re-sync by sending NAK
-            port.write(RawSerialFrame::ControlFlow(ControlFlow::NAK))
-                .await
-                .unwrap();
+            write_serial(
+                port,
+                RawSerialFrame::ControlFlow(ControlFlow::NAK),
+                &storage.logger,
+            )
+            .await
+            .unwrap();
             None
         }
         RawSerialFrame::ControlFlow(byte) => {
-            println!("{} << {:?}", now(), &byte);
+            storage
+                .logger
+                .control_flow(byte, zwave_logging::Direction::Inbound);
             Some(SerialFrame::ControlFlow(*byte))
         }
     };
@@ -806,6 +829,24 @@ async fn serial_loop_handle_frame(
     if let Some(frame) = emit {
         let _ = frame_emitter.send(frame);
     }
+}
+
+async fn write_serial(
+    port: &mut SerialPort,
+    frame: RawSerialFrame,
+    logger: &SerialLogger,
+) -> Result<()> {
+    match &frame {
+        RawSerialFrame::Data(data) => {
+            logger.data(data, zwave_logging::Direction::Outbound);
+        }
+        RawSerialFrame::ControlFlow(byte) => {
+            logger.control_flow(byte, zwave_logging::Direction::Outbound);
+        }
+        _ => {}
+    }
+
+    port.write(frame).await.map_err(|e| e.into())
 }
 
 // FIXME: We need a variant for threads

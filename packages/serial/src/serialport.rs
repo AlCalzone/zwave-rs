@@ -1,7 +1,3 @@
-use zwave_core::encoding;
-use zwave_core::prelude::*;
-use zwave_core::util::now;
-
 use crate::binding::SerialBinding;
 use crate::error::*;
 use crate::frame::RawSerialFrame;
@@ -10,6 +6,8 @@ use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
 use tokio_serial::{SerialPortBuilderExt, SerialStream};
 use tokio_util::codec::{Decoder, Encoder, Framed};
+use zwave_core::encoding;
+use zwave_core::prelude::*;
 
 pub struct SerialPort {
     writer: SplitSink<Framed<SerialStream, SerialFrameCodec>, RawSerialFrame>,
@@ -30,16 +28,6 @@ impl SerialBinding for SerialPort {
     }
 
     async fn write(&mut self, frame: RawSerialFrame) -> Result<()> {
-        match &frame {
-            RawSerialFrame::Data(data) => {
-                println!("{} >> {}", now(), hex::encode(data));
-            }
-            RawSerialFrame::ControlFlow(byte) => {
-                println!("{} >> {:?}", now(), byte);
-            }
-            _ => (),
-        }
-
         // Not sure why, but doing this exects EncodingError to implement From<io::Error>,
         // although we'd actually want our local error type to be used.
         // TODO: Fix this at some point

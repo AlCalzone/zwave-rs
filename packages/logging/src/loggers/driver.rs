@@ -1,35 +1,39 @@
-use crate::{Direction, ImmutableLogger, LogInfo, Loglevel};
-use std::{borrow::Cow, time::Instant, vec};
+use crate::{ImmutableLogger, LogInfo, Loglevel};
+use std::{borrow::Cow, sync::Arc};
 
 pub struct DriverLogger {
-    inner: Box<dyn ImmutableLogger>,
+    inner: Arc<dyn ImmutableLogger>,
 }
 
+const LOGO: &str = "\
+🦀🦀🦀       🦀    🦀   🦀🦀🦀   🦀    🦀  🦀🦀🦀       🦀🦀🦀     🦀🦀🦀
+   🦀        🦀    🦀  🦀    🦀  🦀    🦀  🦀           🦀   🦀   🦀
+  🦀   🦀🦀  🦀 🦀 🦀  🦀🦀🦀🦀  🦀    🦀  🦀🦀         🦀🦀🦀     🦀🦀🦀
+ 🦀          🦀 🦀 🦀  🦀    🦀   🦀  🦀   🦀           🦀   🦀         🦀
+🦀🦀🦀        🦀  🦀   🦀    🦀    🦀🦀    🦀🦀🦀       🦀    🦀   🦀🦀🦀\
+";
+
 impl DriverLogger {
-    pub fn new(inner: Box<dyn ImmutableLogger>) -> Self {
+    pub fn new(inner: Arc<dyn ImmutableLogger>) -> Self {
         Self { inner }
     }
 
-    fn log_level(&self) -> Loglevel {
-        self.inner.log_level()
-    }
-
-    fn set_log_level(&self, level: Loglevel) {
-        self.inner.set_log_level(level);
+    pub fn logo(&self) {
+        self.message(LOGO);
     }
 
     pub fn message(&self, message: impl Into<Cow<'static, str>>) {
-        let info = LogInfo {
-            timestamp: Instant::now(),
-            direction: Direction::None,
-            label: "DRIVER",
-            primary_tags: None,
-            secondary_tags: None,
-            payload: crate::LogPayload {
-                message_lines: Some(vec![message.into()]),
+        let message_lines: Vec<_> = String::from(message.into())
+            .split('\n')
+            .map(|s| s.to_owned().into())
+            .collect();
+        let log = LogInfo::builder()
+            .label("DRIVER")
+            .payload(crate::LogPayload {
+                message_lines: Some(message_lines),
                 payload: None,
-            },
-        };
-        self.inner.log(info, Loglevel::Info);
+            })
+            .build();
+        self.inner.log(log, Loglevel::Info);
     }
 }

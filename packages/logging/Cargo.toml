@@ -9,3 +9,8 @@ edition.workspace = true
 [dependencies]
 zwave-core.workspace = true
 termcolor.workspace = true
+chrono.workspace = true
+typed-builder.workspace = true
+hex.workspace = true
+zwave-serial.workspace = true
+unicode-segmentation.workspace = true
