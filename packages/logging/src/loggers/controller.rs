@@ -1,4 +1,4 @@
-use crate::{ImmutableLogger, LogInfo, Loglevel};
+use crate::{ImmutableLogger, LogInfo, Loglevel, LogPayload};
 use std::{borrow::Cow, sync::Arc};
 
 pub struct ControllerLogger {
@@ -18,10 +18,7 @@ impl ControllerLogger {
             .collect();
         let log = LogInfo::builder()
             .label("CNTRLR")
-            .payload(crate::LogPayload {
-                message_lines: Some(message_lines),
-                payload: None,
-            })
+            .payload(LogPayload::Flat(message_lines))
             .build();
         self.inner.log(log, level);
     }

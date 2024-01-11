@@ -1,4 +1,7 @@
-use crate::{Direction, FormattedString, LogFormatter, LogInfo, Loglevel, WithColor};
+use crate::{
+    util::str_width, Direction, FlattenLog, FormattedString, LogFormatter, LogInfo, Loglevel,
+    WithColor,
+};
 use termcolor::{Color, ColorSpec};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -83,10 +86,6 @@ fn get_primary_tag_color_specs(
     (cs_text, cs_delim)
 }
 
-fn str_width(string: &str) -> usize {
-    string.graphemes(true).count()
-}
-
 impl LogFormatter for DefaultFormatter {
     fn format_log(&self, log: &LogInfo, level: Loglevel) -> Vec<FormattedString> {
         let timestamp = log
@@ -143,9 +142,11 @@ impl LogFormatter for DefaultFormatter {
         }
 
         let available_width = self.line_width as isize - preamble_width;
-        let mut last_line_remaining_width = available_width;
+        let mut last_line_remaining_width =
+            available_width - primary_tags_width - secondary_tag_width;
 
-        if let Some(lines) = &log.payload.message_lines {
+        let lines = log.payload.flatten_log();
+        if !lines.is_empty() {
             let num_lines = lines.len();
             for (i, line) in lines.iter().enumerate() {
                 let mut is_first = i == 0;
@@ -176,8 +177,6 @@ impl LogFormatter for DefaultFormatter {
                     ret.push(cur_line.with_color(text_color.clone()));
                 }
             }
-        } else {
-            last_line_remaining_width -= primary_tags_width + secondary_tag_width;
         }
 
         // FIXME: The secondary tag should be printed in the first line
@@ -223,10 +222,7 @@ mod test {
             .direction(Direction::Outbound)
             .primary_tags(vec![ControlFlow::ACK.to_string().into()])
             .secondary_tag("0x06".into())
-            .payload(LogPayload {
-                message_lines: None,
-                payload: None,
-            })
+            .payload(LogPayload::Flat(Vec::new()))
             .build();
         let formatted = fmt.format_log(&log, Loglevel::Info);
         let formatted1 = formatted
@@ -238,10 +234,7 @@ mod test {
             .label("SERIAL")
             .direction(Direction::Outbound)
             .secondary_tag("7 bytes".into())
-            .payload(LogPayload {
-                message_lines: Some(vec!["0x01020304050607".into()]),
-                payload: None,
-            })
+            .payload(LogPayload::Flat(vec!["0x01020304050607".into()]))
             .build();
         let formatted = fmt.format_log(&log, Loglevel::Info);
         let formatted2 = formatted

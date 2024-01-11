@@ -18,10 +18,7 @@ impl SerialLogger {
             .label("SERIAL")
             .direction(direction)
             .secondary_tag(format!("{} bytes", data.len()).into())
-            .payload(crate::LogPayload {
-                message_lines: Some(message_lines),
-                payload: None,
-            })
+            .payload(LogPayload::Flat(message_lines))
             .build();
         self.inner.log(log, Loglevel::Debug);
     }
@@ -34,10 +31,7 @@ impl SerialLogger {
             .direction(direction)
             .primary_tags(vec![byte.to_string().into()])
             .secondary_tag(tag)
-            .payload(LogPayload {
-                message_lines: None,
-                payload: None,
-            })
+            .payload(LogPayload::Flat(Vec::new()))
             .build();
         self.inner.log(log, Loglevel::Debug);
     }
@@ -49,10 +43,7 @@ impl SerialLogger {
             .direction(Direction::Inbound)
             .primary_tags(vec!["DISCARDED".into()])
             .secondary_tag(format!("{} bytes", data.len()).into())
-            .payload(crate::LogPayload {
-                message_lines: Some(message_lines),
-                payload: None,
-            })
+            .payload(LogPayload::Flat(message_lines))
             .build();
         self.inner.log(log, Loglevel::Debug);
     }

@@ -1,4 +1,4 @@
-use crate::{ImmutableLogger, LogInfo, Loglevel};
+use crate::{ImmutableLogger, LogInfo, Loglevel, LogPayload};
 use std::{borrow::Cow, sync::Arc};
 
 pub struct DriverLogger {
@@ -30,10 +30,7 @@ impl DriverLogger {
             .collect();
         let log = LogInfo::builder()
             .label("DRIVER")
-            .payload(crate::LogPayload {
-                message_lines: Some(message_lines),
-                payload: None,
-            })
+            .payload(LogPayload::Flat(message_lines))
             .build();
         self.inner.log(log, level);
     }

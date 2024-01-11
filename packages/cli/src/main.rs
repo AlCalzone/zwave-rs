@@ -124,6 +124,8 @@ async fn main() {
     // // let result = driver.execute_serial_api_command(cmd).await.unwrap();
     // println!("execute result: {:?}", result);
 
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
     drop(driver);
     println!("driver stopped");
 }

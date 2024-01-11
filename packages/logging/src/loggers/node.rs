@@ -1,4 +1,4 @@
-use crate::{ImmutableLogger, LogInfo, Loglevel};
+use crate::{ImmutableLogger, LogInfo, Loglevel, LogPayload};
 use std::{borrow::Cow, sync::Arc};
 use zwave_core::definitions::*;
 
@@ -31,10 +31,7 @@ impl NodeLogger {
         let log = LogInfo::builder()
             .label("CNTRLR")
             .primary_tags(primary_tags)
-            .payload(crate::LogPayload {
-                message_lines: Some(message_lines),
-                payload: None,
-            })
+            .payload(LogPayload::Flat(message_lines))
             .build();
         self.inner.log(log, level);
     }
