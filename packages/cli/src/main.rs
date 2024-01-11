@@ -15,7 +15,6 @@ async fn main() {
     let driver = zwave_driver::Driver::new(PORT).unwrap();
 
     let driver = driver.init().await.unwrap();
-    println!("driver started");
 
     // driver.interview_nodes().await.unwrap();
     // println!("all nodes interviewed");

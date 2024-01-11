@@ -1,8 +1,9 @@
 use std::{
     collections::HashMap,
-    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard, Arc},
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 use zwave_core::{cache::CacheValue, prelude::*, value_id::EndpointValueId};
+use zwave_logging::loggers::{controller::ControllerLogger, driver::DriverLogger};
 
 use crate::BackgroundLogger;
 
@@ -11,19 +12,38 @@ use crate::BackgroundLogger;
 /// interior mutability to allow for concurrent access without requiring a mutable reference.
 pub(crate) struct DriverStorage {
     node_id_type: RwLock<NodeIdType>,
+
+    // The shared logger used by all specific logger instances
     logger: Arc<BackgroundLogger>,
+    driver_logger: DriverLogger,
+    controller_logger: ControllerLogger,
 }
 
 impl DriverStorage {
-    pub fn new(node_id_type: NodeIdType, logger: Arc<BackgroundLogger>) -> Self {
+    pub fn new(
+        node_id_type: NodeIdType,
+        logger: Arc<BackgroundLogger>,
+        driver_logger: DriverLogger,
+        controller_logger: ControllerLogger,
+    ) -> Self {
         Self {
             node_id_type: RwLock::new(node_id_type),
             logger,
+            driver_logger,
+            controller_logger,
         }
     }
 
     pub fn logger(&self) -> &Arc<BackgroundLogger> {
         &self.logger
+    }
+
+    pub fn driver_logger(&self) -> &DriverLogger {
+        &self.driver_logger
+    }
+
+    pub fn controller_logger(&self) -> &ControllerLogger {
+        &self.controller_logger
     }
 
     pub fn node_id_type(&self) -> NodeIdType {

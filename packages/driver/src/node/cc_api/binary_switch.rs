@@ -26,11 +26,7 @@ impl<'a> CCAPI<'a> for BinarySwitchCCAPI<'a> {
     async fn interview<'ctx: 'a>(&self, ctx: &CCInterviewContext<'ctx>) -> CCAPIResult<()> {
         let endpoint = ctx.endpoint;
 
-        println!(
-            "Node {}, {} - Interviewing BinarySwitch CC",
-            endpoint.node_id(),
-            endpoint.index(),
-        );
+        ctx.log.info("interviewing Binary Switch CC...");
 
         // Try to query the current state
         self.refresh_values().await?;
@@ -39,7 +35,7 @@ impl<'a> CCAPI<'a> for BinarySwitchCCAPI<'a> {
     }
 
     async fn refresh_values(&self) -> CCAPIResult<()> {
-        println!("Quering Binary Switch state...");
+        println!("quering Binary Switch state...");
 
         if let Some(response) = self.get().await? {
             println!("received Binary Switch CC state: {:?}", response);

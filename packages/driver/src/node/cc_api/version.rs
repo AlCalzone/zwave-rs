@@ -43,11 +43,7 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
         // Therefore we use the root endpoint for all queries
         let api = Self::new(node);
 
-        println!(
-            "Node {}, {} - Interviewing Version CC",
-            endpoint.node_id(),
-            endpoint.index(),
-        );
+        ctx.log.info("interviewing Version CC...");
 
         // On the root endpoint, query the VersionCC version and static version information
         if endpoint.index() == EndpointIndex::Root {
@@ -55,9 +51,12 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
             // TODO: When we use CC versions to check support for features,
             // we might have to update the version after this call
 
-            println!("Querying node versions...");
+            ctx.log.info("querying node versions...");
             if let Some(response) = api.get().await? {
-                println!("received response for node versions: {:?}", response);
+                ctx.log.info(format!(
+                    "received response for node versions: {:?}",
+                    response
+                ));
             }
         }
 
@@ -79,7 +78,7 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
         if endpoint.index() == EndpointIndex::Root
             && node.get_cc_version(CommandClasses::Version) >= Some(3)
         {
-            println!("Querying Version CC capabilities...");
+            ctx.log.info("querying Version CC capabilities...");
             if let Some(response) = api.get_capabilities().await? {
                 println!(
                     "received Version CC capabilities capabilities: {:?}",
@@ -88,7 +87,7 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
 
                 if cache.read_bool(&VersionCCValues::supports_zwave_software_get().id) == Some(true)
                 {
-                    println!("Querying Z-Wave software version...");
+                    ctx.log.info("querying Z-Wave software version...");
                     if let Some(response) = api.get_zwave_software().await? {
                         println!("received Z-Wave software version: {:?}", response);
                     }
@@ -109,18 +108,21 @@ impl VersionCCAPI<'_> {
     async fn query_cc_version<'ctx>(
         &self,
         cc: CommandClasses,
-        _ctx: &CCInterviewContext<'ctx>,
+        ctx: &CCInterviewContext<'ctx>,
     ) -> CCAPIResult<()> {
         if get_implemented_version(cc).is_none() {
-            println!("Skipping query for not yet implemented CC {}", cc);
+            ctx.log
+                .info(format!("skipping query for not yet implemented CC {}", cc));
             return Ok(());
         }
 
-        println!("Querying version for CC {}", cc);
+        ctx.log.info(format!("querying version for CC {}...", cc));
         if let Some(version) = self.get_cc_version(cc).await? {
-            println!("received version for CC {}: {}", cc, version);
+            ctx.log
+                .info(format!("received version for CC {}: {}", cc, version));
             if version > 0 {
-                println!("... supports CC {} in version {}", cc, version);
+                ctx.log
+                    .info(format!("... supports CC {} in version {}", cc, version));
                 self.endpoint
                     .modify_cc_info(cc, &PartialCommandClassInfo::default().version(version))
             } else {
@@ -132,12 +134,15 @@ impl VersionCCAPI<'_> {
                 if is_critical {
                     todo!()
                 } else {
-                    println!("... does not support CC {}", cc);
+                    ctx.log.info(format!("... does not support CC {}", cc));
                     self.endpoint.remove_cc(cc);
                 }
             }
         } else {
-            println!("CC version query for {} timed out. Assuming version 1", cc);
+            ctx.log.info(format!(
+                "CC version query for {} timed out. Assuming version 1",
+                cc
+            ));
             self.endpoint
                 .modify_cc_info(cc, &PartialCommandClassInfo::default().version(1))
         }

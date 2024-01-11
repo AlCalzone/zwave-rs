@@ -33,7 +33,8 @@ where
         &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetSerialApiCapabilitiesResponse> {
-        println!("Querying Serial API capabilities...");
+        self.controller_log()
+            .verbose("querying Serial API capabilities...");
         let response = self
             .exec_controller_command(GetSerialApiCapabilitiesRequest::default(), options)
             .await;
@@ -50,7 +51,8 @@ where
         &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetSerialApiInitDataResponse> {
-        println!("Querying Serial API init data...");
+        self.controller_log()
+            .verbose("querying Serial API init data...");
         let response = self
             .exec_controller_command(GetSerialApiInitDataRequest::default(), options)
             .await;
@@ -66,7 +68,8 @@ where
         &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetControllerCapabilitiesResponse> {
-        println!("Querying controller capabilities...");
+        self.controller_log()
+            .verbose("querying controller capabilities...");
         let response = self
             .exec_controller_command(GetControllerCapabilitiesRequest::default(), options)
             .await;
@@ -83,7 +86,7 @@ where
         &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetControllerVersionResponse> {
-        println!("Querying version info...");
+        self.controller_log().verbose("querying version info...");
         let response = self
             .exec_controller_command(GetControllerVersionRequest::default(), options)
             .await;
@@ -100,7 +103,7 @@ where
         &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetControllerIdResponse> {
-        println!("Querying controller ID...");
+        self.controller_log().verbose("querying controller ID...");
         let response = self
             .exec_controller_command(GetControllerIdRequest::default(), options)
             .await;
@@ -116,7 +119,8 @@ where
         &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetProtocolVersionResponse> {
-        println!("Querying protocol version...");
+        self.controller_log()
+            .verbose("querying protocol version...");
         let response = self
             .exec_controller_command(GetProtocolVersionRequest::default(), options)
             .await;
@@ -133,7 +137,7 @@ where
         &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<Option<NodeId>> {
-        println!("Querying SUC node ID...");
+        self.controller_log().verbose("querying SUC node ID...");
         let response = self
             .exec_controller_command(GetSucNodeIdRequest::default(), options)
             .await;
@@ -150,7 +154,8 @@ where
         &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<Vec<SerialApiSetupCommand>> {
-        println!("Querying supported Serial API setup commands...");
+        self.controller_log()
+            .verbose("querying supported Serial API setup commands...");
         let response = self
             .exec_controller_command(SerialApiSetupRequest::get_supported_commands(), options)
             .await;
@@ -168,7 +173,10 @@ where
         node_id_type: NodeIdType,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<bool> {
-        println!("Switching serial API to {} node IDs...", node_id_type);
+        self.controller_log().verbose(format!(
+            "switching serial API to {} node IDs...",
+            node_id_type
+        ));
         let response = self
             .exec_controller_command(
                 SerialApiSetupRequest::set_node_id_type(node_id_type),
@@ -182,11 +190,11 @@ where
             SerialApiSetupResponsePayload::SetNodeIDType { success } => success
         )?;
 
-        println!(
+        self.controller_log().verbose(format!(
             "Switching serial API to {} node IDs {}",
             node_id_type,
             if success { "succeeded" } else { "failed" }
-        );
+        ));
 
         if success {
             self.storage.set_node_id_type(node_id_type);
@@ -219,7 +227,8 @@ impl Driver<Ready> {
         &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<RfRegion> {
-        println!("Querying configured RF region...");
+        self.controller_log()
+            .verbose("querying configured RF region...");
         let response = self
             .exec_controller_command(SerialApiSetupRequest::get_rf_region(), options)
             .await;
@@ -232,7 +241,8 @@ impl Driver<Ready> {
 
         self.controller().set_rf_region(Some(rf_region));
 
-        println!("The controller is using RF region {}", rf_region);
+        self.controller_log()
+            .verbose(format!("the controller is using RF region {}", rf_region));
 
         Ok(rf_region)
     }
@@ -241,7 +251,8 @@ impl Driver<Ready> {
         &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<Powerlevel> {
-        println!("Querying configured powerlevel...");
+        self.controller_log()
+            .verbose("querying configured powerlevel...");
         let response = self
             .exec_controller_command(SerialApiSetupRequest::get_powerlevel(), options)
             .await;
@@ -254,7 +265,8 @@ impl Driver<Ready> {
 
         self.controller().set_powerlevel(Some(powerlevel));
 
-        println!("The controller is using powerlevel {}", powerlevel);
+        self.controller_log()
+            .verbose(format!("the controller is using powerlevel {}", powerlevel));
 
         Ok(powerlevel)
     }
@@ -264,10 +276,10 @@ impl Driver<Ready> {
         enabled: bool,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<bool> {
-        println!(
+        self.controller_log().verbose(format!(
             "{} TX status reports...",
-            if enabled { "Enabling" } else { "Disabling" }
-        );
+            if enabled { "enabling" } else { "disabling" }
+        ));
         let response = self
             .exec_controller_command(
                 SerialApiSetupRequest::set_tx_status_report(enabled),
@@ -281,11 +293,12 @@ impl Driver<Ready> {
             SerialApiSetupResponsePayload::SetTxStatusReport { success } => success
         )?;
 
-        println!(
+        // FIXME: use warning/error for failure
+        self.controller_log().verbose(format!(
             "{} TX status reports {}",
-            if enabled { "Enabling" } else { "Disabling" },
+            if enabled { "enabling" } else { "disabling" },
             if success { "succeeded" } else { "failed" }
-        );
+        ));
 
         Ok(success)
     }
@@ -334,7 +347,8 @@ impl Driver<Ready> {
         node_id: &NodeId,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<NodeInformationApplicationData> {
-        println!("Querying node info for node {}...", node_id);
+        self.controller_log()
+            .verbose(format!("querying node info for node {}...", node_id));
         let response = self
             .exec_controller_command(RequestNodeInfoRequest::new(*node_id), options)
             .await;
@@ -356,7 +370,7 @@ impl Driver<Ready> {
                 ))
             }
             Err(e) => {
-                println!("Querying the node info failed");
+                self.controller_log().error("querying the node info failed");
                 return Err(e.into());
             }
         };

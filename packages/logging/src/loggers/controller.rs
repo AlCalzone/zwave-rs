@@ -1,35 +1,23 @@
 use crate::{ImmutableLogger, LogInfo, Loglevel};
 use std::{borrow::Cow, sync::Arc};
 
-pub struct DriverLogger {
+pub struct ControllerLogger {
     inner: Arc<dyn ImmutableLogger>,
 }
 
-const LOGO: &str = "\
-🦀🦀🦀       🦀    🦀   🦀🦀🦀   🦀    🦀  🦀🦀🦀       🦀🦀🦀     🦀🦀🦀
-   🦀        🦀    🦀  🦀    🦀  🦀    🦀  🦀           🦀   🦀   🦀
-  🦀   🦀🦀  🦀 🦀 🦀  🦀🦀🦀🦀  🦀    🦀  🦀🦀         🦀🦀🦀     🦀🦀🦀
- 🦀          🦀 🦀 🦀  🦀    🦀   🦀  🦀   🦀           🦀   🦀         🦀
-🦀🦀🦀        🦀  🦀   🦀    🦀    🦀🦀    🦀🦀🦀       🦀    🦀   🦀🦀🦀\
-";
-
-impl DriverLogger {
+impl ControllerLogger {
     pub fn new(inner: Arc<dyn ImmutableLogger>) -> Self {
         Self { inner }
     }
 
-    pub fn logo(&self) {
-        self.info(LOGO);
-    }
-
-    // FIXME: Remove duplication with ControllerLogger
+    // FIXME: Remove duplication with DriverLogger
     pub fn message(&self, message: impl Into<Cow<'static, str>>, level: Loglevel) {
         let message_lines: Vec<_> = String::from(message.into())
             .split('\n')
             .map(|s| s.to_owned().into())
             .collect();
         let log = LogInfo::builder()
-            .label("DRIVER")
+            .label("CNTRLR")
             .payload(crate::LogPayload {
                 message_lines: Some(message_lines),
                 payload: None,

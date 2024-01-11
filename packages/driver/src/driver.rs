@@ -6,7 +6,7 @@ use self::serial_api_machine::{
 use self::storage::{DriverStorage, DriverStorageShared};
 use crate::error::{Error, Result};
 use std::sync::Arc;
-use std::thread::{self};
+use std::thread::{self, sleep};
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, oneshot, Notify};
 use tokio::task::JoinHandle;
@@ -18,7 +18,9 @@ use zwave_core::value_id::EndpointValueId;
 use zwave_core::wrapping_counter::WrappingCounter;
 use zwave_core::{prelude::*, submodule};
 use zwave_logging::loggers::base::BaseLogger;
+use zwave_logging::loggers::controller::ControllerLogger;
 use zwave_logging::loggers::driver::DriverLogger;
+use zwave_logging::loggers::node::NodeLogger;
 use zwave_logging::loggers::serial::SerialLogger;
 use zwave_logging::{LogInfo, Logger, Loglevel};
 use zwave_serial::binding::SerialBinding;
@@ -83,7 +85,6 @@ impl Drop for DriverTasks {
 impl Driver<Init> {
     pub fn new(path: &str) -> Result<Self> {
         // The serial task owns the serial port. All communication needs to go through that task.
-        let port = SerialPort::new(path)?;
 
         // To control it, we send a thread command along with a "callback" oneshot channel to the task.
         let (serial_cmd_tx, serial_cmd_rx) = mpsc::channel::<SerialTaskCommand>(100);
@@ -101,11 +102,38 @@ impl Driver<Init> {
         let main_task_shutdown2 = main_task_shutdown.clone();
 
         // Logging happens in a separate **thread** in order to not interfere with the main logic.
+        let loglevel = Loglevel::Verbose; // FIXME: Add a way to change this at runtime
         let (log_cmd_tx, log_cmd_rx) = std::sync::mpsc::channel::<LogTaskCommand>();
-        let bg_logger = Arc::new(BackgroundLogger::new(log_cmd_tx.clone(), Loglevel::Debug));
+        let bg_logger = Arc::new(BackgroundLogger::new(log_cmd_tx.clone(), loglevel));
         let serial_logger = SerialLogger::new(bg_logger.clone());
+        let driver_logger = DriverLogger::new(bg_logger.clone());
+        let controller_logger = ControllerLogger::new(bg_logger.clone());
 
-        let storage = DriverStorage::new(Default::default(), bg_logger);
+        // Start the background thread for logging immediately, so we can log before opening the serial port
+        let log_thread = thread::spawn(move || log_loop(log_cmd_rx, loglevel));
+
+        driver_logger.logo();
+        driver_logger.info("version 0.0.1-alpha");
+        driver_logger.info("");
+        driver_logger.info(format!("opening serial port {}", path));
+
+        let port = match SerialPort::new(path) {
+            Ok(port) => {
+                driver_logger.info("serial port opened");
+                port
+            }
+            Err(e) => {
+                driver_logger.error(format!("failed to open serial port: {}", e));
+                return Err(e.into());
+            }
+        };
+
+        let storage = DriverStorage::new(
+            Default::default(),
+            bg_logger,
+            driver_logger,
+            controller_logger,
+        );
         let shared_storage = Arc::new(DriverStorageShared::default());
 
         // Start the background task for the main logic
@@ -125,9 +153,6 @@ impl Driver<Init> {
             serial_task_shutdown2,
             serial_listener_tx,
         ));
-
-        // Start the background task for logging
-        let log_thread = thread::spawn(move || log_loop(log_cmd_rx));
 
         let tasks = DriverTasks {
             main_task,
@@ -150,10 +175,10 @@ impl Driver<Init> {
     }
 
     pub async fn init(self) -> Result<Driver<Ready>> {
-        let logger = self.logger();
-        logger.logo();
+        let logger = self.log();
 
         // Synchronize the serial port
+        logger.verbose("synchronizing serial port...");
         exec_background_task!(
             self.tasks.serial_cmd,
             SerialTaskCommand::SendFrame,
@@ -395,8 +420,16 @@ where
         }
     }
 
-    pub fn logger(&self) -> DriverLogger {
-        DriverLogger::new(self.storage.logger().clone())
+    pub fn log(&self) -> &DriverLogger {
+        self.storage.driver_logger()
+    }
+
+    pub fn controller_log(&self) -> &ControllerLogger {
+        self.storage.controller_logger()
+    }
+
+    pub fn node_log(&self, node_id: NodeId, endpoint: EndpointIndex) -> NodeLogger {
+        NodeLogger::new(self.storage.logger().clone(), node_id, endpoint)
     }
 }
 
@@ -533,8 +566,6 @@ async fn main_loop(
             Ok(frame) = serial_listener.recv() => main_loop_handle_frame(&storage, frame, &serial_cmd, &shared_storage).await
         }
     }
-
-    println!("main task stopped")
 }
 
 async fn main_loop_handle_command(
@@ -715,8 +746,6 @@ async fn serial_loop(
             Some(frame) = port.read() => serial_loop_handle_frame(&storage, &mut port, frame, &frame_emitter).await
         }
     }
-
-    println!("serial task stopped")
 }
 
 async fn serial_loop_handle_command(
@@ -869,9 +898,9 @@ struct LogLoopStorage {
     logger: Box<dyn Logger>,
 }
 
-fn log_loop(cmd_rx: LogTaskCommandReceiver) {
+fn log_loop(cmd_rx: LogTaskCommandReceiver, loglevel: Loglevel) {
     let logger = BaseLogger {
-        level: Loglevel::Debug,
+        level: loglevel,
         writer: Box::new(termcolor::StandardStream::stdout(
             termcolor::ColorChoice::Auto,
         )),
@@ -884,8 +913,6 @@ fn log_loop(cmd_rx: LogTaskCommandReceiver) {
     while let Ok(cmd) = cmd_rx.recv() {
         log_loop_handle_command(&mut storage, cmd);
     }
-
-    println!("log task stopped")
 }
 
 fn log_loop_handle_command(storage: &mut LogLoopStorage, cmd: LogTaskCommand) {

@@ -6,6 +6,7 @@ use zwave_core::definitions::*;
 pub struct CCInterviewContext<'a> {
     pub driver: &'a Driver<Ready>,
     pub endpoint: &'a dyn EndpointLike<'a>,
+    pub log: NodeLogger,
 }
 
 pub trait CCAPI<'a> {
@@ -101,3 +102,4 @@ macro_rules! cc_api_assert_supported {
     };
 }
 pub(crate) use cc_api_assert_supported;
+use zwave_logging::loggers::node::NodeLogger;

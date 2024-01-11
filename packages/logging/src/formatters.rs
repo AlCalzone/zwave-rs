@@ -1,4 +1,4 @@
-use crate::{Direction, FormattedString, LogFormatter, LogInfo, WithColor};
+use crate::{Direction, FormattedString, LogFormatter, LogInfo, Loglevel, WithColor};
 use termcolor::{Color, ColorSpec};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -9,6 +9,13 @@ pub struct DefaultFormatter {
     cs_label: ColorSpec,
     cs_direction: ColorSpec,
     cs_secondary_tags: ColorSpec,
+
+    cs_text_info: ColorSpec,
+    cs_text_verbose: ColorSpec,
+    cs_text_debug: ColorSpec,
+    cs_text_silly: ColorSpec,
+    cs_text_warning: ColorSpec,
+    cs_text_error: ColorSpec,
 
     line_width: usize,
 }
@@ -26,12 +33,36 @@ impl DefaultFormatter {
 
         let cs_secondary_tags = cs_timestamp.clone();
 
+        let mut cs_text_info = ColorSpec::default();
+        cs_text_info.set_fg(Some(Color::Green));
+
+        let mut cs_text_verbose = ColorSpec::default();
+        cs_text_verbose.set_fg(Some(Color::Cyan));
+
+        let mut cs_text_debug = ColorSpec::default();
+        cs_text_debug.set_fg(Some(Color::Blue));
+
+        let mut cs_text_silly = ColorSpec::default();
+        cs_text_silly.set_fg(Some(Color::Magenta));
+
+        let mut cs_text_warning = ColorSpec::default();
+        cs_text_warning.set_fg(Some(Color::Yellow));
+
+        let mut cs_text_error = ColorSpec::default();
+        cs_text_error.set_fg(Some(Color::Red));
+
         Self {
             cs_default: ColorSpec::default(),
             cs_timestamp,
             cs_label,
             cs_direction,
             cs_secondary_tags,
+            cs_text_info,
+            cs_text_verbose,
+            cs_text_debug,
+            cs_text_silly,
+            cs_text_warning,
+            cs_text_error,
             line_width: 120,
         }
     }
@@ -57,7 +88,7 @@ fn str_width(string: &str) -> usize {
 }
 
 impl LogFormatter for DefaultFormatter {
-    fn format_log(&self, log: &LogInfo) -> Vec<FormattedString> {
+    fn format_log(&self, log: &LogInfo, level: Loglevel) -> Vec<FormattedString> {
         let timestamp = log
             .timestamp
             .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
@@ -66,6 +97,15 @@ impl LogFormatter for DefaultFormatter {
             Direction::None => " ",
             Direction::Inbound => "«",
             Direction::Outbound => "»",
+        };
+
+        let text_color = match level {
+            Loglevel::Error => &self.cs_text_error,
+            Loglevel::Warn => &self.cs_text_warning,
+            Loglevel::Info => &self.cs_text_info,
+            Loglevel::Verbose => &self.cs_text_verbose,
+            Loglevel::Debug => &self.cs_text_debug,
+            Loglevel::Silly => &self.cs_text_silly,
         };
 
         // calculate the width as signed numbers to prevent overflow panics
@@ -85,7 +125,8 @@ impl LogFormatter for DefaultFormatter {
         let mut primary_tags_width = 0isize;
         if let Some(primary_tags) = &log.primary_tags {
             // FIXME: Change color based on scope
-            let (cs_text, cs_delim) = get_primary_tag_color_specs(Color::Green, Color::Black);
+            let (cs_text, cs_delim) =
+                get_primary_tag_color_specs(*text_color.fg().unwrap(), Color::Black);
 
             for tag in primary_tags.iter() {
                 ret.push("[".with_color(cs_delim.clone()));
@@ -110,7 +151,6 @@ impl LogFormatter for DefaultFormatter {
                 let mut is_first = i == 0;
                 let is_last = i == num_lines - 1;
 
-                // FIXME: Wrap lines if too long
                 let mut graphemes = line.graphemes(true).peekable();
                 while graphemes.peek().is_some() {
                     let available_width = available_width
@@ -133,13 +173,15 @@ impl LogFormatter for DefaultFormatter {
                         last_line_remaining_width = available_width - str_width(&cur_line) as isize;
                     }
 
-                    ret.push(cur_line.with_color(self.cs_default.clone()));
+                    ret.push(cur_line.with_color(text_color.clone()));
                 }
             }
         } else {
             last_line_remaining_width -= primary_tags_width + secondary_tag_width;
         }
 
+        // FIXME: The secondary tag should be printed in the first line
+        // if that contains a line break and fits without forced line breaks
         if let Some(secondary_tag) = &log.secondary_tag {
             let padding = last_line_remaining_width;
 
@@ -186,7 +228,7 @@ mod test {
                 payload: None,
             })
             .build();
-        let formatted = fmt.format_log(&log);
+        let formatted = fmt.format_log(&log, Loglevel::Info);
         let formatted1 = formatted
             .iter()
             .map(|f| f.string.clone())
@@ -201,7 +243,7 @@ mod test {
                 payload: None,
             })
             .build();
-        let formatted = fmt.format_log(&log);
+        let formatted = fmt.format_log(&log, Loglevel::Info);
         let formatted2 = formatted
             .iter()
             .map(|f| f.string.clone())

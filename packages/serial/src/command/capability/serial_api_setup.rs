@@ -260,12 +260,12 @@ impl CommandSerializable for SerialApiSetupRequest {
     }
 }
 
-#[test]
-fn test_round() {
-    let val: f32 = 12.61f32;
-    let i = (val * 10f32).round() as i8;
-    println!("{}", i);
-}
+// #[test]
+// fn test_round() {
+//     let val: f32 = 12.61f32;
+//     let i = (val * 10f32).round() as i8;
+//     println!("{}", i);
+// }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SerialApiSetupResponse {

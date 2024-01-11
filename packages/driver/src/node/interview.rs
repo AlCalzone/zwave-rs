@@ -1,6 +1,5 @@
-use zwave_core::definitions::PartialCommandClassInfo;
-
 use crate::{error::Result, interview_cc, CCInterviewContext, EndpointLike, Node};
+use zwave_core::definitions::*;
 
 /// Specifies the progress of the interview process for a node
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -52,6 +51,7 @@ impl<'a> Node<'a> {
         let ctx = CCInterviewContext {
             driver: self.driver,
             endpoint: self,
+            log: self.driver.node_log(self.node_id(), EndpointIndex::Root),
         };
 
         // FIXME: Correct the order of interviews

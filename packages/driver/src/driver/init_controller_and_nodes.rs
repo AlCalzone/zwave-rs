@@ -3,6 +3,7 @@ use crate::{driver::ControllerCommandError, ControllerCommandResult, Driver};
 use crate::{ControllerStorage, ExecControllerCommandOptions, NodeStorage};
 use std::collections::BTreeMap;
 use zwave_core::definitions::*;
+use zwave_logging::Loglevel;
 use zwave_serial::command::SerialApiSetupCommand;
 
 impl Driver<Init> {
@@ -140,24 +141,34 @@ impl Driver<Ready> {
         };
 
         if should_promote {
-            println!("There is no SUC/SIS in the network - promoting ourselves...");
+            self.controller_log()
+                .verbose("there is no SUC/SIS in the network - promoting ourselves...");
             let own_node_id = self.controller().own_node_id();
             match self
                 .set_suc_node_id(own_node_id, own_node_id, true, true, None)
                 .await
             {
                 Ok(success) => {
-                    println!(
-                        "Promotion to SUC/SIS {}",
-                        if success { "succeeded" } else { "failed" }
+                    self.controller_log().message(
+                        format!(
+                            "Promotion to SUC/SIS {}",
+                            if success { "succeeded" } else { "failed" }
+                        ),
+                        if success {
+                            Loglevel::Verbose
+                        } else {
+                            Loglevel::Warn
+                        },
                     );
                 }
                 Err(e) => {
-                    println!("Error while promoting to SUC/SIS: {:?}", e);
+                    self.controller_log()
+                        .error(format!("error while promoting to SUC/SIS: {:?}", e));
                 }
             }
         } else {
-            println!("There is a SUC/SIS in the network - not promoting ourselves");
+            self.controller_log()
+                .verbose("there is a SUC/SIS in the network - not promoting ourselves");
         }
 
         Ok(())

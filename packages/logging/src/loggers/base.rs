@@ -12,7 +12,7 @@ impl Logger for BaseLogger {
         if level > self.level {
             return;
         }
-        let formatted = self.formatter.format_log(&log);
+        let formatted = self.formatter.format_log(&log, level);
         for str in formatted {
             if let Some(color) = str.color {
                 let _ = self.writer.set_color(&color);

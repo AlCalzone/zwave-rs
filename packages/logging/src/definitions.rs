@@ -8,7 +8,7 @@ pub trait ToLogPayload {
 }
 
 pub trait LogFormatter {
-    fn format_log(&self, log: &LogInfo) -> Vec<FormattedString>;
+    fn format_log(&self, log: &LogInfo, level: Loglevel) -> Vec<FormattedString>;
 }
 
 pub struct FormattedString {
@@ -66,6 +66,8 @@ pub trait ImmutableLogger: Send + Sync {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Loglevel {
+    Error,
+    Warn,
     Info,
     Verbose,
     Debug,
