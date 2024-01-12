@@ -1,9 +1,9 @@
-use crate::{
-    util::str_width, Direction, FlattenLog, FormattedString, LogFormatter, LogInfo, Loglevel,
-    WithColor,
-};
+use crate::{Direction, FormattedString, LogFormatter, LogInfo, Loglevel, WithColor};
 use termcolor::{Color, ColorSpec};
 use unicode_segmentation::UnicodeSegmentation;
+use zwave_core::{util::str_width, log::FlattenLog};
+
+const LIST_BULLET: &str = "· ";
 
 #[derive(Default)]
 pub struct DefaultFormatter {
@@ -209,7 +209,7 @@ impl LogFormatter for DefaultFormatter {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::LogPayload;
+    use zwave_core::log::LogPayload;
     use zwave_serial::frame::ControlFlow;
 
     #[test]

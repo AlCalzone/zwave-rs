@@ -1,6 +1,9 @@
 pub use crate::definitions::*;
 pub use crate::encoding::{
-    EncodingError, EncodingResult, IntoEncodingResult, Parsable, ParseResult, Serializable,
-    TryFromReprError, BitParsable, BitParseResult, BitSerializable, NomTryFromPrimitive,
+    BitParsable, BitParseResult, BitSerializable, EncodingError, EncodingResult,
+    IntoEncodingResult, NomTryFromPrimitive, Parsable, ParseResult, Serializable, TryFromReprError,
+};
+pub use crate::log::{
+    LogPayload, LogPayloadDict, LogPayloadDictValue, LogPayloadList, LogPayloadText, ToLogPayload,
 };
 pub use crate::values::*;

@@ -1,8 +1,7 @@
 use crate::prelude::*;
-use zwave_core::{encoding::parsers::fixed_length_bitmask_u8, prelude::*};
+use zwave_core::{encoding::parsers::fixed_length_bitmask_u8, log::ToLogPayload, prelude::*};
 
 use custom_debug_derive::Debug;
-
 
 use nom::{
     combinator::map,
@@ -46,15 +45,20 @@ impl CommandRequest for GetSerialApiCapabilitiesRequest {
 }
 
 impl CommandParsable for GetSerialApiCapabilitiesRequest {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(
+        i: encoding::Input<'a>,
+        _ctx: &CommandEncodingContext,
+    ) -> encoding::ParseResult<'a, Self> {
         // No payload
         Ok((i, Self {}))
     }
 }
 
 impl CommandSerializable for GetSerialApiCapabilitiesRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
-        
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        _ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         // No payload
         empty()
     }
@@ -89,7 +93,10 @@ impl CommandId for GetSerialApiCapabilitiesResponse {
 impl CommandBase for GetSerialApiCapabilitiesResponse {}
 
 impl CommandParsable for GetSerialApiCapabilitiesResponse {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(
+        i: encoding::Input<'a>,
+        _ctx: &CommandEncodingContext,
+    ) -> encoding::ParseResult<'a, Self> {
         let (i, firmware_version) = map(tuple((be_u8, be_u8)), |(major, minor)| Version {
             major,
             minor,
@@ -118,8 +125,30 @@ impl CommandParsable for GetSerialApiCapabilitiesResponse {
 }
 
 impl CommandSerializable for GetSerialApiCapabilitiesResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
-        
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        _ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         move |_out| todo!("ERROR: GetSerialApiCapabilitiesResponse::serialize() not implemented")
+    }
+}
+
+impl ToLogPayload for GetSerialApiCapabilitiesResponse {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayload::Dict(
+            LogPayloadDict::new()
+                .with_entry("firmware version", self.firmware_version.to_string())
+                .with_entry("manufacturer ID", format!("0x{:04x}", self.manufacturer_id))
+                .with_entry("product type", format!("0x{:04x}", self.product_type))
+                .with_entry("product ID", format!("0x{:04x}", self.product_id))
+                .with_entry(
+                    "supported function types",
+                    LogPayloadList::new(
+                        self.supported_function_types
+                            .iter()
+                            .map(|f| format!("{:?}", f).into()),
+                    ),
+                ),
+        )
     }
 }

@@ -21,3 +21,4 @@ tokio.workspace = true
 ux.workspace = true
 typed-builder.workspace = true
 proc-macros.workspace = true
+unicode-segmentation.workspace = true

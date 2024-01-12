@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+use unicode_segmentation::UnicodeSegmentation;
 use pin_project::pin_project;
 use std::{
     future::Future,
@@ -64,4 +66,16 @@ pub unsafe trait ToDiscriminant<T: Copy> {
         // field, so we can read the discriminant without offsetting the pointer.
         unsafe { *<*const _>::from(self).cast::<T>() }
     }
+}
+
+
+pub fn str_width(string: &str) -> usize {
+    string.graphemes(true).count()
+}
+
+pub fn to_lines(text: impl Into<Cow<'static, str>>) -> Vec<Cow<'static, str>> {
+    text.into()
+        .lines()
+        .map(|line| line.to_owned().into())
+        .collect()
 }

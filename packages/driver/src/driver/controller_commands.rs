@@ -42,7 +42,10 @@ where
         let capabilities =
             expect_controller_command_result!(response, GetSerialApiCapabilitiesResponse);
 
-        // TODO: Log response
+        self.controller_log().verbose(
+            LogPayloadText::new("received Serial API capabilities")
+                .with_nested(capabilities.to_log_payload()),
+        );
 
         Ok(capabilities)
     }
