@@ -53,6 +53,12 @@ impl CommandSerializable for GetSucNodeIdRequest {
     }
 }
 
+impl ToLogPayload for GetSucNodeIdRequest {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayload::empty()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetSucNodeIdResponse {
     pub suc_node_id: Option<NodeId>,
@@ -102,6 +108,18 @@ impl CommandSerializable for GetSucNodeIdResponse {
             self.suc_node_id
                 .unwrap_or(NodeId::new(0u8))
                 .serialize(ctx.node_id_type)(out)
+        }
+    }
+}
+
+impl ToLogPayload for GetSucNodeIdResponse {
+    fn to_log_payload(&self) -> LogPayload {
+        if let Some(suc_node_id) = self.suc_node_id {
+            LogPayloadDict::new()
+                .with_entry("SUC node ID", suc_node_id.to_string())
+                .into()
+        } else {
+            LogPayloadText::new("no SUC").into()
         }
     }
 }

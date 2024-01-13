@@ -111,6 +111,19 @@ impl CommandSerializable for SendDataRequest {
     }
 }
 
+impl ToLogPayload for SendDataRequest {
+    fn to_log_payload(&self) -> LogPayload {
+        let mut ret = LogPayloadDict::new()
+            .with_entry("command", "TODO: Log CC")
+            .with_entry("transmit options", self.transmit_options.to_string());
+        if let Some(callback_id) = self.callback_id {
+            ret = ret.with_entry("callback ID", callback_id);
+        }
+
+        ret.into()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct SendDataResponse {
     was_sent: bool,
@@ -153,6 +166,14 @@ impl CommandSerializable for SendDataResponse {
     ) -> impl cookie_factory::SerializeFn<W> + 'a {
         use cf::bytes::be_u8;
         be_u8(if self.was_sent { 0x01 } else { 0x00 })
+    }
+}
+
+impl ToLogPayload for SendDataResponse {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("was sent", self.was_sent)
+            .into()
     }
 }
 
@@ -214,5 +235,27 @@ impl CommandSerializable for SendDataCallback {
         _ctx: &'a CommandEncodingContext,
     ) -> impl cookie_factory::SerializeFn<W> + 'a {
         move |_out| todo!()
+    }
+}
+
+impl ToLogPayload for SendDataCallback {
+    fn to_log_payload(&self) -> LogPayload {
+        let mut ret = LogPayloadDict::new();
+        if let Some(callback_id) = self.callback_id {
+            ret = ret.with_entry("callback ID", callback_id);
+        }
+
+        ret = ret
+            .with_entry(
+                "transmit status",
+                format!(
+                    "{:?}, took {} ms",
+                    self.transmit_status,
+                    self.transmit_report.tx_ticks * 10
+                ),
+            )
+            .extend(self.transmit_report.to_log_dict());
+
+        ret.into()
     }
 }

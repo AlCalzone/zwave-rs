@@ -39,16 +39,28 @@ impl CommandRequest for GetProtocolVersionRequest {
 }
 
 impl CommandParsable for GetProtocolVersionRequest {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(
+        i: encoding::Input<'a>,
+        _ctx: &CommandEncodingContext,
+    ) -> encoding::ParseResult<'a, Self> {
         // No payload
         Ok((i, Self {}))
     }
 }
 
 impl CommandSerializable for GetProtocolVersionRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        _ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         // No payload
         empty()
+    }
+}
+
+impl ToLogPayload for GetProtocolVersionRequest {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayload::empty()
     }
 }
 
@@ -77,7 +89,10 @@ impl CommandId for GetProtocolVersionResponse {
 impl CommandBase for GetProtocolVersionResponse {}
 
 impl CommandParsable for GetProtocolVersionResponse {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(
+        i: encoding::Input<'a>,
+        _ctx: &CommandEncodingContext,
+    ) -> encoding::ParseResult<'a, Self> {
         let (i, protocol_type) = ProtocolType::parse(i)?;
         let (i, version) = map(tuple((be_u8, be_u8, be_u8)), |(major, minor, patch)| {
             Version {
@@ -114,7 +129,28 @@ impl CommandParsable for GetProtocolVersionResponse {
 }
 
 impl CommandSerializable for GetProtocolVersionResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        _ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         move |_out| todo!()
+    }
+}
+
+impl ToLogPayload for GetProtocolVersionResponse {
+    fn to_log_payload(&self) -> LogPayload {
+        let mut ret = LogPayloadDict::new()
+            .with_entry("protocol type", format!("{:?}", self.protocol_type))
+            .with_entry("version", format!("{}", self.version));
+        if let Some(app_framework_build_number) = self.app_framework_build_number {
+            ret = ret.with_entry(
+                "app framework build number",
+                app_framework_build_number,
+            )
+        }
+        if let Some(git_commit_hash) = &self.git_commit_hash {
+            ret = ret.with_entry("git commit hash", git_commit_hash.to_string())
+        }
+        ret.into()
     }
 }

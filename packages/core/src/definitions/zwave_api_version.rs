@@ -3,15 +3,15 @@ use crate::encoding::{self, Parsable, Serializable};
 use cookie_factory as cf;
 
 use nom::{combinator::map, error::context, number::complete::be_u8};
-use std::fmt;
+use std::fmt::{self, Display};
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ZWaveApiVersion {
     Official(u8),
     Legacy(u8),
 }
 
-impl fmt::Debug for ZWaveApiVersion {
+impl Display for ZWaveApiVersion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Official(v) => write!(f, "{} (official)", v),

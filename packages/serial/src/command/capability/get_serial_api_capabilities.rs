@@ -64,6 +64,12 @@ impl CommandSerializable for GetSerialApiCapabilitiesRequest {
     }
 }
 
+impl ToLogPayload for GetSerialApiCapabilitiesRequest {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayload::empty()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetSerialApiCapabilitiesResponse {
     #[debug(format = "0x{:04x}")]

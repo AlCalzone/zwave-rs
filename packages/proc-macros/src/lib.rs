@@ -71,6 +71,13 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
         }
     });
 
+    let impl_tologpayload_match_arms = commands.iter().map(|c| {
+        let command_name = c.command_name;
+        quote! {
+            Self::#command_name(c) => c.to_log_payload(),
+        }
+    });
+
     let tokens = quote! {
         // Define the command enum with all possible variants.
         // Calls to the command enum will be dispatched to the corresponding variant.
@@ -129,6 +136,17 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
                     checksum: 0, // placeholder
                 };
                 Ok(raw)
+            }
+        }
+
+        // We cannot use #[enum_dispatch] for ToLogPayload, since it is in another crate,
+        // so we have to implement it here "manually"
+        impl ToLogPayload for Command {
+            fn to_log_payload(&self) -> LogPayload {
+                match self {
+                    Self::NotImplemented(c) => c.to_log_payload(),
+                    #( #impl_tologpayload_match_arms )*
+                }
             }
         }
     };

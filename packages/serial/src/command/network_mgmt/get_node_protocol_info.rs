@@ -1,8 +1,7 @@
+use std::borrow::Cow;
+
 use crate::prelude::*;
 use zwave_core::prelude::*;
-
-
-
 
 use zwave_core::encoding::{self};
 
@@ -56,6 +55,14 @@ impl CommandSerializable for GetNodeProtocolInfoRequest {
     }
 }
 
+impl ToLogPayload for GetNodeProtocolInfoRequest {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("node ID", self.node_id.to_string())
+            .into()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetNodeProtocolInfoResponse {
     pub protocol_info: NodeInformationProtocolData,
@@ -92,7 +99,51 @@ impl CommandSerializable for GetNodeProtocolInfoResponse {
         &'a self,
         _ctx: &'a CommandEncodingContext,
     ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        
         move |_out| todo!("ERROR: GetNodeProtocolInfoResponse::serialize() not implemented")
+    }
+}
+
+impl ToLogPayload for GetNodeProtocolInfoResponse {
+    fn to_log_payload(&self) -> LogPayload {
+        let info = &self.protocol_info;
+        let listen: Cow<_> = match (&info.listening, &info.frequent_listening) {
+            (true, _) => Cow::from("always listening"),
+            (false, None) => Cow::from("sleeping"),
+            (false, Some(beam)) => Cow::from(format!("frequent listening ({})", beam)),
+        };
+
+        let mut ret = LogPayloadDict::new()
+            .with_entry(
+                "basic device class",
+                info.basic_device_type
+                    .expect("basic device class should be set")
+                    .to_string(),
+            )
+            .with_entry(
+                "generic device class",
+                format!("0x{:02x}", info.generic_device_class),
+            );
+
+        if let Some(specific) = info.specific_device_class {
+            ret = ret.with_entry("specific device class", format!("0x{:02x}", specific))
+        }
+
+        ret = ret
+            .with_entry("node type", info.node_type.to_string())
+            .with_entry("listening", listen.to_string())
+            .with_entry(
+                "maximum data rate",
+                info.supported_data_rates
+                    .iter()
+                    .max()
+                    .unwrap_or(&DataRate::DataRate_9k6)
+                    .to_string(),
+            )
+            .with_entry("can route", info.routing)
+            .with_entry("supports beaming", info.beaming)
+            .with_entry("supports security", info.supports_security)
+            .with_entry("protocol version", info.protocol_version.to_string());
+
+        ret.into()
     }
 }

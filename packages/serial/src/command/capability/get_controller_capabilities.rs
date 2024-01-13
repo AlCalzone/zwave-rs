@@ -35,16 +35,28 @@ impl CommandRequest for GetControllerCapabilitiesRequest {
 }
 
 impl CommandParsable for GetControllerCapabilitiesRequest {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(
+        i: encoding::Input<'a>,
+        _ctx: &CommandEncodingContext,
+    ) -> encoding::ParseResult<'a, Self> {
         // No payload
         Ok((i, Self {}))
     }
 }
 
 impl CommandSerializable for GetControllerCapabilitiesRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        _ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         // No payload
         empty()
+    }
+}
+
+impl ToLogPayload for GetControllerCapabilitiesRequest {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayload::empty()
     }
 }
 
@@ -74,7 +86,10 @@ impl CommandId for GetControllerCapabilitiesResponse {
 impl CommandBase for GetControllerCapabilitiesResponse {}
 
 impl CommandParsable for GetControllerCapabilitiesResponse {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(
+        i: encoding::Input<'a>,
+        _ctx: &CommandEncodingContext,
+    ) -> encoding::ParseResult<'a, Self> {
         let (i, (_reserved765, is_suc, _reserved3, sis_present, other_network, secondary)) =
             bits(tuple((u3::parse, bool, u1::parse, bool, bool, bool)))(i)?;
         Ok((
@@ -94,7 +109,21 @@ impl CommandParsable for GetControllerCapabilitiesResponse {
 }
 
 impl CommandSerializable for GetControllerCapabilitiesResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        _ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         move |_out| todo!("ERROR: GetControllerCapabilitiesResponse::serialize() not implemented")
+    }
+}
+
+impl ToLogPayload for GetControllerCapabilitiesResponse {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("controller role", format!("{:?}", self.role))
+            .with_entry("started this network", self.started_this_network)
+            .with_entry("is SUC", self.is_suc)
+            .with_entry("SIS present", self.sis_present)
+            .into()
     }
 }

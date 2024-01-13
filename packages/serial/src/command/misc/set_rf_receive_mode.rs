@@ -2,8 +2,8 @@ use crate::prelude::*;
 use zwave_core::prelude::*;
 
 use cookie_factory as cf;
-use typed_builder::TypedBuilder;
 use nom::{combinator::map, number::complete::be_u8};
+use typed_builder::TypedBuilder;
 use zwave_core::encoding::{self};
 
 #[derive(Default, Debug, Clone, PartialEq, TypedBuilder)]
@@ -39,16 +39,30 @@ impl CommandRequest for SetRfReceiveModeRequest {
 }
 
 impl CommandParsable for SetRfReceiveModeRequest {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(
+        i: encoding::Input<'a>,
+        _ctx: &CommandEncodingContext,
+    ) -> encoding::ParseResult<'a, Self> {
         eprintln!("ERROR: SetRfReceiveModeRequest::parse() not implemented");
         Ok((i, Self::default()))
     }
 }
 
 impl CommandSerializable for SetRfReceiveModeRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        _ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         use cf::bytes::be_u8;
         be_u8(if self.enabled { 1 } else { 0 })
+    }
+}
+
+impl ToLogPayload for SetRfReceiveModeRequest {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("enabled", self.enabled)
+            .into()
     }
 }
 
@@ -78,14 +92,28 @@ impl CommandBase for SetRfReceiveModeResponse {
 }
 
 impl CommandParsable for SetRfReceiveModeResponse {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(
+        i: encoding::Input<'a>,
+        _ctx: &CommandEncodingContext,
+    ) -> encoding::ParseResult<'a, Self> {
         let (i, success) = map(be_u8, |x| x > 0)(i)?;
         Ok((i, Self { success }))
     }
 }
 
 impl CommandSerializable for SetRfReceiveModeResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        _ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         move |_out| todo!("ERROR: SetRfReceiveModeResponse::serialize() not implemented")
+    }
+}
+
+impl ToLogPayload for SetRfReceiveModeResponse {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("success", self.success)
+            .into()
     }
 }

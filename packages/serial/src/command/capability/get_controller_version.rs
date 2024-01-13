@@ -35,16 +35,28 @@ impl CommandRequest for GetControllerVersionRequest {
 }
 
 impl CommandParsable for GetControllerVersionRequest {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(
+        i: encoding::Input<'a>,
+        _ctx: &CommandEncodingContext,
+    ) -> encoding::ParseResult<'a, Self> {
         // No payload
         Ok((i, Self {}))
     }
 }
 
 impl CommandSerializable for GetControllerVersionRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        _ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         // No payload
         empty()
+    }
+}
+
+impl ToLogPayload for GetControllerVersionRequest {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayload::empty()
     }
 }
 
@@ -71,7 +83,10 @@ impl CommandId for GetControllerVersionResponse {
 impl CommandBase for GetControllerVersionResponse {}
 
 impl CommandParsable for GetControllerVersionResponse {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
+    fn parse<'a>(
+        i: encoding::Input<'a>,
+        _ctx: &CommandEncodingContext,
+    ) -> encoding::ParseResult<'a, Self> {
         let (i, version) = map(many1(none_of("\0")), |v| v.into_iter().collect::<String>())(i)?;
         let (i, _) = tag("\0")(i)?;
         let (i, library_type) = ZWaveLibraryType::parse(i)?;
@@ -87,12 +102,24 @@ impl CommandParsable for GetControllerVersionResponse {
 }
 
 impl CommandSerializable for GetControllerVersionResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        _ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         use cf::{bytes::be_u8, combinator::string, sequence::tuple};
         tuple((
             string(&self.library_version),
             be_u8(0),
             self.library_type.serialize(),
         ))
+    }
+}
+
+impl ToLogPayload for GetControllerVersionResponse {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("library type", self.library_type.to_string())
+            .with_entry("library version", self.library_version.to_string())
+            .into()
     }
 }

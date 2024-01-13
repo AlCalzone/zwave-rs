@@ -45,3 +45,9 @@ impl CommandSerializable for SoftResetRequest {
         empty()
     }
 }
+
+impl ToLogPayload for SoftResetRequest {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayload::empty()
+    }
+}

@@ -85,7 +85,7 @@ impl BitSerializable for ProtocolDataRate {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, TryFromRepr)]
 #[allow(non_camel_case_types)]
 #[repr(u8)]
 pub enum DataRate {

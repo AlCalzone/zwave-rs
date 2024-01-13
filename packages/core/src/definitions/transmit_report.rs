@@ -1,5 +1,8 @@
-use super::{ProtocolDataRate, RoutingScheme, RSSI, Beam};
-use crate::encoding::{self, BitParsable, Parsable, Serializable};
+use super::{Beam, ProtocolDataRate, RoutingScheme, RSSI};
+use crate::{
+    encoding::{self, BitParsable, Parsable, Serializable},
+    prelude::{LogPayloadDict, ToLogPayload},
+};
 
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
@@ -187,5 +190,13 @@ impl Serializable for TransmitReport {
     fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
         // use cf::{bytes::be_u8, sequence::tuple};
         move |_out| todo!("ERROR: TransmitReport::serialize() not implemented")
+    }
+}
+
+impl TransmitReport {
+    pub fn to_log_dict(&self) -> LogPayloadDict {
+        LogPayloadDict::new()
+            .with_entry("transmit report", "TODO: implement to_log_dict")
+            .into()
     }
 }

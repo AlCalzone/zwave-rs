@@ -1,4 +1,6 @@
 
+use std::fmt::Display;
+
 use crate::encoding::{
     self, encoders, BitParsable, BitSerializable, Parsable, Serializable,
 };
@@ -25,6 +27,25 @@ impl Default for TransmitOptions {
             no_route: false,
             explore: true,
         }
+    }
+}
+
+impl Display for TransmitOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut parts = Vec::new();
+        if self.ack {
+            parts.push("request ACK");
+        }
+        if self.auto_route {
+            parts.push("auto-route");
+        }
+        if self.no_route {
+            parts.push("no routing");
+        }
+        if self.explore {
+            parts.push("explorer frames");
+        }
+        write!(f, "{}", parts.join(", "))
     }
 }
 

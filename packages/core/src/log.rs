@@ -1,5 +1,5 @@
 use crate::util::{str_width, to_lines};
-use std::{borrow::Cow, convert::From, sync::OnceLock};
+use std::{borrow::Cow, convert::From, fmt::Display, sync::OnceLock};
 
 const NESTED_INDENT: usize = 2;
 fn nested_indent_str() -> &'static str {
@@ -33,6 +33,12 @@ pub enum LogPayload {
     Dict(LogPayloadDict),
     List(LogPayloadList),
     Flat(Vec<Cow<'static, str>>),
+}
+
+impl LogPayload {
+    pub fn empty() -> Self {
+        Self::Flat(Vec::new())
+    }
 }
 
 impl<T> From<T> for LogPayload
@@ -152,6 +158,11 @@ impl LogPayloadDict {
         self.nested = Some(Box::new(nested.into()));
         self
     }
+
+    pub fn extend(mut self, other: LogPayloadDict) -> Self {
+        self.entries.extend(other.entries);
+        self
+    }
 }
 
 impl<T> From<T> for LogPayloadDict
@@ -225,17 +236,21 @@ pub enum LogPayloadDictValue {
     List(LogPayloadList),
 }
 
-impl From<String> for LogPayloadDictValue {
-    fn from(text: String) -> Self {
-        Self::Text(text.into())
-    }
+macro_rules! impl_from_for_log_payload_dict_value {
+    ($($type:ty),*) => {
+        $(
+            impl From<$type> for LogPayloadDictValue {
+                fn from(value: $type) -> Self {
+                    Self::Text(value.to_string().into())
+                }
+            }
+        )*
+    };
 }
 
-impl From<&'static str> for LogPayloadDictValue {
-    fn from(text: &'static str) -> Self {
-        Self::Text(text.into())
-    }
-}
+impl_from_for_log_payload_dict_value!(String, &'static str);
+impl_from_for_log_payload_dict_value!(u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
+impl_from_for_log_payload_dict_value!(bool);
 
 impl<T> From<T> for LogPayloadDictValue
 where

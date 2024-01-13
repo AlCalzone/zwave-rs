@@ -61,7 +61,7 @@ pub trait CommandBase: std::fmt::Debug + Sync + Send {
 
 #[enum_dispatch(Command)]
 /// Identifies the types of a command
-pub trait CommandId: CommandBase {
+pub trait CommandId: CommandBase + ToLogPayload {
     fn command_type(&self) -> CommandType;
     fn function_type(&self) -> FunctionType;
     fn origin(&self) -> MessageOrigin;
@@ -135,5 +135,13 @@ impl CommandId for NotImplemented {
 
     fn origin(&self) -> MessageOrigin {
         MessageOrigin::Controller
+    }
+}
+
+impl ToLogPayload for NotImplemented {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("payload", format!("0x{}", hex::encode(&self.payload)))
+            .into()
     }
 }

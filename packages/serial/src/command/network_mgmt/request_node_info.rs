@@ -77,6 +77,13 @@ impl CommandSerializable for RequestNodeInfoRequest {
     }
 }
 
+impl ToLogPayload for RequestNodeInfoRequest {
+    fn to_log_payload(&self) -> LogPayload {
+        // FIXME: Commands that communicate with a node must use the node logger, which puts the node ID in the primary tags
+        LogPayload::empty()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct RequestNodeInfoResponse {
     was_sent: bool,
@@ -119,5 +126,13 @@ impl CommandSerializable for RequestNodeInfoResponse {
     ) -> impl cookie_factory::SerializeFn<W> + 'a {
         use cf::bytes::be_u8;
         be_u8(if self.was_sent { 0x01 } else { 0x00 })
+    }
+}
+
+impl ToLogPayload for RequestNodeInfoResponse {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("was sent", self.was_sent)
+            .into()
     }
 }

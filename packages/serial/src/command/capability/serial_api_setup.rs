@@ -202,6 +202,12 @@ impl CommandParsable for SerialApiSetupRequest {
     }
 }
 
+impl ToLogPayload for SerialApiSetupRequest {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadText::new("TODO: implement ToLogPayload for SerialApiSetupRequest").into()
+    }
+}
+
 impl CommandSerializable for SerialApiSetupRequest {
     fn serialize<'a, W: std::io::Write + 'a>(
         &'a self,
@@ -502,5 +508,11 @@ impl CommandSerializable for SerialApiSetupResponse {
         _ctx: &'a CommandEncodingContext,
     ) -> impl cookie_factory::SerializeFn<W> + 'a {
         move |_out| todo!("ERROR: SerialApiSetupResponse::serialize() not implemented")
+    }
+}
+
+impl ToLogPayload for SerialApiSetupResponse {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadText::new("TODO: implement ToLogPayload for SerialApiSetupResponse").into()
     }
 }

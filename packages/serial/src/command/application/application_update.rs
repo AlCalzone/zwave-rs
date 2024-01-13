@@ -194,3 +194,9 @@ impl CommandSerializable for ApplicationUpdateRequest {
         move |_out| todo!("ERROR: ApplicationUpdateResponse::serialize() not implemented")
     }
 }
+
+impl ToLogPayload for ApplicationUpdateRequest {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadText::new("TODO: implement ToLogPayload for ApplicationUpdateRequest").into()
+    }
+}

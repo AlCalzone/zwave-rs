@@ -83,6 +83,16 @@ impl CommandSerializable for SetSucNodeIdRequest {
     }
 }
 
+impl ToLogPayload for SetSucNodeIdRequest {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("SUC node ID", self.suc_node_id.to_string())
+            .with_entry("enable SUC", self.enable_suc)
+            .with_entry("enable SIS", self.enable_sis)
+            .into()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct SetSucNodeIdResponse {
     was_executed: bool,
@@ -125,6 +135,14 @@ impl CommandSerializable for SetSucNodeIdResponse {
     ) -> impl cookie_factory::SerializeFn<W> + 'a {
         use cf::bytes::be_u8;
         be_u8(if self.was_executed { 0x01 } else { 0x00 })
+    }
+}
+
+impl ToLogPayload for SetSucNodeIdResponse {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("was executed", self.was_executed)
+            .into()
     }
 }
 
@@ -184,5 +202,13 @@ impl CommandSerializable for SetSucNodeIdCallback {
         _ctx: &'a CommandEncodingContext,
     ) -> impl cookie_factory::SerializeFn<W> + 'a {
         move |_out| todo!("ERROR: SetSucNodeIdCallback::serialize() not implemented")
+    }
+}
+
+impl ToLogPayload for SetSucNodeIdCallback {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("success", self.success)
+            .into()
     }
 }

@@ -1,12 +1,10 @@
 use crate::prelude::*;
 use zwave_core::prelude::*;
 
-use custom_debug_derive::Debug;
 use cookie_factory as cf;
+use custom_debug_derive::Debug;
 
-use nom::{
-    number::complete::{be_u32},
-};
+use nom::number::complete::be_u32;
 use zwave_core::encoding::{self, encoders::empty};
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -49,10 +47,18 @@ impl CommandParsable for GetControllerIdRequest {
 }
 
 impl CommandSerializable for GetControllerIdRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
-        
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        _ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         // No payload
         empty()
+    }
+}
+
+impl ToLogPayload for GetControllerIdRequest {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayload::empty()
     }
 }
 
@@ -98,11 +104,23 @@ impl CommandParsable for GetControllerIdResponse {
 }
 
 impl CommandSerializable for GetControllerIdResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         use cf::{bytes::be_u32, sequence::tuple};
         tuple((
             be_u32(self.home_id),
             self.own_node_id.serialize(ctx.node_id_type),
         ))
+    }
+}
+
+impl ToLogPayload for GetControllerIdResponse {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("home ID", format!("0x{:08x}", self.home_id))
+            .with_entry("own node ID", self.own_node_id.to_string())
+            .into()
     }
 }

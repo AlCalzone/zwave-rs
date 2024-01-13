@@ -90,3 +90,30 @@ impl CommandSerializable for BridgeApplicationCommandRequest {
         move |_out| todo!("ERROR: BridgeApplicationCommandRequest::serialize() not implemented")
     }
 }
+
+impl ToLogPayload for BridgeApplicationCommandRequest {
+    fn to_log_payload(&self) -> LogPayload {
+        let mut infos: Vec<String> = Vec::new();
+        match self.frame_info.frame_addressing {
+            FrameAddressing::Singlecast => {}
+            FrameAddressing::Broadcast => infos.push("broadcast".to_string()),
+            FrameAddressing::Multicast => infos.push("multicast".to_string()),
+        }
+        if self.frame_info.explorer_frame {
+            infos.push("explorer frame".to_string());
+        }
+        if self.frame_info.low_power {
+            infos.push("low power".to_string());
+        }
+        let mut ret = LogPayloadDict::new()
+            .with_entry("frame info", infos.join(", "))
+            // FIXME: log the included CC too
+            .with_entry("command", "TODO: Log CC");
+
+        if let Some(rssi) = self.rssi {
+            ret = ret.with_entry("RSSI", rssi.to_string())
+        }
+
+        ret.into()
+    }
+}

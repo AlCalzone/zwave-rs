@@ -76,3 +76,22 @@ impl CommandSerializable for SerialApiStartedRequest {
         move |_out| todo!("ERROR: SerialApiStartedRequest::serialize() not implemented")
     }
 }
+
+impl ToLogPayload for SerialApiStartedRequest {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("wake up reason", self.wake_up_reason.to_string())
+            .with_entry("watchdog enabled", self.watchdog_enabled)
+            .with_entry(
+                "generic device class",
+                format!("0x{:02x}", self.generic_device_class),
+            )
+            .with_entry(
+                "specific device class",
+                format!("0x{:02x}", self.specific_device_class),
+            )
+            .with_entry("always listening", self.is_listening)
+            .with_entry("supports Long Range", self.supports_long_range)
+            .into()
+    }
+}
