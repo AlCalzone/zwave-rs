@@ -6,7 +6,7 @@ use self::serial_api_machine::{
 use self::storage::{DriverStorage, DriverStorageShared};
 use crate::error::{Error, Result};
 use std::sync::Arc;
-use std::thread::{self, sleep};
+use std::thread;
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, oneshot, Notify};
 use tokio::task::JoinHandle;
@@ -22,7 +22,7 @@ use zwave_logging::loggers::controller::ControllerLogger;
 use zwave_logging::loggers::driver::DriverLogger;
 use zwave_logging::loggers::node::NodeLogger;
 use zwave_logging::loggers::serial::SerialLogger;
-use zwave_logging::{LogInfo, Logger, Loglevel};
+use zwave_logging::{Direction, LogInfo, Logger, Loglevel};
 use zwave_serial::binding::SerialBinding;
 use zwave_serial::frame::{ControlFlow, RawSerialFrame, SerialFrame};
 use zwave_serial::prelude::*;
@@ -102,7 +102,7 @@ impl Driver<Init> {
         let main_task_shutdown2 = main_task_shutdown.clone();
 
         // Logging happens in a separate **thread** in order to not interfere with the main logic.
-        let loglevel = Loglevel::Verbose; // FIXME: Add a way to change this at runtime
+        let loglevel = Loglevel::Debug; // FIXME: Add a way to change this at runtime
         let (log_cmd_tx, log_cmd_rx) = std::sync::mpsc::channel::<LogTaskCommand>();
         let bg_logger = Arc::new(BackgroundLogger::new(log_cmd_tx.clone(), loglevel));
         let serial_logger = SerialLogger::new(bg_logger.clone());
@@ -128,13 +128,8 @@ impl Driver<Init> {
             }
         };
 
-        let storage = DriverStorage::new(
-            Default::default(),
-            bg_logger,
-            driver_logger,
-            controller_logger,
-        );
-        let shared_storage = Arc::new(DriverStorageShared::default());
+        let storage = DriverStorage::new(Default::default(), driver_logger, controller_logger);
+        let shared_storage = Arc::new(DriverStorageShared::new(bg_logger));
 
         // Start the background task for the main logic
         let main_task = tokio::spawn(main_loop(
@@ -186,7 +181,6 @@ impl Driver<Init> {
         )??;
 
         let ready = self.interview_controller().await?;
-        println!("Controller info: {:#?}", &ready);
 
         let mut this = Driver::<Ready> {
             tasks: self.tasks,
@@ -212,7 +206,29 @@ where
             .await_control_flow_frame(Box::new(|_| true), Some(Duration::from_millis(1600)))
             .await;
         // ...then send the frame
-        exec_background_task!(&self.tasks.serial_cmd, SerialTaskCommand::SendFrame, frame)??;
+        exec_background_task!(
+            &self.tasks.serial_cmd,
+            SerialTaskCommand::SendFrame,
+            frame.clone()
+        )??;
+
+        // And log the command information if this was a command
+        if let SerialFrame::Command(cmd) = &frame {
+            let node_id = match cmd {
+                // FIXME: Extract the endpoint index aswell
+                Command::SendDataRequest(cmd) => Some(cmd.node_id),
+                _ => None,
+            };
+
+            if let Some(node_id) = node_id {
+                self.node_log(node_id, EndpointIndex::Root)
+                    .command(cmd, Direction::Outbound);
+            } else {
+                self.storage
+                    .controller_logger()
+                    .command(cmd, Direction::Outbound);
+            }
+        }
 
         ret
     }
@@ -429,7 +445,7 @@ where
     }
 
     pub fn node_log(&self, node_id: NodeId, endpoint: EndpointIndex) -> NodeLogger {
-        NodeLogger::new(self.storage.logger().clone(), node_id, endpoint)
+        NodeLogger::new(self.shared_storage.logger().clone(), node_id, endpoint)
     }
 }
 
@@ -533,6 +549,9 @@ struct MainLoopStorage {
     awaited_commands: Arc<AwaitedRegistry<Command>>,
     awaited_ccs: Arc<AwaitedRegistry<WithAddress<CC>>>,
     callback_id_gen: WrappingCounter<u8>,
+    bg_logger: Arc<BackgroundLogger>,
+    driver_logger: DriverLogger,
+    controller_logger: ControllerLogger,
 }
 
 async fn main_loop(
@@ -543,11 +562,18 @@ async fn main_loop(
     shared_storage: Arc<DriverStorageShared>,
     // command_handlers: Arc<Mutex<Vec<CommandHandler>>>,
 ) {
+    let bg_logger = shared_storage.logger().clone();
+    let driver_logger = DriverLogger::new(bg_logger.clone());
+    let controller_logger = ControllerLogger::new(bg_logger.clone());
+
     let mut storage = MainLoopStorage {
         awaited_control_flow_frames: Arc::new(AwaitedRegistry::default()),
         awaited_commands: Arc::new(AwaitedRegistry::default()),
         awaited_ccs: Arc::new(AwaitedRegistry::default()),
         callback_id_gen: WrappingCounter::new(),
+        bg_logger,
+        driver_logger,
+        controller_logger,
     };
 
     loop {
@@ -635,6 +661,26 @@ async fn main_loop_handle_frame(
         if let Some(cc) = cc {
             let mut cache = ValueCache::new(shared_storage);
             persist_cc_values(cc, &mut cache);
+        }
+    }
+
+    // Log the received command
+    if let SerialFrame::Command(cmd) = &frame {
+        let address = match cmd {
+            Command::ApplicationCommandRequest(cmd) => Some(cmd.command.address()),
+            Command::BridgeApplicationCommandRequest(cmd) => Some(cmd.command.address()),
+            _ => None,
+        };
+
+        if let Some(address) = address {
+            let node_logger = NodeLogger::new(
+                storage.bg_logger.clone(),
+                address.source_node_id,
+                address.endpoint_index,
+            );
+            node_logger.command(cmd, Direction::Inbound);
+        } else {
+            storage.controller_logger.command(cmd, Direction::Inbound);
         }
     }
 
@@ -792,7 +838,7 @@ async fn serial_loop_handle_frame(
 ) {
     let emit = match &frame {
         RawSerialFrame::Data(data) => {
-            storage.logger.data(data, zwave_logging::Direction::Inbound);
+            storage.logger.data(data, Direction::Inbound);
             // Try to parse the frame
             match zwave_serial::command_raw::CommandRaw::parse(data) {
                 Ok((_, raw)) => {
@@ -810,10 +856,7 @@ async fn serial_loop_handle_frame(
                         .node_id_type(storage.node_id_type)
                         .build();
                     match zwave_serial::command::Command::try_from_raw(raw, &ctx) {
-                        Ok(cmd) => {
-                            println!("{} received {:#?}", now(), cmd);
-                            Some(SerialFrame::Command(cmd))
-                        }
+                        Ok(cmd) => Some(SerialFrame::Command(cmd)),
                         Err(e) => {
                             println!("{} error: {:?}", now(), e);
                             // TODO: Handle misformatted frames
@@ -848,9 +891,7 @@ async fn serial_loop_handle_frame(
             None
         }
         RawSerialFrame::ControlFlow(byte) => {
-            storage
-                .logger
-                .control_flow(byte, zwave_logging::Direction::Inbound);
+            storage.logger.control_flow(byte, Direction::Inbound);
             Some(SerialFrame::ControlFlow(*byte))
         }
     };
@@ -867,10 +908,10 @@ async fn write_serial(
 ) -> Result<()> {
     match &frame {
         RawSerialFrame::Data(data) => {
-            logger.data(data, zwave_logging::Direction::Outbound);
+            logger.data(data, Direction::Outbound);
         }
         RawSerialFrame::ControlFlow(byte) => {
-            logger.control_flow(byte, zwave_logging::Direction::Outbound);
+            logger.control_flow(byte, Direction::Outbound);
         }
         _ => {}
     }

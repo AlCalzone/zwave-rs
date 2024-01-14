@@ -1,6 +1,10 @@
-use crate::{ImmutableLogger, LogInfo, Loglevel};
+use crate::{Direction, ImmutableLogger, LogInfo, Loglevel};
 use std::{borrow::Cow, sync::Arc};
-use zwave_core::{definitions::*, log::{LogPayload, ToLogPayload}, util::to_lines};
+use zwave_core::{
+    definitions::*,
+    log::{LogPayload, LogPayloadText, ToLogPayload},
+};
+use zwave_serial::command::{Command, CommandId};
 
 pub struct ControllerLogger {
     inner: Arc<dyn ImmutableLogger>,
@@ -18,6 +22,27 @@ impl ControllerLogger {
             .payload(message.into())
             .build();
         self.inner.log(log, level);
+    }
+
+    // FIXME: Remove duplication with ControllerLogger
+    pub fn command(&self, command: &Command, direction: Direction) {
+        let type_tag = if command.command_type() == CommandType::Request {
+            "REQ"
+        } else {
+            "RES"
+        };
+        let function_tag = format!("{:?}", command.function_type());
+        let primary_tags: Vec<Cow<_>> = vec![type_tag.into(), function_tag.into()];
+
+        let payload = LogPayloadText::new("").with_nested(command.to_log_payload());
+
+        let log = LogInfo::builder()
+            .label("CNTRLR")
+            .primary_tags(primary_tags)
+            .direction(direction)
+            .payload(payload.into())
+            .build();
+        self.inner.log(log, Loglevel::Debug);
     }
 
     pub fn error(&self, message: impl Into<LogPayload>) {

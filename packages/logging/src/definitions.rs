@@ -1,9 +1,8 @@
-use std::borrow::Cow;
-
 use chrono::{DateTime, Utc};
+use std::borrow::Cow;
 use termcolor::ColorSpec;
 use typed_builder::TypedBuilder;
-use zwave_core::{log::{LogPayload, ToLogPayload}, util::to_lines};
+use zwave_core::log::LogPayload;
 
 pub struct FormattedString {
     pub string: Cow<'static, str>,
@@ -94,4 +93,3 @@ pub struct LogInfo {
     pub payload: LogPayload,
     // FIXME: Context
 }
-

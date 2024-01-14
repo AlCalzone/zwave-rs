@@ -113,12 +113,7 @@ impl ToLogPayload for GetNodeProtocolInfoResponse {
         };
 
         let mut ret = LogPayloadDict::new()
-            .with_entry(
-                "basic device class",
-                info.basic_device_type
-                    .expect("basic device class should be set")
-                    .to_string(),
-            )
+            .with_entry("basic device class", info.basic_device_type.to_string())
             .with_entry(
                 "generic device class",
                 format!("0x{:02x}", info.generic_device_class),

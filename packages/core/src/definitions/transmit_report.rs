@@ -1,7 +1,7 @@
 use super::{Beam, ProtocolDataRate, RoutingScheme, RSSI};
 use crate::{
     encoding::{self, BitParsable, Parsable, Serializable},
-    prelude::{LogPayloadDict, ToLogPayload},
+    prelude::LogPayloadDict,
 };
 
 use cookie_factory as cf;
@@ -195,8 +195,6 @@ impl Serializable for TransmitReport {
 
 impl TransmitReport {
     pub fn to_log_dict(&self) -> LogPayloadDict {
-        LogPayloadDict::new()
-            .with_entry("transmit report", "TODO: implement to_log_dict")
-            .into()
+        LogPayloadDict::new().with_entry("transmit report", "TODO: implement to_log_dict")
     }
 }

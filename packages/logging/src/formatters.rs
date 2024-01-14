@@ -1,9 +1,7 @@
 use crate::{Direction, FormattedString, LogFormatter, LogInfo, Loglevel, WithColor};
 use termcolor::{Color, ColorSpec};
 use unicode_segmentation::UnicodeSegmentation;
-use zwave_core::{util::str_width, log::FlattenLog};
-
-const LIST_BULLET: &str = "· ";
+use zwave_core::{log::FlattenLog, util::str_width};
 
 #[derive(Default)]
 pub struct DefaultFormatter {
@@ -22,6 +20,8 @@ pub struct DefaultFormatter {
 
     line_width: usize,
 }
+
+// FIXME: This needs a way to set color based on the log label (to distinguish SERIAL and CNTRLR)
 
 impl DefaultFormatter {
     pub fn new() -> Self {
@@ -153,7 +153,10 @@ impl LogFormatter for DefaultFormatter {
                 let is_last = i == num_lines - 1;
 
                 let mut graphemes = line.graphemes(true).peekable();
-                while graphemes.peek().is_some() {
+
+                let empty_first_line = line.is_empty() && is_first;
+
+                while empty_first_line || graphemes.peek().is_some() {
                     let available_width = available_width
                         - if is_first { primary_tags_width } else { 0isize }
                         - if is_last { secondary_tag_width } else { 0isize };
@@ -175,6 +178,11 @@ impl LogFormatter for DefaultFormatter {
                     }
 
                     ret.push(cur_line.with_color(text_color.clone()));
+
+                    // This is a bit ugly, but allows us to reuse the logic for multiple non-empty lines
+                    if empty_first_line {
+                        break;
+                    }
                 }
             }
         }
@@ -209,7 +217,7 @@ impl LogFormatter for DefaultFormatter {
 #[cfg(test)]
 mod test {
     use super::*;
-    use zwave_core::log::LogPayload;
+    use zwave_core::log::{LogPayload, LogPayloadDict, LogPayloadText};
     use zwave_serial::frame::ControlFlow;
 
     #[test]
@@ -245,5 +253,29 @@ mod test {
         // The actual lines should be 120 chars, but the strings include the final line break
         assert_eq!(str_width(&formatted1), 121);
         assert_eq!(str_width(&formatted2), 121);
+    }
+
+    #[test]
+    fn test2() {
+        let fmt = DefaultFormatter::new();
+
+        let payload = LogPayloadText::new("")
+            .with_nested(LogPayloadDict::new().with_entry("nested", "value"))
+            .into();
+
+        // Lines with secondary tags should have the same length
+        let log = LogInfo::builder()
+            .label("CNTRLR")
+            .direction(Direction::Outbound)
+            .primary_tags(vec!["REQ".into(), "FUNC".into()])
+            .payload(payload)
+            .build();
+        let formatted = fmt.format_log(&log, Loglevel::Info);
+        let formatted2 = formatted
+            .iter()
+            .map(|f| f.string.clone())
+            .collect::<String>();
+
+        assert_eq!(formatted2, "foo");
     }
 }

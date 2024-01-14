@@ -13,12 +13,12 @@ use zwave_core::prelude::*;
 #[derive(Debug, Clone, PartialEq, TypedBuilder)]
 pub struct SendDataRequest {
     #[builder(setter(into))]
-    node_id: NodeId,
-    command: CC,
+    pub node_id: NodeId,
+    pub command: CC,
     #[builder(setter(skip), default)]
-    callback_id: Option<u8>,
+    pub callback_id: Option<u8>,
     #[builder(default)]
-    transmit_options: TransmitOptions,
+    pub transmit_options: TransmitOptions,
 }
 
 impl CommandId for SendDataRequest {

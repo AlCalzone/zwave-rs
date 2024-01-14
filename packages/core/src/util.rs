@@ -1,6 +1,5 @@
-use std::borrow::Cow;
-use unicode_segmentation::UnicodeSegmentation;
 use pin_project::pin_project;
+use std::borrow::Cow;
 use std::{
     future::Future,
     pin::Pin,
@@ -8,6 +7,7 @@ use std::{
     time::Duration,
 };
 use tokio::time::{sleep, Sleep};
+use unicode_segmentation::UnicodeSegmentation;
 
 #[pin_project]
 pub struct MaybeSleep {
@@ -68,14 +68,16 @@ pub unsafe trait ToDiscriminant<T: Copy> {
     }
 }
 
-
 pub fn str_width(string: &str) -> usize {
     string.graphemes(true).count()
 }
 
 pub fn to_lines(text: impl Into<Cow<'static, str>>) -> Vec<Cow<'static, str>> {
-    text.into()
-        .lines()
-        .map(|line| line.to_owned().into())
-        .collect()
+    let text = text.into();
+    if text.is_empty() {
+        // Return at least one empty line
+        return vec!["".into()];
+    }
+
+    text.lines().map(|line| line.to_owned().into()).collect()
 }

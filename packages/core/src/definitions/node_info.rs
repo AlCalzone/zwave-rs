@@ -29,8 +29,8 @@ pub struct NodeInformationProtocolData {
     pub supports_security: bool,
     /// Whether the node can wake up FLiRS nodes
     pub beaming: bool,
-    /// The basic device type of this node. Only present if the node is a controller
-    pub basic_device_type: Option<BasicDeviceType>,
+    /// The basic device type of this node
+    pub basic_device_type: BasicDeviceType,
     /// Which generic device class is implemented by this node
     pub generic_device_class: u8,
     /// Which specific device class is implemented by this node
@@ -57,7 +57,7 @@ impl Parsable for NodeInformationProtocolData {
                 beaming,
                 end_node,
                 has_specific_device_class,
-                controller,
+                _controller,
                 supports_security,
             ),
         ) = bits(tuple((bool, Beam::parse_opt, bool, bool, bool, bool, bool)))(i)?;
@@ -65,7 +65,7 @@ impl Parsable for NodeInformationProtocolData {
         let (i, (_reserved73, _reserved21, speed_100k)) =
             bits(tuple((u5::parse, u2::parse, bool)))(i)?;
 
-        let (i, basic_device_type) = cond(controller, BasicDeviceType::parse)(i)?;
+        let (i, basic_device_type) = BasicDeviceType::parse(i)?;
         let (i, generic_device_class) = be_u8(i)?;
         let (i, specific_device_class) = cond(has_specific_device_class, be_u8)(i)?;
 

@@ -19,7 +19,7 @@ async fn main() {
     // driver.interview_nodes().await.unwrap();
     // println!("all nodes interviewed");
 
-    driver.get_node(&2.into()).unwrap().ping().await.unwrap();
+    // driver.get_node(&2.into()).unwrap().ping().await.unwrap();
 
     // let node = driver.get_node(&NodeId::new(2u8)).unwrap();
 

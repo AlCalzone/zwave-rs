@@ -142,7 +142,7 @@ impl Driver<Ready> {
 
         if should_promote {
             self.controller_log()
-                .verbose("there is no SUC/SIS in the network - promoting ourselves...");
+                .info("there is no SUC/SIS in the network - promoting ourselves...");
             let own_node_id = self.controller().own_node_id();
             match self
                 .set_suc_node_id(own_node_id, own_node_id, true, true, None)
@@ -155,7 +155,7 @@ impl Driver<Ready> {
                             if success { "succeeded" } else { "failed" }
                         ),
                         if success {
-                            Loglevel::Verbose
+                            Loglevel::Info
                         } else {
                             Loglevel::Warn
                         },
@@ -168,7 +168,7 @@ impl Driver<Ready> {
             }
         } else {
             self.controller_log()
-                .verbose("there is a SUC/SIS in the network - not promoting ourselves");
+                .info("there is a SUC/SIS in the network - not promoting ourselves");
         }
 
         Ok(())

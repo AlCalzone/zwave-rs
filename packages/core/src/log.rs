@@ -1,5 +1,5 @@
 use crate::util::{str_width, to_lines};
-use std::{borrow::Cow, convert::From, fmt::Display, sync::OnceLock};
+use std::{borrow::Cow, convert::From, sync::OnceLock};
 
 const NESTED_INDENT: usize = 2;
 fn nested_indent_str() -> &'static str {

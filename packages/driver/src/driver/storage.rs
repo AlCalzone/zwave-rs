@@ -13,8 +13,6 @@ use crate::BackgroundLogger;
 pub(crate) struct DriverStorage {
     node_id_type: RwLock<NodeIdType>,
 
-    // The shared logger used by all specific logger instances
-    logger: Arc<BackgroundLogger>,
     driver_logger: DriverLogger,
     controller_logger: ControllerLogger,
 }
@@ -22,20 +20,14 @@ pub(crate) struct DriverStorage {
 impl DriverStorage {
     pub fn new(
         node_id_type: NodeIdType,
-        logger: Arc<BackgroundLogger>,
         driver_logger: DriverLogger,
         controller_logger: ControllerLogger,
     ) -> Self {
         Self {
             node_id_type: RwLock::new(node_id_type),
-            logger,
             driver_logger,
             controller_logger,
         }
-    }
-
-    pub fn logger(&self) -> &Arc<BackgroundLogger> {
-        &self.logger
     }
 
     pub fn driver_logger(&self) -> &DriverLogger {
@@ -55,19 +47,31 @@ impl DriverStorage {
     }
 }
 
-#[derive(Default)]
 /// Internal storage for the driver instance which is shared between tasks.
 /// This is meant to be used both from the tasks and the public API.
 pub(crate) struct DriverStorageShared {
+    // The shared logger used by all specific logger instances
+    logger: Arc<BackgroundLogger>,
     value_cache: RwLock<HashMap<EndpointValueId, CacheValue>>,
 }
 
 impl DriverStorageShared {
+    pub fn new(logger: Arc<BackgroundLogger>) -> Self {
+        Self {
+            logger,
+            value_cache: RwLock::new(HashMap::new()),
+        }
+    }
+
     pub fn value_cache(&self) -> RwLockReadGuard<HashMap<EndpointValueId, CacheValue>> {
         self.value_cache.read().unwrap()
     }
 
     pub fn value_cache_mut(&self) -> RwLockWriteGuard<HashMap<EndpointValueId, CacheValue>> {
         self.value_cache.write().unwrap()
+    }
+
+    pub fn logger(&self) -> &Arc<BackgroundLogger> {
+        &self.logger
     }
 }

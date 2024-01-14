@@ -24,7 +24,7 @@ impl<'a> CCAPI<'a> for ManufacturerSpecificCCAPI<'a> {
     }
 
     async fn interview<'ctx: 'a>(&self, ctx: &CCInterviewContext<'ctx>) -> CCAPIResult<()> {
-        let endpoint = ctx.endpoint;
+        let _endpoint = ctx.endpoint;
 
         ctx.log.info("interviewing Manufacturer Specific CC...");
 
