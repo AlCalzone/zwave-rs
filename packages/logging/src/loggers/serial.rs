@@ -1,6 +1,6 @@
-use crate::{Direction, ImmutableLogger, LogInfo, Loglevel};
+use crate::{Direction, ImmutableLogger, LogInfo};
 use std::sync::Arc;
-use zwave_core::log::LogPayload;
+use zwave_core::log::{LogPayload, Loglevel};
 use zwave_serial::frame::ControlFlow;
 
 pub struct SerialLogger {

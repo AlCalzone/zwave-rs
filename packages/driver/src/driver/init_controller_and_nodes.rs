@@ -3,7 +3,7 @@ use crate::{driver::ControllerCommandError, ControllerCommandResult, Driver};
 use crate::{ControllerStorage, ExecControllerCommandOptions, NodeStorage};
 use std::collections::BTreeMap;
 use zwave_core::definitions::*;
-use zwave_logging::Loglevel;
+use zwave_core::log::Loglevel;
 use zwave_serial::command::SerialApiSetupCommand;
 
 impl Driver<Init> {

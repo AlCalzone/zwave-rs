@@ -1,4 +1,5 @@
-use crate::{LogFormatter, LogInfo, Logger, Loglevel};
+use crate::{LogFormatter, LogInfo, Logger};
+use zwave_core::log::Loglevel;
 use termcolor::WriteColor;
 
 pub struct BaseLogger {

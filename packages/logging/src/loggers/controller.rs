@@ -1,8 +1,8 @@
-use crate::{Direction, ImmutableLogger, LogInfo, Loglevel};
+use crate::{Direction, ImmutableLogger, LogInfo};
 use std::{borrow::Cow, sync::Arc};
 use zwave_core::{
     definitions::*,
-    log::{LogPayload, LogPayloadText, ToLogPayload},
+    log::{LogPayload, LogPayloadText, ToLogPayload, Loglevel},
 };
 use zwave_serial::command::{Command, CommandId};
 

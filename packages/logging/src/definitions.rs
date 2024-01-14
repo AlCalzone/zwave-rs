@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use std::borrow::Cow;
 use termcolor::ColorSpec;
 use typed_builder::TypedBuilder;
-use zwave_core::log::LogPayload;
+use zwave_core::log::{LogPayload, Loglevel};
 
 pub struct FormattedString {
     pub string: Cow<'static, str>,
@@ -59,16 +59,6 @@ pub trait ImmutableLogger: Send + Sync {
 
     fn log_level(&self) -> Loglevel;
     fn set_log_level(&self, level: Loglevel);
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Loglevel {
-    Error,
-    Warn,
-    Info,
-    Verbose,
-    Debug,
-    Silly,
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]

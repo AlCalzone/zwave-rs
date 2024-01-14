@@ -1,7 +1,10 @@
-use crate::{Direction, FormattedString, LogFormatter, LogInfo, Loglevel, WithColor};
+use crate::{Direction, FormattedString, LogFormatter, LogInfo, WithColor};
 use termcolor::{Color, ColorSpec};
 use unicode_segmentation::UnicodeSegmentation;
-use zwave_core::{log::FlattenLog, util::str_width};
+use zwave_core::{
+    log::{FlattenLog, Loglevel},
+    util::str_width,
+};
 
 #[derive(Default)]
 pub struct DefaultFormatter {

@@ -3,7 +3,8 @@ use crate::{
     driver::{Log, LogTaskCommand, UseLogLevel},
     exec_background_task2,
 };
-use zwave_logging::{ImmutableLogger, LogInfo, Loglevel};
+use zwave_core::log::Loglevel;
+use zwave_logging::{ImmutableLogger, LogInfo};
 
 pub struct BackgroundLogger {
     cmd_tx: LogTaskCommandSender,

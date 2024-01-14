@@ -10,8 +10,10 @@ use std::thread;
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, oneshot, Notify};
 use tokio::task::JoinHandle;
+use typed_builder::TypedBuilder;
 use zwave_cc::commandclass::{CCValues, WithAddress, CC};
 use zwave_core::cache::Cache;
+use zwave_core::log::Loglevel;
 use zwave_core::state_machine::{StateMachine, StateMachineTransition};
 use zwave_core::util::now;
 use zwave_core::value_id::EndpointValueId;
@@ -22,7 +24,7 @@ use zwave_logging::loggers::controller::ControllerLogger;
 use zwave_logging::loggers::driver::DriverLogger;
 use zwave_logging::loggers::node::NodeLogger;
 use zwave_logging::loggers::serial::SerialLogger;
-use zwave_logging::{Direction, LogInfo, Logger, Loglevel};
+use zwave_logging::{Direction, LogInfo, Logger};
 use zwave_serial::binding::SerialBinding;
 use zwave_serial::frame::{ControlFlow, RawSerialFrame, SerialFrame};
 use zwave_serial::prelude::*;
@@ -82,9 +84,17 @@ impl Drop for DriverTasks {
     }
 }
 
+#[derive(TypedBuilder)]
+pub struct DriverOptions<'a> {
+    path: &'a str,
+    #[builder(default = Loglevel::Debug)]
+    loglevel: Loglevel,
+}
+
 impl Driver<Init> {
-    pub fn new(path: &str) -> Result<Self> {
+    pub fn new(options: DriverOptions) -> Result<Self> {
         // The serial task owns the serial port. All communication needs to go through that task.
+        let path = options.path;
 
         // To control it, we send a thread command along with a "callback" oneshot channel to the task.
         let (serial_cmd_tx, serial_cmd_rx) = mpsc::channel::<SerialTaskCommand>(100);
@@ -102,7 +112,7 @@ impl Driver<Init> {
         let main_task_shutdown2 = main_task_shutdown.clone();
 
         // Logging happens in a separate **thread** in order to not interfere with the main logic.
-        let loglevel = Loglevel::Debug; // FIXME: Add a way to change this at runtime
+        let loglevel = options.loglevel; // FIXME: Add a way to change this at runtime
         let (log_cmd_tx, log_cmd_rx) = std::sync::mpsc::channel::<LogTaskCommand>();
         let bg_logger = Arc::new(BackgroundLogger::new(log_cmd_tx.clone(), loglevel));
         let serial_logger = SerialLogger::new(bg_logger.clone());

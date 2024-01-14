@@ -1,6 +1,7 @@
 use std::{process::exit, time::Duration};
 
-use zwave_core::{definitions::NodeId, values::LevelSet};
+use zwave_core::{definitions::NodeId, values::LevelSet, log::Loglevel};
+use zwave_driver::DriverOptions;
 
 #[cfg(target_os = "linux")]
 // const PORT: &str = "/dev/ttyUSB0";
@@ -9,10 +10,13 @@ const PORT: &str = "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5479014030-if00
 #[cfg(target_os = "windows")]
 const PORT: &str = "COM6";
 
-
 #[tokio::main]
 async fn main() {
-    let driver = zwave_driver::Driver::new(PORT).unwrap();
+    let options = DriverOptions::builder()
+        .path(PORT)
+        // .loglevel(Loglevel::Info)
+        .build();
+    let driver = zwave_driver::Driver::new(options).unwrap();
 
     let driver = driver.init().await.unwrap();
 

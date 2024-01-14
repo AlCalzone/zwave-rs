@@ -1,6 +1,16 @@
 use crate::util::{str_width, to_lines};
 use std::{borrow::Cow, convert::From, sync::OnceLock};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Loglevel {
+    Error,
+    Warn,
+    Info,
+    Verbose,
+    Debug,
+    Silly,
+}
+
 const NESTED_INDENT: usize = 2;
 fn nested_indent_str() -> &'static str {
     static STR: OnceLock<String> = OnceLock::new();
