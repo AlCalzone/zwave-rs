@@ -140,8 +140,8 @@ impl CommandSerializable for GetProtocolVersionResponse {
 impl ToLogPayload for GetProtocolVersionResponse {
     fn to_log_payload(&self) -> LogPayload {
         let mut ret = LogPayloadDict::new()
-            .with_entry("protocol type", format!("{:?}", self.protocol_type))
-            .with_entry("version", format!("{}", self.version));
+            .with_entry("protocol type", self.protocol_type.to_string())
+            .with_entry("version", self.version.to_string());
         if let Some(app_framework_build_number) = self.app_framework_build_number {
             ret = ret.with_entry(
                 "app framework build number",

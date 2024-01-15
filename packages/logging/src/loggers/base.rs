@@ -1,6 +1,6 @@
 use crate::{LogFormatter, LogInfo, Logger};
-use zwave_core::log::Loglevel;
 use termcolor::WriteColor;
+use zwave_core::log::Loglevel;
 
 pub struct BaseLogger {
     pub level: Loglevel,
@@ -30,4 +30,3 @@ impl Logger for BaseLogger {
         self.level = level;
     }
 }
-

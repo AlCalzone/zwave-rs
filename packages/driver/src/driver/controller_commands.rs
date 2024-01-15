@@ -7,6 +7,7 @@ use crate::SerialApiMachineResult;
 
 use thiserror::Error;
 use typed_builder::TypedBuilder;
+use zwave_core::log::Loglevel;
 use zwave_core::prelude::*;
 use zwave_serial::command::ApplicationUpdateRequest;
 use zwave_serial::command::ApplicationUpdateRequestPayload;
@@ -42,11 +43,12 @@ where
         let capabilities =
             expect_controller_command_result!(response, GetSerialApiCapabilitiesResponse);
 
-        // FIXME: This duplicates the log outputs on DEBUG level
-        self.controller_log().info(
-            LogPayloadText::new("received Serial API capabilities:")
-                .with_nested(capabilities.to_log_payload()),
-        );
+        if self.controller_log().level() < Loglevel::Debug {
+            self.controller_log().info(
+                LogPayloadText::new("received Serial API capabilities:")
+                    .with_nested(capabilities.to_log_payload()),
+            );
+        }
 
         Ok(capabilities)
     }
@@ -63,10 +65,12 @@ where
 
         let init_data = expect_controller_command_result!(response, GetSerialApiInitDataResponse);
 
-        self.controller_log().info(
-            LogPayloadText::new("received additional controller information:")
-                .with_nested(init_data.to_log_payload()),
-        );
+        if self.controller_log().level() < Loglevel::Debug {
+            self.controller_log().info(
+                LogPayloadText::new("received additional controller information:")
+                    .with_nested(init_data.to_log_payload()),
+            );
+        }
 
         Ok(init_data)
     }
@@ -84,10 +88,12 @@ where
         let capabilities =
             expect_controller_command_result!(response, GetControllerCapabilitiesResponse);
 
-        self.controller_log().info(
-            LogPayloadText::new("received controller capabilities:")
-                .with_nested(capabilities.to_log_payload()),
-        );
+        if self.controller_log().level() < Loglevel::Debug {
+            self.controller_log().info(
+                LogPayloadText::new("received controller capabilities:")
+                    .with_nested(capabilities.to_log_payload()),
+            );
+        }
 
         Ok(capabilities)
     }
@@ -105,10 +111,12 @@ where
         let version_info =
             expect_controller_command_result!(response, GetControllerVersionResponse);
 
-        self.controller_log().info(
-            LogPayloadText::new("received controller version info:")
-                .with_nested(version_info.to_log_payload()),
-        );
+        if self.controller_log().level() < Loglevel::Debug {
+            self.controller_log().info(
+                LogPayloadText::new("received controller version info:")
+                    .with_nested(version_info.to_log_payload()),
+            );
+        }
 
         Ok(version_info)
     }
@@ -124,9 +132,11 @@ where
 
         let ids = expect_controller_command_result!(response, GetControllerIdResponse);
 
-        self.controller_log().info(
-            LogPayloadText::new("received controller IDs:").with_nested(ids.to_log_payload()),
-        );
+        if self.controller_log().level() < Loglevel::Debug {
+            self.controller_log().info(
+                LogPayloadText::new("received controller IDs:").with_nested(ids.to_log_payload()),
+            );
+        }
 
         Ok(ids)
     }
@@ -144,10 +154,12 @@ where
         let protocol_version =
             expect_controller_command_result!(response, GetProtocolVersionResponse);
 
-        self.controller_log().info(
-            LogPayloadText::new("received protocol version info:")
-                .with_nested(protocol_version.to_log_payload()),
-        );
+        if self.controller_log().level() < Loglevel::Debug {
+            self.controller_log().info(
+                LogPayloadText::new("received protocol version info:")
+                    .with_nested(protocol_version.to_log_payload()),
+            );
+        }
 
         Ok(protocol_version)
     }
@@ -191,11 +203,13 @@ where
             SerialApiSetupResponsePayload::GetSupportedCommands { commands } => commands
         )?;
 
-        self.controller_log().info(
-            LogPayloadText::new("supported Serial API setup commands:").with_nested(
-                LogPayloadList::new(ret.iter().map(|cmd| format!("{:?}", cmd).into())),
-            ),
-        );
+        if self.controller_log().level() < Loglevel::Debug {
+            self.controller_log().info(
+                LogPayloadText::new("supported Serial API setup commands:").with_nested(
+                    LogPayloadList::new(ret.iter().map(|cmd| format!("{:?}", cmd).into())),
+                ),
+            );
+        }
 
         Ok(ret)
     }
@@ -252,9 +266,12 @@ where
         let response = self.exec_controller_command(cmd, options).await;
         let response = expect_controller_command_result!(response, GetNodeProtocolInfoResponse);
 
-        log.info(
-            LogPayloadText::new("received protocol info:").with_nested(response.to_log_payload()),
-        );
+        if self.controller_log().level() < Loglevel::Debug {
+            log.info(
+                LogPayloadText::new("received protocol info:")
+                    .with_nested(response.to_log_payload()),
+            );
+        }
 
         Ok(response.protocol_info)
     }

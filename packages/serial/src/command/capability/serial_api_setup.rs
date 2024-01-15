@@ -202,12 +202,6 @@ impl CommandParsable for SerialApiSetupRequest {
     }
 }
 
-impl ToLogPayload for SerialApiSetupRequest {
-    fn to_log_payload(&self) -> LogPayload {
-        LogPayloadText::new("TODO: implement ToLogPayload for SerialApiSetupRequest").into()
-    }
-}
-
 impl CommandSerializable for SerialApiSetupRequest {
     fn serialize<'a, W: std::io::Write + 'a>(
         &'a self,
@@ -263,6 +257,36 @@ impl CommandSerializable for SerialApiSetupRequest {
         };
 
         tuple((be_u8(command), payload))
+    }
+}
+
+impl ToLogPayload for SerialApiSetupRequest {
+    fn to_log_payload(&self) -> LogPayload {
+        let ret = LogPayloadDict::new().with_entry("command", format!("{:?}", self.command));
+
+        let additional = match self.payload {
+            SerialApiSetupRequestPayload::SetTxStatusReport { enabled } => {
+                LogPayloadDict::new().with_entry("enabled", enabled)
+            }
+            SerialApiSetupRequestPayload::SetPowerlevel { powerlevel } => {
+                LogPayloadDict::new().with_entry("powerlevel", powerlevel.to_string())
+            }
+            SerialApiSetupRequestPayload::SetRFRegion { region } => {
+                LogPayloadDict::new().with_entry("region", region.to_string())
+            }
+            SerialApiSetupRequestPayload::SetNodeIDType { node_id_type } => {
+                LogPayloadDict::new().with_entry("node ID type", node_id_type.to_string())
+            }
+            SerialApiSetupRequestPayload::SetLRMaximumTxPower { max_power } => {
+                LogPayloadDict::new().with_entry("max. TX power", format!("{:.1} dBm", max_power))
+            }
+            SerialApiSetupRequestPayload::SetPowerlevel16Bit { powerlevel } => {
+                LogPayloadDict::new().with_entry("powerlevel", powerlevel.to_string())
+            }
+            _ => LogPayloadDict::new(),
+        };
+
+        ret.extend(additional).into()
     }
 }
 
@@ -513,6 +537,42 @@ impl CommandSerializable for SerialApiSetupResponse {
 
 impl ToLogPayload for SerialApiSetupResponse {
     fn to_log_payload(&self) -> LogPayload {
-        LogPayloadText::new("TODO: implement ToLogPayload for SerialApiSetupResponse").into()
+        let ret = LogPayloadDict::new().with_entry("command", format!("{:?}", self.command));
+
+        let additional = match self.payload {
+            SerialApiSetupResponsePayload::Unsupported(ref c) => {
+                return LogPayloadText::new(format!("Unsupported command: {:?}", c)).into()
+            }
+            SerialApiSetupResponsePayload::GetSupportedCommands { ref commands } => {
+                LogPayloadDict::new().with_entry(
+                    "supported commands",
+                    LogPayloadList::new(commands.iter().map(|cmd| format!("{:?}", cmd).into())),
+                )
+            }
+            SerialApiSetupResponsePayload::SetTxStatusReport { success }
+            | SerialApiSetupResponsePayload::SetPowerlevel { success }
+            | SerialApiSetupResponsePayload::SetRFRegion { success }
+            | SerialApiSetupResponsePayload::SetNodeIDType { success }
+            | SerialApiSetupResponsePayload::SetLRMaximumTxPower { success }
+            | SerialApiSetupResponsePayload::SetPowerlevel16Bit { success } => {
+                LogPayloadDict::new().with_entry("success", success)
+            }
+            SerialApiSetupResponsePayload::GetPowerlevel { powerlevel }
+            | SerialApiSetupResponsePayload::GetPowerlevel16Bit { powerlevel } => {
+                LogPayloadDict::new().with_entry("powerlevel", powerlevel.to_string())
+            }
+            SerialApiSetupResponsePayload::GetMaximumPayloadSize { size }
+            | SerialApiSetupResponsePayload::GetLRMaximumPayloadSize { size } => {
+                LogPayloadDict::new().with_entry("max. payload size", size)
+            }
+            SerialApiSetupResponsePayload::GetRFRegion { region } => {
+                LogPayloadDict::new().with_entry("region", region.to_string())
+            }
+            SerialApiSetupResponsePayload::GetLRMaximumTxPower { max_power } => {
+                LogPayloadDict::new().with_entry("max. TX power", format!("{:.1} dBm", max_power))
+            }
+        };
+
+        ret.extend(additional).into()
     }
 }

@@ -196,7 +196,6 @@ pub enum TryFromReprError<T: std::fmt::Debug> {
     NonPrimitive(T),
 }
 
-
 pub struct NomTryFromPrimitiveError(String);
 
 impl<I> FromExternalError<I, NomTryFromPrimitiveError> for NomError<I> {

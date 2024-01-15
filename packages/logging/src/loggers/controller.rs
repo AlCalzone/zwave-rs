@@ -2,7 +2,7 @@ use crate::{Direction, ImmutableLogger, LogInfo};
 use std::{borrow::Cow, sync::Arc};
 use zwave_core::{
     definitions::*,
-    log::{LogPayload, LogPayloadText, ToLogPayload, Loglevel},
+    log::{LogPayload, LogPayloadText, Loglevel, ToLogPayload},
 };
 use zwave_serial::command::{Command, CommandId};
 
@@ -67,5 +67,9 @@ impl ControllerLogger {
 
     pub fn silly(&self, message: impl Into<LogPayload>) {
         self.message(message, Loglevel::Silly);
+    }
+
+    pub fn level(&self) -> Loglevel {
+        self.inner.log_level()
     }
 }
