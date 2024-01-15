@@ -118,11 +118,9 @@ impl VersionCCAPI<'_> {
 
         ctx.log.info(format!("querying version for CC {}...", cc));
         if let Some(version) = self.get_cc_version(cc).await? {
-            ctx.log
-                .info(format!("received version for CC {}: {}", cc, version));
             if version > 0 {
                 ctx.log
-                    .info(format!("... supports CC {} in version {}", cc, version));
+                    .info(format!("supports CC {} in version {}", cc, version));
                 self.endpoint
                     .modify_cc_info(cc, &PartialCommandClassInfo::default().version(version))
             } else {
@@ -134,7 +132,7 @@ impl VersionCCAPI<'_> {
                 if is_critical {
                     todo!()
                 } else {
-                    ctx.log.info(format!("... does not support CC {}", cc));
+                    ctx.log.info(format!("does not support CC {}", cc));
                     self.endpoint.remove_cc(cc);
                 }
             }

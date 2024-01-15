@@ -67,11 +67,20 @@ pub trait CCValues {
 
 #[enum_dispatch(CC)]
 /// Command-specific functionality that may need to be implemented for each command
-pub trait CCBase: CCValues + std::fmt::Debug + Sync + Send {}
+pub trait CCBase: CCValues + std::fmt::Debug + Sync + Send + Clone + PartialEq {
+    /// Whether this CC expects a response
+    fn expects_response(&self) -> bool {
+        // Unless specified otherwise, assume that the CC doesn't
+        false
+    }
 
-pub trait CCRequest: CCId + Sized {
-    fn expects_response(&self) -> bool;
-    fn test_response(&self, response: &CC) -> bool;
+    /// If this CC expects a response, this function can be used to test whether
+    /// the response is the expected one.
+    fn test_response(&self, response: &CC) -> bool {
+        let _ = response;
+        // Unless specified otherwise, assume that the response is no match
+        false
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

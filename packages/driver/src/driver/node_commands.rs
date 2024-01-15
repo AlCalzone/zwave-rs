@@ -31,7 +31,7 @@ pub enum ExecNodeCommandError {
 /// Tests if the given CC response is the expected CC response to the given CC request
 fn test_cc_response<C>(request: &WithAddress<C>, response: &WithAddress<CC>) -> bool
 where
-    C: CCRequest,
+    C: Into<CC> + CCBase + CCId,
 {
     if !request.expects_response() {
         return false;
@@ -54,7 +54,7 @@ impl Driver<Ready> {
         _options: Option<&ExecNodeCommandOptions>,
     ) -> ExecNodeCommandResult<Option<CC>>
     where
-        C: CCRequest + Clone + Sized + 'static,
+        C: CCBase + CCId + Clone + Sized + 'static,
         CC: From<C>,
     {
         // FIXME: In some cases, the nodes' responses are received BEFORE
@@ -122,4 +122,3 @@ impl Driver<Ready> {
         }
     }
 }
-

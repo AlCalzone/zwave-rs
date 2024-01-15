@@ -1,4 +1,5 @@
 pub mod cache;
+pub mod checksum;
 pub mod definitions;
 pub mod encoding;
 pub mod log;

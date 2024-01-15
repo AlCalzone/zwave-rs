@@ -1,8 +1,8 @@
 use crate::prelude::*;
-use proc_macros::CCValues;
-use zwave_core::prelude::*;
 use cookie_factory as cf;
+use proc_macros::CCValues;
 use zwave_core::encoding::{self, encoders::empty};
+use zwave_core::prelude::*;
 
 // No Operation CC has no subcommands
 
@@ -18,16 +18,6 @@ impl CCId for NoOperationCC {
 
     fn cc_command(&self) -> Option<u8> {
         None
-    }
-}
-
-impl CCRequest for NoOperationCC {
-    fn expects_response(&self) -> bool {
-        false
-    }
-
-    fn test_response(&self, _response: &CC) -> bool {
-        false
     }
 }
 

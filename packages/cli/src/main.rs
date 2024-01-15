@@ -1,6 +1,7 @@
 use std::{process::exit, time::Duration};
 
-use zwave_core::{definitions::NodeId, values::LevelSet, log::Loglevel};
+use zwave_cc::commandclass::{BasicCCGet, BasicCCSet, CCAddressable, Crc16CCCommandEncapsulation};
+use zwave_core::{definitions::NodeId, log::Loglevel, values::LevelSet};
 use zwave_driver::DriverOptions;
 
 #[cfg(target_os = "linux")]
@@ -20,10 +21,10 @@ async fn main() {
 
     let driver = driver.init().await.unwrap();
 
-    // driver.interview_nodes().await.unwrap();
-    // println!("all nodes interviewed");
+    driver.interview_nodes().await.unwrap();
+    driver.log().info("all nodes interviewed");
 
-    // driver.get_node(&2.into()).unwrap().ping().await.unwrap();
+    // node2.ping().await.unwrap();
 
     // let node = driver.get_node(&NodeId::new(2u8)).unwrap();
 

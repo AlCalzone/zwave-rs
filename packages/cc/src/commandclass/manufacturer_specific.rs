@@ -164,7 +164,15 @@ impl Display for DeviceIdType {
 #[derive(Default, Debug, Clone, PartialEq, CCValues)]
 pub struct ManufacturerSpecificCCGet {}
 
-impl CCBase for ManufacturerSpecificCCGet {}
+impl CCBase for ManufacturerSpecificCCGet {
+    fn expects_response(&self) -> bool {
+        true
+    }
+
+    fn test_response(&self, response: &CC) -> bool {
+        matches!(response, CC::ManufacturerSpecificCCReport(_))
+    }
+}
 
 impl CCId for ManufacturerSpecificCCGet {
     fn cc_id(&self) -> CommandClasses {
@@ -173,16 +181,6 @@ impl CCId for ManufacturerSpecificCCGet {
 
     fn cc_command(&self) -> Option<u8> {
         Some(ManufacturerSpecificCCCommand::Get as _)
-    }
-}
-
-impl CCRequest for ManufacturerSpecificCCGet {
-    fn expects_response(&self) -> bool {
-        true
-    }
-
-    fn test_response(&self, response: &CC) -> bool {
-        matches!(response, CC::ManufacturerSpecificCCReport(_))
     }
 }
 
@@ -254,19 +252,7 @@ pub struct ManufacturerSpecificCCDeviceSpecificGet {
     device_id_type: DeviceIdType,
 }
 
-impl CCBase for ManufacturerSpecificCCDeviceSpecificGet {}
-
-impl CCId for ManufacturerSpecificCCDeviceSpecificGet {
-    fn cc_id(&self) -> CommandClasses {
-        CommandClasses::ManufacturerSpecific
-    }
-
-    fn cc_command(&self) -> Option<u8> {
-        Some(ManufacturerSpecificCCCommand::DeviceSpecificGet as _)
-    }
-}
-
-impl CCRequest for ManufacturerSpecificCCDeviceSpecificGet {
+impl CCBase for ManufacturerSpecificCCDeviceSpecificGet {
     fn expects_response(&self) -> bool {
         true
     }
@@ -281,6 +267,16 @@ impl CCRequest for ManufacturerSpecificCCDeviceSpecificGet {
                 }
             ) if device_id_type == &self.device_id_type
         )
+    }
+}
+
+impl CCId for ManufacturerSpecificCCDeviceSpecificGet {
+    fn cc_id(&self) -> CommandClasses {
+        CommandClasses::ManufacturerSpecific
+    }
+
+    fn cc_command(&self) -> Option<u8> {
+        Some(ManufacturerSpecificCCCommand::DeviceSpecificGet as _)
     }
 }
 

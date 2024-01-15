@@ -103,16 +103,6 @@ impl CCId for BasicCCSet {
     }
 }
 
-impl CCRequest for BasicCCSet {
-    fn expects_response(&self) -> bool {
-        false
-    }
-
-    fn test_response(&self, _response: &CC) -> bool {
-        false
-    }
-}
-
 impl CCParsable for BasicCCSet {
     fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
         let (i, target_value) = LevelSet::parse(i)?;
@@ -130,7 +120,15 @@ impl CCSerializable for BasicCCSet {
 #[derive(Default, Debug, Clone, PartialEq, CCValues)]
 pub struct BasicCCGet {}
 
-impl CCBase for BasicCCGet {}
+impl CCBase for BasicCCGet {
+    fn expects_response(&self) -> bool {
+        true
+    }
+
+    fn test_response(&self, response: &CC) -> bool {
+        matches!(response, CC::BasicCCReport(_))
+    }
+}
 
 impl CCId for BasicCCGet {
     fn cc_id(&self) -> CommandClasses {
@@ -139,16 +137,6 @@ impl CCId for BasicCCGet {
 
     fn cc_command(&self) -> Option<u8> {
         Some(BasicCCCommand::Get as _)
-    }
-}
-
-impl CCRequest for BasicCCGet {
-    fn expects_response(&self) -> bool {
-        true
-    }
-
-    fn test_response(&self, response: &CC) -> bool {
-        matches!(response, CC::BasicCCReport(_))
     }
 }
 

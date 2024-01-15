@@ -99,16 +99,6 @@ impl CCId for BinarySwitchCCSet {
     }
 }
 
-impl CCRequest for BinarySwitchCCSet {
-    fn expects_response(&self) -> bool {
-        false
-    }
-
-    fn test_response(&self, _response: &CC) -> bool {
-        false
-    }
-}
-
 impl CCParsable for BinarySwitchCCSet {
     fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
         let (i, target_value) = BinarySet::parse(i)?;
@@ -134,7 +124,15 @@ impl CCSerializable for BinarySwitchCCSet {
 #[derive(Default, Debug, Clone, PartialEq, CCValues)]
 pub struct BinarySwitchCCGet {}
 
-impl CCBase for BinarySwitchCCGet {}
+impl CCBase for BinarySwitchCCGet {
+    fn expects_response(&self) -> bool {
+        true
+    }
+
+    fn test_response(&self, response: &CC) -> bool {
+        matches!(response, CC::BinarySwitchCCReport(_))
+    }
+}
 
 impl CCId for BinarySwitchCCGet {
     fn cc_id(&self) -> CommandClasses {
@@ -143,16 +141,6 @@ impl CCId for BinarySwitchCCGet {
 
     fn cc_command(&self) -> Option<u8> {
         Some(BinarySwitchCCCommand::Get as _)
-    }
-}
-
-impl CCRequest for BinarySwitchCCGet {
-    fn expects_response(&self) -> bool {
-        true
-    }
-
-    fn test_response(&self, response: &CC) -> bool {
-        matches!(response, CC::BinarySwitchCCReport(_))
     }
 }
 

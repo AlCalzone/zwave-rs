@@ -105,14 +105,18 @@ impl ToLogPayload for BridgeApplicationCommandRequest {
         if self.frame_info.low_power {
             infos.push("low power".to_string());
         }
-        let mut ret = LogPayloadDict::new()
-            .with_entry("frame info", infos.join(", "))
-            // FIXME: log the included CC too
-            .with_entry("command", "TODO: Log CC");
-
+        let mut ret = LogPayloadDict::new();
         if let Some(rssi) = self.rssi {
             ret = ret.with_entry("RSSI", rssi.to_string())
         }
+
+        if !infos.is_empty() {
+            ret = ret.with_entry("frame info", infos.join(", "))
+        }
+
+        ret = ret
+            // FIXME: log the included CC too
+            .with_entry("command", "TODO: Log CC");
 
         ret.into()
     }

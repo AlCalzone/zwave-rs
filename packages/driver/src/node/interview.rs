@@ -19,11 +19,11 @@ pub enum InterviewStage {
 
 impl<'a> Node<'a> {
     pub async fn interview(&self) -> Result<()> {
-        println!(
-            "Node {}, beginning interview. Current stage: {:?}",
-            self.id,
-            self.interview_stage()
-        );
+        let log = self.driver.node_log(self.id(), EndpointIndex::Root);
+        log.info(format!(
+            "Beginning interview - current stage: {:?}",
+            self.interview_stage(),
+        ));
 
         if self.interview_stage() == InterviewStage::None {
             self.set_interview_stage(InterviewStage::NodeInfo);
@@ -63,7 +63,7 @@ impl<'a> Node<'a> {
         // Root endpoint:
         // * Security S2
         // * Security S0
-        // * Manufacturer Specific
+        // * Manufacturer Specific ✅
         // * Version ✅
         // * Wake Up
         // * ...other non-application CCs

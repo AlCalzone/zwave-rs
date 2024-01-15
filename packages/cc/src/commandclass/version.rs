@@ -271,7 +271,15 @@ pub enum VersionCCCommand {
 #[derive(Default, Debug, Clone, PartialEq, CCValues)]
 pub struct VersionCCGet {}
 
-impl CCBase for VersionCCGet {}
+impl CCBase for VersionCCGet {
+    fn expects_response(&self) -> bool {
+        true
+    }
+
+    fn test_response(&self, response: &CC) -> bool {
+        matches!(response, CC::VersionCCReport(_))
+    }
+}
 
 impl CCId for VersionCCGet {
     fn cc_id(&self) -> CommandClasses {
@@ -280,16 +288,6 @@ impl CCId for VersionCCGet {
 
     fn cc_command(&self) -> Option<u8> {
         Some(VersionCCCommand::Get as _)
-    }
-}
-
-impl CCRequest for VersionCCGet {
-    fn expects_response(&self) -> bool {
-        true
-    }
-
-    fn test_response(&self, response: &CC) -> bool {
-        matches!(response, CC::VersionCCReport(_))
     }
 }
 
@@ -404,19 +402,7 @@ pub struct VersionCCCommandClassGet {
     requested_cc: CommandClasses,
 }
 
-impl CCBase for VersionCCCommandClassGet {}
-
-impl CCId for VersionCCCommandClassGet {
-    fn cc_id(&self) -> CommandClasses {
-        CommandClasses::Version
-    }
-
-    fn cc_command(&self) -> Option<u8> {
-        Some(VersionCCCommand::CommandClassGet as _)
-    }
-}
-
-impl CCRequest for VersionCCCommandClassGet {
+impl CCBase for VersionCCCommandClassGet {
     fn expects_response(&self) -> bool {
         true
     }
@@ -429,6 +415,16 @@ impl CCRequest for VersionCCCommandClassGet {
             }) if (requested_cc == &self.requested_cc) => true,
             _ => false,
         }
+    }
+}
+
+impl CCId for VersionCCCommandClassGet {
+    fn cc_id(&self) -> CommandClasses {
+        CommandClasses::Version
+    }
+
+    fn cc_command(&self) -> Option<u8> {
+        Some(VersionCCCommand::CommandClassGet as _)
     }
 }
 
@@ -490,7 +486,15 @@ impl CCSerializable for VersionCCCommandClassReport {
 #[derive(Default, Debug, Clone, PartialEq, CCValues)]
 pub struct VersionCCCapabilitiesGet {}
 
-impl CCBase for VersionCCCapabilitiesGet {}
+impl CCBase for VersionCCCapabilitiesGet {
+    fn expects_response(&self) -> bool {
+        true
+    }
+
+    fn test_response(&self, response: &CC) -> bool {
+        matches!(response, CC::VersionCCCapabilitiesReport(_))
+    }
+}
 
 impl CCId for VersionCCCapabilitiesGet {
     fn cc_id(&self) -> CommandClasses {
@@ -499,16 +503,6 @@ impl CCId for VersionCCCapabilitiesGet {
 
     fn cc_command(&self) -> Option<u8> {
         Some(VersionCCCommand::CapabilitiesGet as _)
-    }
-}
-
-impl CCRequest for VersionCCCapabilitiesGet {
-    fn expects_response(&self) -> bool {
-        true
-    }
-
-    fn test_response(&self, response: &CC) -> bool {
-        matches!(response, CC::VersionCCCapabilitiesReport(_))
     }
 }
 
@@ -572,7 +566,15 @@ impl CCSerializable for VersionCCCapabilitiesReport {
 #[derive(Default, Debug, Clone, PartialEq, CCValues)]
 pub struct VersionCCZWaveSoftwareGet {}
 
-impl CCBase for VersionCCZWaveSoftwareGet {}
+impl CCBase for VersionCCZWaveSoftwareGet {
+    fn expects_response(&self) -> bool {
+        true
+    }
+
+    fn test_response(&self, response: &CC) -> bool {
+        matches!(response, CC::VersionCCZWaveSoftwareReport(_))
+    }
+}
 
 impl CCId for VersionCCZWaveSoftwareGet {
     fn cc_id(&self) -> CommandClasses {
@@ -581,16 +583,6 @@ impl CCId for VersionCCZWaveSoftwareGet {
 
     fn cc_command(&self) -> Option<u8> {
         Some(VersionCCCommand::ZWaveSoftwareGet as _)
-    }
-}
-
-impl CCRequest for VersionCCZWaveSoftwareGet {
-    fn expects_response(&self) -> bool {
-        true
-    }
-
-    fn test_response(&self, response: &CC) -> bool {
-        matches!(response, CC::VersionCCZWaveSoftwareReport(_))
     }
 }
 
