@@ -99,19 +99,18 @@ fn parse_control() -> impl munch::Parser<RawSerialFrame> {
 
 fn parse_data() -> impl munch::Parser<RawSerialFrame> {
     move |i: &mut BytesMut| {
-        let checkpoint = i.clone();
+        // Extract the length, while ensuring that the buffer...
+        let (_, len, _) = peek((
+            // ...starts with SOF
+            literal(SerialControlByte::SOF as u8),
+            // (read length)
+            // FIXME: Implement u8() parser and use it
+            map(take(1usize), |b| b[0]),
+            // ...and contains at least `len` bytes
+            take(3usize),
+        ))
+        .parse(i)?;
 
-        // Ensure that the buffer contains at least 5 bytes
-        peek(take(5usize)).parse(i)?;
-
-        // FIXME: Implement tuple() combinator and use it
-
-        literal(SerialControlByte::SOF as u8).parse(i)?;
-        let len = map(take(1usize), |b| b[0]).parse(i)?;
-
-        *i = checkpoint.clone();
-
-        // FIXME: Implement u8() parser and use it
         let data = take(len + 2).parse(i)?;
 
         Ok(RawSerialFrame::Data(data.to_vec()))
@@ -131,17 +130,18 @@ impl BytesParsable for RawSerialFrame {
     fn parse(i: &mut BytesMut) -> munch::ParseResult<Self> {
         // A serial frame is either a control byte, data starting with SOF, or skipped garbage
 
-        if let Ok(garbage) = consume_garbage().parse_peek(i) {
-            return Ok(garbage);
-        }
+        // if let Ok(garbage) = consume_garbage().parse_peek(i) {
+        //     return Ok(garbage);
+        // }
 
-        if let Ok(control) = parse_control().parse_peek(i) {
-            return Ok(control);
-        }
+        // if let Ok(control) = parse_control().parse_peek(i) {
+        //     return Ok(control);
+        // }
 
-        parse_data().parse(i)
+        // parse_data().parse(i)
 
-        // FIXME: Implement alt() combinator and use it
+        // FIXME: Implement context() combinator and use it
+        alt((consume_garbage(), parse_control(), parse_data())).parse(i)
         // context(
         //     "Serial Frame",
         //     alt((consume_garbage, parse_control, parse_data)),

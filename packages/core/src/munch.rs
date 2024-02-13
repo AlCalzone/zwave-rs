@@ -91,7 +91,8 @@ pub mod streaming {
     pub fn literal(lit: u8) -> impl Parser<u8> {
         combinators::map_res(take(1usize), move |b| match b {
             Ok(b) if b[0] == lit => Ok(lit),
-            _ => Err(ParseError::Recoverable(())),
+            Ok(_) => Err(ParseError::Recoverable(())),
+            Err(e) => Err(e),
         })
     }
 }
@@ -121,7 +122,7 @@ pub mod complete {
 }
 
 pub mod combinators {
-    use super::{Needed, ParseError, ParseResult, Parser};
+    use super::{Alt, Needed, ParseError, ParseResult, Parser};
     use bytes::BytesMut;
 
     pub fn map<O1, O2, E, P, F>(parser: P, f: F) -> impl Parser<O2, E>
@@ -164,6 +165,13 @@ pub mod combinators {
     {
         map(parser, move |_| value)
     }
+
+    pub fn alt<O, E, List>(parsers: List) -> impl Parser<O, E>
+    where
+        List: Alt<O, E>,
+    {
+        move |input: &mut BytesMut| parsers.choice(input)
+    }
 }
 
 pub mod multi {
@@ -201,3 +209,122 @@ pub mod multi {
         }
     }
 }
+
+pub trait Alt<O, E = ()> {
+    fn choice(&self, input: &mut BytesMut) -> ParseResult<O, E>;
+}
+
+macro_rules! impl_alt_trait {
+    ($($idx:literal),+; $last:tt) => {
+        paste::paste! {
+            impl<$([<P $idx>]),+, [<P $last>], O, E> Alt<O, E> for ($([<P $idx>]),+, [<P $last>])
+            where
+            $(
+                [<P $idx>]: Parser<O, E>,
+            )+
+                [<P $last>]: Parser<O, E>,
+            {
+                fn choice(&self, input: &mut BytesMut) -> ParseResult<O, E> {
+                    $(
+                        if let Ok(res) = self.$idx.parse_peek(input) {
+                            return Ok(res);
+                        }
+                    )+
+                    self.$last.parse(input)
+                }
+            }
+        }
+    };
+    ($zero:literal) => {
+        paste::paste! {
+            impl<[<P $zero>], O, E> Alt<O, E> for ([<P $zero>],)
+            where
+                [<P $zero>]: Parser<O, E>,
+            {
+                fn choice(&self, input: &mut BytesMut) -> ParseResult<O, E> {
+                    self.$zero.parse(input)
+                }
+            }
+        }
+    };
+}
+
+// TODO: There should be a more elegant solution for this
+impl_alt_trait!(0);
+impl_alt_trait!(0; 1);
+impl_alt_trait!(0, 1; 2);
+impl_alt_trait!(0, 1, 2; 3);
+impl_alt_trait!(0, 1, 2, 3; 4);
+impl_alt_trait!(0, 1, 2, 3, 4; 5);
+impl_alt_trait!(0, 1, 2, 3, 4, 5; 6);
+impl_alt_trait!(0, 1, 2, 3, 4, 5, 6; 7);
+impl_alt_trait!(0, 1, 2, 3, 4, 5, 6, 7; 8);
+impl_alt_trait!(0, 1, 2, 3, 4, 5, 6, 7, 8; 9);
+impl_alt_trait!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9; 10);
+impl_alt_trait!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10; 11);
+impl_alt_trait!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11; 12);
+impl_alt_trait!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12; 13);
+impl_alt_trait!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13; 14);
+impl_alt_trait!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14; 15);
+impl_alt_trait!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; 16);
+
+macro_rules! impl_parser_for_tuple {
+    ($($idx:literal),+) => {
+        paste::paste! {
+            impl<$([<P $idx>], [<O $idx>]),+, E> Parser<($([<O $idx>]),+,), E> for ($([<P $idx>]),+,)
+            where
+            $(
+                [<P $idx>]: Parser<[<O $idx>], E>,
+            )+
+            {
+                fn parse(&self, input: &mut BytesMut) -> ParseResult<($([<O $idx>]),+,), E> {
+                    Ok((
+                        $(
+                            self.$idx.parse(input)?,
+                        )+
+                    ))
+                }
+            }
+        }
+    };
+}
+
+impl_parser_for_tuple!(0);
+impl_parser_for_tuple!(0, 1);
+impl_parser_for_tuple!(0, 1, 2);
+impl_parser_for_tuple!(0, 1, 2, 3);
+impl_parser_for_tuple!(0, 1, 2, 3, 4);
+impl_parser_for_tuple!(0, 1, 2, 3, 4, 5);
+impl_parser_for_tuple!(0, 1, 2, 3, 4, 5, 6);
+impl_parser_for_tuple!(0, 1, 2, 3, 4, 5, 6, 7);
+impl_parser_for_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8);
+impl_parser_for_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+impl_parser_for_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+impl_parser_for_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+impl_parser_for_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
+impl_parser_for_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13);
+impl_parser_for_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+impl_parser_for_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
+impl_parser_for_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
+
+// impl<P0, O0, E> Parser<(O0,), E> for (P0,)
+// where
+//     P0: Parser<O0, E>,
+// {
+//     fn parse(&self, input: &mut BytesMut) -> ParseResult<(O0,), E> {
+//         let o0 = self.0.parse(input)?;
+//         Ok((o0,))
+//     }
+// }
+
+// impl<P0, O0, P1, O1, E> Parser<(O0, O1), E> for (P0, P1)
+// where
+//     P0: Parser<O0, E>,
+//     P1: Parser<O1, E>,
+// {
+//     fn parse(&self, input: &mut BytesMut) -> ParseResult<(O0, O1), E> {
+//         let o0 = self.0.parse(input)?;
+//         let o1 = self.1.parse(input)?;
+//         Ok((o0, o1))
+//     }
+// }
