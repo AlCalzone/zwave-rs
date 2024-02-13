@@ -1,17 +1,11 @@
 use std::fmt::Display;
 
 use crate::prelude::{Command, CommandEncodingContext};
+use bytes::BytesMut;
 use cookie_factory as cf;
-use nom::{
-    branch::alt,
-    bytes::streaming::{tag, take, take_till1},
-    combinator::{map, peek, value},
-    error::context,
-    number::streaming::be_u8,
-    sequence::tuple,
-};
 use proc_macros::TryFromRepr;
-use zwave_core::encoding;
+use zwave_core::encoding::{self, BytesParsable};
+use zwave_core::munch::{self, combinators::*, streaming::*, Parser};
 use zwave_core::prelude::*;
 
 #[derive(Debug, TryFromRepr)]
@@ -62,51 +56,96 @@ pub enum SerialFrame {
     Raw(Vec<u8>),
 }
 
-fn consume_garbage(i: encoding::Input) -> encoding::ParseResult<RawSerialFrame> {
+fn consume_garbage() -> impl munch::Parser<RawSerialFrame> {
     map(
-        take_till1(|b| SerialControlByte::try_from(b).is_ok()),
-        |g: &[u8]| RawSerialFrame::Garbage(g.to_vec()),
-    )(i)
+        take_while1(|b| SerialControlByte::try_from(b).is_err()),
+        |g: BytesMut| RawSerialFrame::Garbage(g.to_vec()),
+    )
 }
 
-fn parse_control(i: encoding::Input) -> encoding::ParseResult<RawSerialFrame> {
-    alt((
-        value(
-            RawSerialFrame::ControlFlow(ControlFlow::ACK),
-            tag(&ACK_BUFFER),
-        ),
-        value(
-            RawSerialFrame::ControlFlow(ControlFlow::NAK),
-            tag(&NAK_BUFFER),
-        ),
-        value(
-            RawSerialFrame::ControlFlow(ControlFlow::CAN),
-            tag(&CAN_BUFFER),
-        ),
-    ))(i)
+fn parse_control() -> impl munch::Parser<RawSerialFrame> {
+    move |i: &mut BytesMut| {
+        if let Ok(_) = literal(SerialControlByte::ACK as u8).parse_peek(i) {
+            return Ok(RawSerialFrame::ControlFlow(ControlFlow::ACK));
+        }
+
+        if let Ok(_) = literal(SerialControlByte::NAK as u8).parse_peek(i) {
+            return Ok(RawSerialFrame::ControlFlow(ControlFlow::NAK));
+        }
+
+        // Always consume the first byte, even in case of failure
+        if let Ok(_) = literal(SerialControlByte::CAN as u8).parse(i) {
+            return Ok(RawSerialFrame::ControlFlow(ControlFlow::CAN));
+        }
+
+        Err(munch::ParseError::Recoverable(()))
+    }
+    // FIXME: Implement alt() combinator and use it
+    // alt((
+    //     value(
+    //         RawSerialFrame::ControlFlow(ControlFlow::ACK),
+    //         tag(&ACK_BUFFER),
+    //     ),
+    //     value(
+    //         RawSerialFrame::ControlFlow(ControlFlow::NAK),
+    //         tag(&NAK_BUFFER),
+    //     ),
+    //     value(
+    //         RawSerialFrame::ControlFlow(ControlFlow::CAN),
+    //         tag(&CAN_BUFFER),
+    //     ),
+    // ))(i)
 }
 
-fn parse_data(i: encoding::Input) -> encoding::ParseResult<RawSerialFrame> {
-    // Ensure that the buffer contains at least 5 bytes
-    peek(take(5usize))(i)?;
+fn parse_data() -> impl munch::Parser<RawSerialFrame> {
+    move |i: &mut BytesMut| {
+        let checkpoint = i.clone();
 
-    // Ensure that it starts with a SOF byte and extract the length of the rest of the command
-    let (_, (_, len)) = peek(tuple((tag([SerialControlByte::SOF as u8]), be_u8)))(i)?;
+        // Ensure that the buffer contains at least 5 bytes
+        peek(take(5usize)).parse(i)?;
 
-    // Take the whole command
-    let (i, data) = take(len + 2)(i)?;
+        // FIXME: Implement tuple() combinator and use it
 
-    // And return the whole thing
-    Ok((i, RawSerialFrame::Data(data.to_vec())))
+        literal(SerialControlByte::SOF as u8).parse(i)?;
+        let len = map(take(1usize), |b| b[0]).parse(i)?;
+
+        *i = checkpoint.clone();
+
+        // FIXME: Implement u8() parser and use it
+        let data = take(len + 2).parse(i)?;
+
+        Ok(RawSerialFrame::Data(data.to_vec()))
+    }
+
+    // // Ensure that it starts with a SOF byte and extract the length of the rest of the command
+    // let (_, (_, len)) = peek(tuple((tag([SerialControlByte::SOF as u8]), be_u8)))(i)?;
+
+    // // Take the whole command
+    // let (i, data) = take(len + 2)(i)?;
+
+    // // And return the whole thing
+    // Ok((i, RawSerialFrame::Data(data.to_vec())))
 }
 
-impl Parsable for RawSerialFrame {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
+impl BytesParsable for RawSerialFrame {
+    fn parse(i: &mut BytesMut) -> munch::ParseResult<Self> {
         // A serial frame is either a control byte, data starting with SOF, or skipped garbage
-        context(
-            "Serial Frame",
-            alt((consume_garbage, parse_control, parse_data)),
-        )(i)
+
+        if let Ok(garbage) = consume_garbage().parse_peek(i) {
+            return Ok(garbage);
+        }
+
+        if let Ok(control) = parse_control().parse_peek(i) {
+            return Ok(control);
+        }
+
+        parse_data().parse(i)
+
+        // FIXME: Implement alt() combinator and use it
+        // context(
+        //     "Serial Frame",
+        //     alt((consume_garbage, parse_control, parse_data)),
+        // )(i)
     }
 }
 
@@ -142,59 +181,69 @@ impl SerialFrame {
 mod test {
     use super::*;
 
+    macro_rules! hex_bytes {
+        ($hex:expr) => {
+            BytesMut::from(hex::decode($hex).unwrap().as_slice())
+        };
+    }
+
+    macro_rules! hex_vec {
+        ($hex:expr) => {
+            hex::decode($hex).unwrap()
+        };
+    }
+
     #[test]
     fn test_garbage() {
-        let data = hex::decode("07080901").unwrap();
-        let expected = hex::decode("070809").unwrap();
-        let remaining = hex::decode("01").unwrap();
+        let mut data = hex_bytes!("07080901");
+        let expected = hex_vec!("070809");
+        let remaining = hex_bytes!("01");
         assert_eq!(
-            consume_garbage(&data),
-            Ok((remaining.as_slice(), RawSerialFrame::Garbage(expected)))
+            consume_garbage().parse(&mut data),
+            Ok(RawSerialFrame::Garbage(expected))
         );
+        assert_eq!(data, remaining);
     }
 
     #[test]
     fn test_control() {
-        let data = hex::decode("0606151801").unwrap();
-        let remaining = hex::decode("01").unwrap();
+        let mut data = hex_bytes!("0606151801");
+        let remaining = hex_bytes!("01");
         assert_eq!(
-            nom::multi::many0(parse_control)(&data),
-            Ok((
-                remaining.as_slice(),
-                vec![
-                    RawSerialFrame::ControlFlow(ControlFlow::ACK),
-                    RawSerialFrame::ControlFlow(ControlFlow::ACK),
-                    RawSerialFrame::ControlFlow(ControlFlow::NAK),
-                    RawSerialFrame::ControlFlow(ControlFlow::CAN),
-                ]
-            )),
+            munch::multi::many_0(parse_control()).parse(&mut data),
+            Ok(vec![
+                RawSerialFrame::ControlFlow(ControlFlow::ACK),
+                RawSerialFrame::ControlFlow(ControlFlow::ACK),
+                RawSerialFrame::ControlFlow(ControlFlow::NAK),
+                RawSerialFrame::ControlFlow(ControlFlow::CAN),
+            ]),
         );
+        assert_eq!(data, remaining);
     }
 
     #[test]
     fn test_data() {
-        let data = hex::decode("01030008f406").unwrap();
-        let expected = hex::decode("01030008f4").unwrap();
-        let remaining = hex::decode("06").unwrap();
+        let mut data = hex_bytes!("01030008f406");
+        let expected = hex_vec!("01030008f4");
+        let remaining = hex_bytes!("06");
         assert_eq!(
-            parse_data(&data),
-            Ok((remaining.as_slice(), RawSerialFrame::Data(expected),))
+            parse_data().parse(&mut data),
+            Ok(RawSerialFrame::Data(expected))
         );
+        assert_eq!(data, remaining);
     }
 
     #[test]
     fn test_many() {
-        let data = hex::decode("01030008f406180000000801").unwrap();
-        let expected = hex::decode("01030008f4").unwrap();
-        let garbage = hex::decode("00000008").unwrap();
+        let mut data = hex_bytes!("01030008f406180000000801");
+        let expected = hex_vec!("01030008f4");
+        let garbage = hex_vec!("00000008");
+        let remaining = hex_bytes!("01");
 
         let mut results: Vec<RawSerialFrame> = Vec::new();
-        let mut input = data.as_slice();
-        while let Ok((remaining, frame)) = RawSerialFrame::parse(input) {
+        while let Ok(frame) = RawSerialFrame::parse(&mut data) {
             results.push(frame);
-            input = remaining;
         }
-        assert_eq!(input, vec![0x01]);
         assert_eq!(
             results,
             vec![
@@ -204,5 +253,6 @@ mod test {
                 RawSerialFrame::Garbage(garbage),
             ]
         );
+        assert_eq!(data, remaining);
     }
 }

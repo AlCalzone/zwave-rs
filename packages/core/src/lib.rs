@@ -9,3 +9,4 @@ pub mod util;
 pub mod value_id;
 pub mod values;
 pub mod wrapping_counter;
+pub mod munch;

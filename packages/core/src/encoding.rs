@@ -1,14 +1,17 @@
 // Heavily inspired from https://fasterthanli.me/series/making-our-own-ping/
 
 use bitvec::prelude::*;
+use bytes::{Bytes, BytesMut};
 use cookie_factory::GenError;
 use custom_debug_derive::Debug;
 use nom::error::{
     ContextError as NomContextError, ErrorKind as NomErrorKind, FromExternalError,
     ParseError as NomParseError,
 };
-use nom::{ErrorConvert, Slice};
+use nom::{ErrorConvert, InputTake, Needed, Slice};
 use std::fmt;
+use std::iter::{Cloned, Enumerate};
+use std::num::NonZeroUsize;
 use std::ops::RangeFrom;
 use thiserror::Error;
 
@@ -242,6 +245,17 @@ where
     fn try_from_slice(data: &[u8]) -> Result<Self, EncodingError> {
         Self::parse(data).into_encoding_result()
     }
+}
+
+pub trait BytesParsable
+where
+    Self: Sized,
+{
+    fn parse(i: &mut BytesMut) -> crate::munch::ParseResult<Self>;
+
+    // fn try_from_slice(data: &[u8]) -> Result<Self, EncodingError> {
+    //     Self::parse(data).into_encoding_result()
+    // }
 }
 
 pub trait BitParsable

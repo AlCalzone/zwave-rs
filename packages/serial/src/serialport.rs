@@ -6,7 +6,8 @@ use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
 use tokio_serial::{SerialPortBuilderExt, SerialStream};
 use tokio_util::codec::{Decoder, Encoder, Framed};
-use zwave_core::encoding;
+use zwave_core::encoding::{self, BytesParsable};
+use zwave_core::munch::{Needed, ParseError};
 use zwave_core::prelude::*;
 
 pub struct SerialPort {
@@ -64,13 +65,21 @@ impl Decoder for SerialFrameCodec {
         src: &mut BytesMut,
     ) -> std::result::Result<Option<Self::Item>, Self::Error> {
         match RawSerialFrame::parse(src) {
-            Ok((remaining, frame)) => {
-                let bytes_read = src.len() - remaining.len();
-                src.advance(bytes_read);
-                Ok(Some(frame))
+            Ok(frame) => Ok(Some(frame)),
+            Err(ParseError::Incomplete(n)) => {
+                if let Needed::Size(n) = n {
+                    src.reserve(n);
+                }
+                Ok(None)
             }
-            Err(nom::Err::Incomplete(_)) => Ok(None),
-            e => e.into_encoding_result().map(|_| None),
+            Err(_) => Err(EncodingError::Parse(None)),
+            // Ok((remaining, frame)) => {
+            //     let bytes_read = src.len() - remaining.len();
+            //     src.advance(bytes_read);
+            //     Ok(Some(frame))
+            // }
+            // Err(nom::Err::Incomplete(_)) => Ok(None),
+            // e => e.into_encoding_result().map(|_| None),
         }
     }
 }
