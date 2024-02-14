@@ -45,8 +45,8 @@ impl Display for ControlFlow {
 #[derive(Clone, Debug, PartialEq)]
 pub enum RawSerialFrame {
     ControlFlow(ControlFlow),
-    Data(Vec<u8>),
-    Garbage(Vec<u8>),
+    Data(BytesMut),
+    Garbage(BytesMut),
 }
 
 /// A parsed serial frame that contains a control-flow byte or a Serial API command
@@ -54,13 +54,13 @@ pub enum RawSerialFrame {
 pub enum SerialFrame {
     ControlFlow(ControlFlow),
     Command(Command),
-    Raw(Vec<u8>),
+    Raw(BytesMut),
 }
 
 fn consume_garbage() -> impl munch::Parser<RawSerialFrame> {
     map(
         take_while1(|b| SerialControlByte::try_from(b).is_err()),
-        |g: BytesMut| RawSerialFrame::Garbage(g.to_vec()),
+        |g: BytesMut| RawSerialFrame::Garbage(g),
     )
 }
 
@@ -113,7 +113,7 @@ fn parse_data() -> impl munch::Parser<RawSerialFrame> {
 
         let data = take(len + 2).parse(i)?;
 
-        Ok(RawSerialFrame::Data(data.to_vec()))
+        Ok(RawSerialFrame::Data(data))
     }
 }
 
@@ -150,7 +150,8 @@ impl SerialFrame {
             SerialFrame::Command(cmd) => cmd
                 .try_into_raw(ctx)?
                 .try_to_vec()
-                .map(RawSerialFrame::Data),
+                // FIXME: Unnecessary conversion to Vec 👆🏻
+                .map(|v| RawSerialFrame::Data(BytesMut::from(v.as_slice()))),
             SerialFrame::Raw(data) => Ok(RawSerialFrame::Data(data)),
         }
     }
@@ -166,16 +167,10 @@ mod test {
         };
     }
 
-    macro_rules! hex_vec {
-        ($hex:expr) => {
-            hex::decode($hex).unwrap()
-        };
-    }
-
     #[test]
     fn test_garbage() {
         let mut data = hex_bytes!("07080901");
-        let expected = hex_vec!("070809");
+        let expected = hex_bytes!("070809");
         let remaining = hex_bytes!("01");
         assert_eq!(
             consume_garbage().parse(&mut data),
@@ -203,7 +198,7 @@ mod test {
     #[test]
     fn test_data() {
         let mut data = hex_bytes!("01030008f406");
-        let expected = hex_vec!("01030008f4");
+        let expected = hex_bytes!("01030008f4");
         let remaining = hex_bytes!("06");
         assert_eq!(
             parse_data().parse(&mut data),
@@ -215,8 +210,8 @@ mod test {
     #[test]
     fn test_many() {
         let mut data = hex_bytes!("01030008f406180000000801");
-        let expected = hex_vec!("01030008f4");
-        let garbage = hex_vec!("00000008");
+        let expected = hex_bytes!("01030008f4");
+        let garbage = hex_bytes!("00000008");
         let remaining = hex_bytes!("01");
 
         let mut results: Vec<RawSerialFrame> = Vec::new();
