@@ -1,7 +1,8 @@
 // Heavily inspired from https://fasterthanli.me/series/making-our-own-ping/
 
 use bitvec::prelude::*;
-use bytes::Bytes;
+use bytes::buf::Writer;
+use bytes::{BufMut, Bytes, BytesMut};
 use cookie_factory::GenError;
 use custom_debug_derive::Debug;
 use nom::error::{
@@ -246,6 +247,7 @@ where
     }
 }
 
+// FIXME: Get rid of this trait and use Parser instead
 pub trait BytesParsable
 where
     Self: Sized,

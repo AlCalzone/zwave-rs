@@ -1,7 +1,7 @@
 use crate::binding::SerialBinding;
 use crate::error::*;
 use crate::frame::RawSerialFrame;
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, BufMut, BytesMut};
 use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
 use tokio_serial::{SerialPortBuilderExt, SerialStream};
@@ -73,13 +73,6 @@ impl Decoder for SerialFrameCodec {
                 Ok(None)
             }
             Err(_) => Err(EncodingError::Parse(None)),
-            // Ok((remaining, frame)) => {
-            //     let bytes_read = src.len() - remaining.len();
-            //     src.advance(bytes_read);
-            //     Ok(Some(frame))
-            // }
-            // Err(nom::Err::Incomplete(_)) => Ok(None),
-            // e => e.into_encoding_result().map(|_| None),
         }
     }
 }
@@ -92,8 +85,8 @@ impl Encoder<RawSerialFrame> for SerialFrameCodec {
         item: RawSerialFrame,
         dst: &mut BytesMut,
     ) -> std::result::Result<(), Self::Error> {
-        let data: Vec<u8> = item.try_to_vec()?;
-        dst.extend_from_slice(&data);
+        use zwave_core::bake::Encoder;
+        item.write(dst);
         Ok(())
     }
 }

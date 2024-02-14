@@ -12,7 +12,7 @@ pub use branch::*;
 mod error;
 pub use error::*;
 
-pub trait Parser<O = ()> {
+pub trait Parser<O = Self> {
     /// Execute the parser on the input, advancing the input
     fn parse(&self, input: &mut Bytes) -> ParseResult<O>;
 

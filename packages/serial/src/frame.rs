@@ -1,9 +1,8 @@
-use std::fmt::Display;
-
 use crate::prelude::{Command, CommandEncodingContext};
 use bytes::{Buf, Bytes, BytesMut};
-use cookie_factory as cf;
 use proc_macros::TryFromRepr;
+use std::fmt::Display;
+use zwave_core::bake::{self, Encoder};
 use zwave_core::munch;
 use zwave_core::prelude::*;
 
@@ -56,66 +55,6 @@ pub enum SerialFrame {
     Raw(Bytes),
 }
 
-// fn consume_garbage() -> impl munch::Parser<RawSerialFrame> {
-//     map(
-//         take_while1(|b| SerialControlByte::try_from(b).is_err()),
-//         |g: Bytes| RawSerialFrame::Garbage(g),
-//     )
-// }
-
-// fn parse_control() -> impl munch::Parser<RawSerialFrame> {
-//     move |i: &mut Bytes| {
-//         if let Ok(_) = literal(SerialControlByte::ACK as u8).parse_peek(i) {
-//             return Ok(RawSerialFrame::ControlFlow(ControlFlow::ACK));
-//         }
-
-//         if let Ok(_) = literal(SerialControlByte::NAK as u8).parse_peek(i) {
-//             return Ok(RawSerialFrame::ControlFlow(ControlFlow::NAK));
-//         }
-
-//         // Always consume the first byte, even in case of failure
-//         if let Ok(_) = literal(SerialControlByte::CAN as u8).parse(i) {
-//             return Ok(RawSerialFrame::ControlFlow(ControlFlow::CAN));
-//         }
-
-//         Err(munch::ParseError::recoverable(()))
-//     }
-//     // FIXME: Implement value() combinator and use it
-//     // alt((
-//     //     value(
-//     //         RawSerialFrame::ControlFlow(ControlFlow::ACK),
-//     //         tag(&ACK_BUFFER),
-//     //     ),
-//     //     value(
-//     //         RawSerialFrame::ControlFlow(ControlFlow::NAK),
-//     //         tag(&NAK_BUFFER),
-//     //     ),
-//     //     value(
-//     //         RawSerialFrame::ControlFlow(ControlFlow::CAN),
-//     //         tag(&CAN_BUFFER),
-//     //     ),
-//     // ))(i)
-// }
-
-// fn parse_data() -> impl munch::Parser<RawSerialFrame> {
-//     move |i: &mut Bytes| {
-//         // Extract the length, while ensuring that the buffer...
-//         let (_, len, _) = peek((
-//             // ...starts with SOF
-//             literal(SerialControlByte::SOF as u8),
-//             // (read length)
-//             be_u8(),
-//             // ...and contains at least 5 bytes
-//             take(3usize),
-//         ))
-//         .parse(i)?;
-
-//         let data = take(len + 2).parse(i)?;
-
-//         Ok(RawSerialFrame::Data(data))
-//     }
-// }
-
 impl RawSerialFrame {
     pub fn parse_mut(i: &mut BytesMut) -> munch::ParseResult<Self> {
         if i.remaining() == 0 {
@@ -165,24 +104,13 @@ impl RawSerialFrame {
     }
 }
 
-// impl BytesParsable for RawSerialFrame {
-//     fn parse(i: &mut Bytes) -> munch::ParseResult<Self> {
-//         // A serial frame is either a control byte, data starting with SOF, or skipped garbage
-//         context(
-//             "RawSerialFrame",
-//             alt((consume_garbage(), parse_control(), parse_data())),
-//         )
-//         .parse(i)
-//     }
-// }
+impl Encoder for RawSerialFrame {
+    fn write(&self, output: &mut BytesMut) {
+        use bake::bytes::{be_u8, slice};
 
-impl Serializable for RawSerialFrame {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, combinator::slice};
-
-        move |out| match self {
-            RawSerialFrame::ControlFlow(byte) => be_u8(*byte as u8)(out),
-            RawSerialFrame::Data(data) => slice(data)(out),
+        match self {
+            RawSerialFrame::ControlFlow(byte) => be_u8(*byte as u8).write(output),
+            RawSerialFrame::Data(data) => slice(data).write(output),
             RawSerialFrame::Garbage(_) => unimplemented!("Garbage is not serializable"),
         }
     }
@@ -195,11 +123,10 @@ impl SerialFrame {
     ) -> std::result::Result<RawSerialFrame, EncodingError> {
         match self {
             SerialFrame::ControlFlow(byte) => Ok(RawSerialFrame::ControlFlow(byte)),
-            SerialFrame::Command(cmd) => cmd
-                .try_into_raw(ctx)?
-                .try_to_vec()
-                // FIXME: Unnecessary conversion to Vec 👆🏻 and BytesMut 👇🏻
-                .map(|v| RawSerialFrame::Data(BytesMut::from(v.as_slice()).freeze())),
+            SerialFrame::Command(cmd) => {
+                let data = cmd.try_into_raw(ctx)?.as_bytes();
+                Ok(RawSerialFrame::Data(data))
+            }
             SerialFrame::Raw(data) => Ok(RawSerialFrame::Data(data)),
         }
     }

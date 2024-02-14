@@ -1,3 +1,5 @@
+use crate::bake::Encoder;
+
 use super::{Needed, ParseError, Parser};
 use bytes::{Buf, Bytes};
 

@@ -1,3 +1,4 @@
+use crate::bake::{self, Encoder};
 use crate::munch::{
     self,
     bytes::be_u8,
@@ -203,11 +204,18 @@ impl FunctionType {
         context("FunctionType", map_res(be_u8(), FunctionType::try_from)).parse(i)
     }
 
-    pub fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
+    // pub fn serialize<'a, W: std::io::Write + 'a>(
+    //     &'a self,
+    // ) -> impl cookie_factory::SerializeFn<W> + 'a {
+    //     use cf::bytes::be_u8;
 
-        be_u8(*self as u8)
+    //     be_u8(*self as u8)
+    // }
+}
+
+impl Encoder for FunctionType {
+    fn write(&self, output: &mut bytes::BytesMut) {
+        use bake::bytes::be_u8;
+        be_u8(*self as u8).write(output);
     }
 }

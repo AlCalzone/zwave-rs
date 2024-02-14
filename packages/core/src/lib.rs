@@ -1,3 +1,4 @@
+pub mod bake;
 pub mod cache;
 pub mod checksum;
 pub mod definitions;
