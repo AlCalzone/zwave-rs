@@ -1,8 +1,8 @@
 use super::{ParseResult, Parser};
-use bytes::BytesMut;
+use bytes::Bytes;
 
 pub trait Alt<O> {
-    fn choice(&self, input: &mut BytesMut) -> ParseResult<O>;
+    fn choice(&self, input: &mut Bytes) -> ParseResult<O>;
 }
 
 macro_rules! impl_alt_trait {
@@ -15,7 +15,7 @@ macro_rules! impl_alt_trait {
             )+
                 [<P $last>]: Parser<O>,
             {
-                fn choice(&self, input: &mut BytesMut) -> ParseResult<O> {
+                fn choice(&self, input: &mut Bytes) -> ParseResult<O> {
                     $(
                         if let Ok(res) = self.$idx.parse_peek(input) {
                             return Ok(res);
@@ -32,7 +32,7 @@ macro_rules! impl_alt_trait {
             where
                 [<P $zero>]: Parser<O>,
             {
-                fn choice(&self, input: &mut BytesMut) -> ParseResult<O> {
+                fn choice(&self, input: &mut Bytes) -> ParseResult<O> {
                     self.$zero.parse(input)
                 }
             }
@@ -68,7 +68,7 @@ macro_rules! impl_parser_for_tuple {
                 [<P $idx>]: Parser<[<O $idx>]>,
             )+
             {
-                fn parse(&self, input: &mut BytesMut) -> ParseResult<($([<O $idx>]),+,)> {
+                fn parse(&self, input: &mut Bytes) -> ParseResult<($([<O $idx>]),+,)> {
                     Ok((
                         $(
                             self.$idx.parse(input)?,

@@ -55,7 +55,7 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
         let origin = c.origin;
         quote! {
             (#command_type, #function_type, #origin) => {
-                #command_name::try_from_slice(raw.payload.as_slice(), &ctx).map(Self::#command_name)
+                #command_name::try_from_slice(&raw.payload, &ctx).map(Self::#command_name)
             }
         }
     });
@@ -132,7 +132,8 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
                 let raw = CommandRaw {
                     command_type: self.command_type(),
                     function_type: self.function_type(),
-                    payload,
+                    // FIXME: Use Bytes directly
+                    payload: bytes::BytesMut::from(payload.as_slice()).freeze(),
                     checksum: 0, // placeholder
                 };
                 Ok(raw)

@@ -1,11 +1,11 @@
 use super::{ParseError, Parser};
-use bytes::BytesMut;
+use bytes::Bytes;
 
 pub fn many_0<O, P>(parser: P) -> impl Parser<Vec<O>>
 where
     P: Parser<O>,
 {
-    move |input: &mut BytesMut| {
+    move |input: &mut Bytes| {
         let mut output = Vec::new();
         while let Ok(o) = parser.parse_peek(input) {
             output.push(o);
@@ -18,7 +18,7 @@ pub fn many_n<O, P>(at_least: usize, parser: P) -> impl Parser<Vec<O>>
 where
     P: Parser<O>,
 {
-    move |input: &mut BytesMut| {
+    move |input: &mut Bytes| {
         let checkpoint = input.clone();
         let mut output = Vec::new();
         while let Ok(o) = parser.parse_peek(input) {

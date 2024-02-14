@@ -850,8 +850,9 @@ async fn serial_loop_handle_frame(
         RawSerialFrame::Data(data) => {
             storage.logger.data(data, Direction::Inbound);
             // Try to parse the frame
-            match zwave_serial::command_raw::CommandRaw::parse(data) {
-                Ok((_, raw)) => {
+            // TODO: Do we need to clone the BytesMut here?
+            match zwave_serial::command_raw::CommandRaw::parse(&mut data.clone()) {
+                Ok(raw) => {
                     // The first step of parsing was successful, ACK the frame
                     write_serial(
                         port,

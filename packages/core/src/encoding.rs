@@ -1,7 +1,7 @@
 // Heavily inspired from https://fasterthanli.me/series/making-our-own-ping/
 
 use bitvec::prelude::*;
-use bytes::BytesMut;
+use bytes::Bytes;
 use cookie_factory::GenError;
 use custom_debug_derive::Debug;
 use nom::error::{
@@ -250,7 +250,7 @@ pub trait BytesParsable
 where
     Self: Sized,
 {
-    fn parse(i: &mut BytesMut) -> crate::munch::ParseResult<Self>;
+    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self>;
 
     // fn try_from_slice(data: &[u8]) -> Result<Self, EncodingError> {
     //     Self::parse(data).into_encoding_result()

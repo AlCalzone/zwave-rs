@@ -1,11 +1,11 @@
 use super::{Needed, ParseError, Parser};
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, Bytes};
 
 macro_rules! impl_int {
     ($un:ident, 1) => {
         paste::paste! {
             pub fn [<be_ $un>]() -> impl Parser<$un> {
-                move |input: &mut BytesMut| {
+                move |input: &mut Bytes| {
                     if input.remaining() < 1 {
                         Err(ParseError::Incomplete(Needed::Size(1)))
                     } else {
@@ -18,7 +18,7 @@ macro_rules! impl_int {
     ($un:ident, $bytes:literal) => {
         paste::paste! {
             pub fn [<be_ $un>]() -> impl Parser<$un> {
-                move |input: &mut BytesMut| {
+                move |input: &mut Bytes| {
                     if input.remaining() < $bytes {
                         Err(ParseError::Incomplete(Needed::Size($bytes)))
                     } else {
@@ -28,7 +28,7 @@ macro_rules! impl_int {
             }
 
             pub fn [<le_ $un>]() -> impl Parser<$un> {
-                move |input: &mut BytesMut| {
+                move |input: &mut Bytes| {
                     if input.remaining() < $bytes {
                         Err(ParseError::Incomplete(Needed::Size($bytes)))
                     } else {

@@ -1,24 +1,21 @@
 use crate::prelude::*;
+use bytes::Bytes;
+use zwave_core::munch::bytes::be_u8;
+use zwave_core::munch::combinators::peek;
+use zwave_core::munch::complete::{literal, skip, take};
+use zwave_core::munch::validate;
 use zwave_core::prelude::*;
-
-use zwave_core::encoding::{self, validate};
 
 use crate::{frame::SerialControlByte, util::hex_fmt};
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
-use nom::{
-    bytes::complete::{tag, take},
-    combinator::peek,
-    number::complete::be_u8,
-    sequence::tuple,
-};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CommandRaw {
     pub command_type: CommandType,
     pub function_type: FunctionType,
     #[debug(with = "hex_fmt")]
-    pub payload: Vec<u8>,
+    pub payload: Bytes,
     #[debug(format = "{:#04x}")]
     pub checksum: u8,
 }
@@ -52,26 +49,32 @@ impl CommandRaw {
     }
 }
 
-impl Parsable for CommandRaw {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        // Ensure that the buffer contains at least 5 bytes
-        peek(take(5usize))(i)?;
+impl BytesParsable for CommandRaw {
+    fn parse(i: &mut Bytes) -> MunchResult<Self> {
+        // Extract the length, while ensuring that the buffer...
+        let (_, len, _) = peek((
+            // ...starts with SOF
+            literal(SerialControlByte::SOF as u8),
+            // (read length)
+            be_u8(),
+            // ...and contains at least 5 bytes
+            take(3usize),
+        ))
+        .parse(i)?;
 
-        // Ensure that it starts with a SOF byte and extract the length of the rest of the command
-        let (_, (_, len)) = peek(tuple((tag([SerialControlByte::SOF as u8]), be_u8)))(i)?;
-        let (rem, raw_data) = peek(take(len + 2))(i)?;
+        // Remember a copy of the command buffer for the checksum later
+        let raw_data: Bytes = i.clone().split_to(len as usize + 2);
 
         // Skip the SOF and length bytes
-        let (i, _) = take(2usize)(i)?;
+        skip(2usize).parse(i)?;
 
-        let (i, command_type) = CommandType::parse(i)?;
-        let (i, function_type) = FunctionType::parse(i)?;
-        let (i, payload) = take(len - 3)(i)?;
-        let (i, checksum) = be_u8(i)?;
+        let command_type = CommandType::parse(i)?;
+        let function_type = FunctionType::parse(i)?;
+        let payload = take(len - 3).parse(i)?;
+        let checksum = be_u8().parse(i)?;
 
-        let expected_checksum = compute_checksum(raw_data);
+        let expected_checksum = compute_checksum(&raw_data);
         validate(
-            rem,
             checksum == expected_checksum,
             format!(
                 "checksum mismatch: expected {:#04x}, got {:#04x}",
@@ -79,15 +82,12 @@ impl Parsable for CommandRaw {
             ),
         )?;
 
-        Ok((
-            i,
-            Self {
-                command_type,
-                function_type,
-                payload: payload.to_vec(),
-                checksum,
-            },
-        ))
+        Ok(Self {
+            command_type,
+            function_type,
+            payload,
+            checksum,
+        })
     }
 }
 
@@ -109,17 +109,23 @@ impl Serializable for CommandRaw {
 
 #[test]
 fn test_parse_invalid_checksum() {
+    macro_rules! hex_bytes {
+        ($hex:expr) => {
+            bytes::BytesMut::from(hex::decode($hex).unwrap().as_slice()).freeze()
+        };
+    }
+
     // This is an actual message with a correct checksum
-    let input = hex::decode("01030002fe").unwrap();
-    let result = CommandRaw::try_from_slice(&input);
+    let mut input = hex_bytes!("01030002fe");
+    let result = CommandRaw::parse(&mut input);
     assert!(result.is_ok());
 
     // Now it is wrong
-    let input = hex::decode("01030002ff").unwrap();
-    let result = CommandRaw::try_from_slice(&input);
+    let mut input = hex_bytes!("01030002ff");
+    let result = CommandRaw::parse(&mut input);
     match result {
         Ok(_) => panic!("Expected an error"),
-        Err(EncodingError::Parse(_)) => (),
-        Err(_) => panic!("Expected a parser error"),
+        Err(MunchError::Incomplete(_)) => panic!("Expected a parser error"),
+        Err(_) => (),
     }
 }

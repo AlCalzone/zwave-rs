@@ -1,5 +1,8 @@
-use std::fmt::Display;
-
+use crate::encoding::TryFromReprError;
+use std::{
+    borrow::Cow,
+    fmt::{Debug, Display},
+};
 use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -11,7 +14,7 @@ pub enum Needed {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ErrorContext {
     None,
-    String(&'static str),
+    String(Cow<'static, str>),
 }
 
 impl Display for ErrorContext {
@@ -31,6 +34,18 @@ impl From<()> for ErrorContext {
 
 impl From<&'static str> for ErrorContext {
     fn from(s: &'static str) -> Self {
+        ErrorContext::String(s.into())
+    }
+}
+
+impl From<String> for ErrorContext {
+    fn from(s: String) -> Self {
+        ErrorContext::String(s.into())
+    }
+}
+
+impl From<Cow<'static, str>> for ErrorContext {
+    fn from(s: Cow<'static, str>) -> Self {
         ErrorContext::String(s)
     }
 }
@@ -60,3 +75,22 @@ impl ParseError {
 }
 
 pub type ParseResult<O> = Result<O, ParseError>;
+
+impl<T> From<TryFromReprError<T>> for ParseError
+where
+    T: Debug,
+{
+    fn from(_value: TryFromReprError<T>) -> Self {
+        Self::recoverable(())
+    }
+}
+
+/// Validates that the given condition is satisfied, otherwise results in a
+/// nom Failure with the given error message.
+pub fn validate(condition: bool, message: impl Into<Cow<'static, str>>) -> ParseResult<()> {
+    if condition {
+        Ok(())
+    } else {
+        Err(ParseError::recoverable(message.into()))
+    }
+}

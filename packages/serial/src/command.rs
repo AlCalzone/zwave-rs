@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use bytes::Bytes;
 use typed_builder::TypedBuilder;
 use zwave_core::{encoding::Input, prelude::*, submodule};
 
@@ -119,7 +120,7 @@ pub struct NotImplemented {
     pub command_type: CommandType,
     pub function_type: FunctionType,
     #[debug(with = "hex_fmt")]
-    pub payload: Vec<u8>,
+    pub payload: Bytes,
 }
 
 impl CommandBase for NotImplemented {}

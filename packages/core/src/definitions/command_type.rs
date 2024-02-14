@@ -1,10 +1,14 @@
+use crate::munch::{
+    self,
+    bytes::be_u8,
+    combinators::{context, map_res},
+};
 use crate::prelude::*;
-use crate::encoding;
+use bytes::Bytes;
 use proc_macros::TryFromRepr;
 
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
-use nom::{combinator::map_res, error::context, number::complete::be_u8};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
 #[repr(u8)]
@@ -22,11 +26,8 @@ impl NomTryFromPrimitive for CommandType {
 }
 
 impl CommandType {
-    pub fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context(
-            "CommandType",
-            map_res(be_u8, CommandType::try_from_primitive),
-        )(i)
+    pub fn parse(i: &mut Bytes) -> munch::ParseResult<Self> {
+        context("CommandType", map_res(be_u8(), CommandType::try_from)).parse(i)
     }
 
     pub fn serialize<'a, W: std::io::Write + 'a>(

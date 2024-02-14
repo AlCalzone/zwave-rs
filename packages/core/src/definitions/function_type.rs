@@ -1,10 +1,13 @@
-use crate::encoding;
+use crate::munch::{
+    self,
+    bytes::be_u8,
+    combinators::{context, map_res},
+};
 use crate::prelude::*;
-use proc_macros::TryFromRepr;
-
+use bytes::Bytes;
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
-use nom::{combinator::map_res, error::context, number::complete::be_u8};
+use proc_macros::TryFromRepr;
 
 /// Complete list of function IDs for data messages.
 /// IDs starting with FUNC_ID are straight from OZW and not implemented here yet.
@@ -196,11 +199,8 @@ impl NomTryFromPrimitive for FunctionType {
 }
 
 impl FunctionType {
-    pub fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context(
-            "FunctionType",
-            map_res(be_u8, FunctionType::try_from_primitive),
-        )(i)
+    pub fn parse(i: &mut Bytes) -> munch::ParseResult<Self> {
+        context("FunctionType", map_res(be_u8(), FunctionType::try_from)).parse(i)
     }
 
     pub fn serialize<'a, W: std::io::Write + 'a>(
