@@ -1,17 +1,16 @@
 // Heavily inspired from https://fasterthanli.me/series/making-our-own-ping/
 
 use bitvec::prelude::*;
-use bytes::{Bytes, BytesMut};
+use bytes::BytesMut;
 use cookie_factory::GenError;
 use custom_debug_derive::Debug;
 use nom::error::{
     ContextError as NomContextError, ErrorKind as NomErrorKind, FromExternalError,
     ParseError as NomParseError,
 };
-use nom::{ErrorConvert, InputTake, Needed, Slice};
+use nom::{ErrorConvert, Slice};
 use std::fmt;
-use std::iter::{Cloned, Enumerate};
-use std::num::NonZeroUsize;
+
 use std::ops::RangeFrom;
 use thiserror::Error;
 

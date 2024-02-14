@@ -4,7 +4,8 @@ use crate::prelude::{Command, CommandEncodingContext};
 use bytes::BytesMut;
 use cookie_factory as cf;
 use proc_macros::TryFromRepr;
-use zwave_core::encoding::{self, BytesParsable};
+use zwave_core::encoding::BytesParsable;
+use zwave_core::munch::bytes::be_u8;
 use zwave_core::munch::{self, combinators::*, streaming::*, Parser};
 use zwave_core::prelude::*;
 
@@ -78,9 +79,9 @@ fn parse_control() -> impl munch::Parser<RawSerialFrame> {
             return Ok(RawSerialFrame::ControlFlow(ControlFlow::CAN));
         }
 
-        Err(munch::ParseError::Recoverable(()))
+        Err(munch::ParseError::recoverable(()))
     }
-    // FIXME: Implement alt() combinator and use it
+    // FIXME: Implement value() combinator and use it
     // alt((
     //     value(
     //         RawSerialFrame::ControlFlow(ControlFlow::ACK),
@@ -104,8 +105,7 @@ fn parse_data() -> impl munch::Parser<RawSerialFrame> {
             // ...starts with SOF
             literal(SerialControlByte::SOF as u8),
             // (read length)
-            // FIXME: Implement u8() parser and use it
-            map(take(1usize), |b| b[0]),
+            be_u8(),
             // ...and contains at least `len` bytes
             take(3usize),
         ))
@@ -115,37 +115,16 @@ fn parse_data() -> impl munch::Parser<RawSerialFrame> {
 
         Ok(RawSerialFrame::Data(data.to_vec()))
     }
-
-    // // Ensure that it starts with a SOF byte and extract the length of the rest of the command
-    // let (_, (_, len)) = peek(tuple((tag([SerialControlByte::SOF as u8]), be_u8)))(i)?;
-
-    // // Take the whole command
-    // let (i, data) = take(len + 2)(i)?;
-
-    // // And return the whole thing
-    // Ok((i, RawSerialFrame::Data(data.to_vec())))
 }
 
 impl BytesParsable for RawSerialFrame {
     fn parse(i: &mut BytesMut) -> munch::ParseResult<Self> {
         // A serial frame is either a control byte, data starting with SOF, or skipped garbage
-
-        // if let Ok(garbage) = consume_garbage().parse_peek(i) {
-        //     return Ok(garbage);
-        // }
-
-        // if let Ok(control) = parse_control().parse_peek(i) {
-        //     return Ok(control);
-        // }
-
-        // parse_data().parse(i)
-
-        // FIXME: Implement context() combinator and use it
-        alt((consume_garbage(), parse_control(), parse_data())).parse(i)
-        // context(
-        //     "Serial Frame",
-        //     alt((consume_garbage, parse_control, parse_data)),
-        // )(i)
+        context(
+            "RawSerialFrame",
+            alt((consume_garbage(), parse_control(), parse_data())),
+        )
+        .parse(i)
     }
 }
 
