@@ -1,7 +1,11 @@
-use crate::encoding::{self, Parsable, Serializable};
-
+use crate::encoding::Serializable;
+use crate::munch::{
+    bytes::be_i8,
+    combinators::{context, map},
+};
+use crate::prelude::*;
+use bytes::Bytes;
 use cookie_factory as cf;
-use nom::{combinator::map, error::context, number::complete::be_i8};
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,9 +54,9 @@ impl From<RSSI> for i8 {
     }
 }
 
-impl Parsable for RSSI {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context("RSSI", map(be_i8, RSSI::from))(i)
+impl BytesParsable for RSSI {
+    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+        context("RSSI", map(be_i8(), RSSI::from)).parse(i)
     }
 }
 

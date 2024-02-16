@@ -1,7 +1,10 @@
-use crate::encoding;
+use crate::munch::{
+    bytes::be_u8,
+    combinators::{context, map_res},
+};
 use crate::prelude::*;
+use bytes::Bytes;
 use cookie_factory as cf;
-use nom::{combinator::map_res, error::context, number::complete::be_u8};
 use proc_macros::TryFromRepr;
 use std::fmt::Display;
 
@@ -33,20 +36,9 @@ impl Display for RoutingScheme {
     }
 }
 
-impl NomTryFromPrimitive for RoutingScheme {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown routing scheme: {:#04x}", repr)
-    }
-}
-
-impl Parsable for RoutingScheme {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context(
-            "RoutingScheme",
-            map_res(be_u8, RoutingScheme::try_from_primitive),
-        )(i)
+impl BytesParsable for RoutingScheme {
+    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+        context("RoutingScheme", map_res(be_u8(), RoutingScheme::try_from)).parse(i)
     }
 }
 

@@ -1,14 +1,13 @@
 use crate::prelude::*;
-use zwave_core::{encoding::parsers::fixed_length_bitmask_u8, log::ToLogPayload, prelude::*};
-
+use bytes::Bytes;
 use custom_debug_derive::Debug;
-
-use nom::{
-    combinator::map,
-    number::complete::{be_u16, be_u8},
-    sequence::tuple,
+use zwave_core::encoding::{encoders::empty, parsers::fixed_length_bitmask_u8};
+use zwave_core::log::ToLogPayload;
+use zwave_core::munch::{
+    bytes::{be_u16, be_u8},
+    combinators::map,
 };
-use zwave_core::encoding::{self, encoders::empty};
+use zwave_core::prelude::*;
 
 const NUM_FUNCTIONS: usize = 256;
 const NUM_FUNCTION_BYTES: usize = NUM_FUNCTIONS / 8;
@@ -45,12 +44,9 @@ impl CommandRequest for GetSerialApiCapabilitiesRequest {
 }
 
 impl CommandParsable for GetSerialApiCapabilitiesRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
@@ -99,34 +95,29 @@ impl CommandId for GetSerialApiCapabilitiesResponse {
 impl CommandBase for GetSerialApiCapabilitiesResponse {}
 
 impl CommandParsable for GetSerialApiCapabilitiesResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, firmware_version) = map(tuple((be_u8, be_u8)), |(major, minor)| Version {
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let firmware_version = map((be_u8(), be_u8()), |(major, minor)| Version {
             major,
             minor,
             patch: None,
-        })(i)?;
-        let (i, manufacturer_id) = be_u16(i)?;
-        let (i, product_type) = be_u16(i)?;
-        let (i, product_id) = be_u16(i)?;
-        let (i, supported_function_types) = fixed_length_bitmask_u8(i, 1, NUM_FUNCTION_BYTES)?;
+        })
+        .parse(i)?;
+        let manufacturer_id = be_u16().parse(i)?;
+        let product_type = be_u16().parse(i)?;
+        let product_id = be_u16().parse(i)?;
+        let supported_function_types = fixed_length_bitmask_u8(i, 1, NUM_FUNCTION_BYTES)?;
         let supported_function_types = supported_function_types
             .iter()
             .filter_map(|f| FunctionType::try_from(*f).map_or_else(|_| None, Some))
             .collect::<Vec<_>>();
 
-        Ok((
-            i,
-            Self {
-                firmware_version,
-                manufacturer_id,
-                product_type,
-                product_id,
-                supported_function_types,
-            },
-        ))
+        Ok(Self {
+            firmware_version,
+            manufacturer_id,
+            product_type,
+            product_id,
+            supported_function_types,
+        })
     }
 }
 

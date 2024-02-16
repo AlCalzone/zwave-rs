@@ -1,13 +1,13 @@
 use crate::encoding;
 use crate::encoding::WriteLastNBits;
-use crate::prelude::*;
-use proc_macros::TryFromRepr;
-
-use custom_debug_derive::Debug;
-use nom::{
-    bits, bits::complete::take as take_bits, combinator::map_res, complete::bool, error::context,
-    sequence::tuple,
+use crate::munch::{
+    bits::{self, bool},
+    combinators::{context, map_res},
 };
+use crate::prelude::*;
+use bytes::Bytes;
+use custom_debug_derive::Debug;
+use proc_macros::TryFromRepr;
 use ux::u1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
@@ -18,22 +18,13 @@ pub enum FrameAddressing {
     Multicast = 0b10,
 }
 
-impl NomTryFromPrimitive for FrameAddressing {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown frame addressing: {:#04x}", repr)
-    }
-}
-
 impl BitParsable for FrameAddressing {
-    fn parse(i: encoding::BitInput) -> encoding::BitParseResult<Self> {
+    fn parse(i: &mut (Bytes, usize)) -> crate::munch::ParseResult<Self> {
         context(
             "FrameType",
-            map_res(take_bits(2usize), |x: u8| {
-                FrameAddressing::try_from_primitive(x)
-            }),
-        )(i)
+            map_res(bits::take(2usize), |x: u8| FrameAddressing::try_from(x)),
+        )
+        .parse(i)
     }
 }
 
@@ -58,20 +49,17 @@ pub struct FrameInfo {
     pub foreign_home_id: bool,
 }
 
-impl Parsable for FrameInfo {
-    fn parse(i: encoding::Input) -> crate::prelude::ParseResult<Self> {
+impl BytesParsable for FrameInfo {
+    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         let (
-            i,
-            (
-                foreign_home_id,
-                foreign_target_node,
-                explorer_frame,
-                frame_addressing,
-                _reserved_2,
-                low_power,
-                _reserved_0,
-            ),
-        ) = bits(tuple((
+            foreign_home_id,
+            foreign_target_node,
+            explorer_frame,
+            frame_addressing,
+            _reserved_2,
+            low_power,
+            _reserved_0,
+        ) = bits::bits((
             bool,
             bool,
             bool,
@@ -79,17 +67,15 @@ impl Parsable for FrameInfo {
             u1::parse,
             bool,
             u1::parse,
-        )))(i)?;
-
-        Ok((
-            i,
-            Self {
-                low_power,
-                frame_addressing,
-                explorer_frame,
-                foreign_target_node,
-                foreign_home_id,
-            },
         ))
+        .parse(i)?;
+
+        Ok(Self {
+            low_power,
+            frame_addressing,
+            explorer_frame,
+            foreign_target_node,
+            foreign_home_id,
+        })
     }
 }

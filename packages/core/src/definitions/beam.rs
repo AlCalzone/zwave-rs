@@ -1,8 +1,11 @@
-use std::fmt::Display;
-use proc_macros::TryFromRepr;
-use nom::{bits::complete::take as take_bits, combinator::{map_res, map}, error::context};
+use crate::munch::{
+    bits,
+    combinators::{context, map, map_res},
+};
 use crate::prelude::*;
-use crate::encoding;
+use bytes::Bytes;
+use proc_macros::TryFromRepr;
+use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, TryFromRepr)]
 #[repr(u8)]
@@ -20,34 +23,25 @@ impl Display for Beam {
     }
 }
 
-impl NomTryFromPrimitive for Beam {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!(
-            "Unknown binary representation for beam frequency: {:#04x}",
-            repr
-        )
-    }
-}
-
 impl BitParsable for Beam {
-    fn parse(i: encoding::BitInput) -> encoding::BitParseResult<Self> {
+    fn parse(i: &mut (Bytes, usize)) -> crate::munch::ParseResult<Self> {
         context(
             "Beam",
-            map_res(take_bits(2usize), |x: u8| Beam::try_from_primitive(x)),
-        )(i)
+            map_res(bits::take(2usize), |x: u8| Beam::try_from(x)),
+        )
+        .parse(i)
     }
 }
 
 impl Beam {
-    pub fn parse_opt(i: encoding::BitInput) -> encoding::BitParseResult<Option<Self>> {
+    pub fn parse_opt(i: &mut (Bytes, usize)) -> crate::munch::ParseResult<Option<Self>> {
         context(
             "Beam",
-            map(take_bits(2usize), |x: u8| match Beam::try_from_primitive(x) {
+            map(bits::take(2usize), |x: u8| match Beam::try_from(x) {
                 Ok(beam) => Some(beam),
                 Err(_) => None,
             }),
-        )(i)
+        )
+        .parse(i)
     }
 }

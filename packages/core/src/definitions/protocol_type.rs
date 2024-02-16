@@ -1,9 +1,11 @@
+use crate::munch::{
+    bytes::be_u8,
+    combinators::{context, map_res},
+};
 use crate::prelude::*;
-use crate::encoding;
-use proc_macros::TryFromRepr;
-
+use bytes::Bytes;
 use cookie_factory as cf;
-use nom::{combinator::map_res, error::context, number::complete::be_u8};
+use proc_macros::TryFromRepr;
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
@@ -24,20 +26,9 @@ impl Display for ProtocolType {
     }
 }
 
-impl NomTryFromPrimitive for ProtocolType {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown protocol type: {:#04x}", repr)
-    }
-}
-
-impl Parsable for ProtocolType {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context(
-            "ProtocolType",
-            map_res(be_u8, ProtocolType::try_from_primitive),
-        )(i)
+impl BytesParsable for ProtocolType {
+    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+        context("ProtocolType", map_res(be_u8(), ProtocolType::try_from)).parse(i)
     }
 }
 

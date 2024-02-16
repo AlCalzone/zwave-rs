@@ -3,9 +3,10 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+use bytes::Bytes;
 use enum_dispatch::enum_dispatch;
 use typed_builder::TypedBuilder;
-use zwave_core::{cache::CacheValue, encoding::Input, prelude::*, value_id::ValueId};
+use zwave_core::{cache::CacheValue, prelude::*, value_id::ValueId};
 
 use crate::commandclass_raw::CCRaw;
 
@@ -20,11 +21,7 @@ pub trait CCParsable
 where
     Self: Sized + CCBase,
 {
-    fn parse<'a>(i: Input<'a>, ctx: &CCParsingContext) -> ParseResult<'a, Self>;
-
-    fn try_from_slice(data: &[u8], ctx: &CCParsingContext) -> Result<Self, EncodingError> {
-        Self::parse(data, ctx).into_encoding_result()
-    }
+    fn parse(i: &mut Bytes, ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self>;
 }
 
 pub trait CCSerializable
@@ -263,7 +260,7 @@ pub struct NotImplemented {
     pub cc_id: CommandClasses,
     pub cc_command: Option<u8>,
     // #[debug(with = "hex_fmt")]
-    pub payload: Vec<u8>,
+    pub payload: Bytes,
 }
 
 impl CCBase for NotImplemented {}
@@ -285,7 +282,7 @@ fn test_cc_try_from_raw() {
     let raw = CCRaw {
         cc_id: CommandClasses::Basic,
         cc_command: Some(BasicCCCommand::Get as _),
-        payload: vec![],
+        payload: Bytes::new(),
     };
 
     let ctx = CCParsingContext::default();
@@ -295,10 +292,12 @@ fn test_cc_try_from_raw() {
 
 #[test]
 fn test_cc_try_into_raw() {
+    use zwave_core::hex_bytes;
+
     let cc = CC::NotImplemented(NotImplemented {
         cc_id: CommandClasses::Basic,
         cc_command: Some(0x01u8),
-        payload: vec![0x02u8, 0x03],
+        payload: hex_bytes!("0203"),
     });
     let raw: CCRaw = cc.try_into_raw().unwrap();
 
@@ -307,7 +306,7 @@ fn test_cc_try_into_raw() {
         CCRaw {
             cc_id: CommandClasses::Basic,
             cc_command: Some(0x01u8),
-            payload: vec![0x02u8, 0x03]
+            payload: hex_bytes!("0203")
         }
     );
 }

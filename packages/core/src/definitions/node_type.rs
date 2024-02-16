@@ -1,9 +1,9 @@
-use crate::encoding::WriteLastNBits;
-use crate::prelude::*;
 use crate::encoding;
+use crate::encoding::WriteLastNBits;
+use crate::munch::{bits, combinators::map_res};
+use crate::prelude::*;
+use bytes::Bytes;
 use proc_macros::TryFromRepr;
-
-use nom::{bits::complete::take as take_bits, combinator::map_res};
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
@@ -22,17 +22,9 @@ impl Display for NodeType {
     }
 }
 
-impl NomTryFromPrimitive for NodeType {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown node type: {:#04x}", repr)
-    }
-}
-
 impl BitParsable for NodeType {
-    fn parse(i: encoding::BitInput) -> encoding::BitParseResult<Self> {
-        map_res(take_bits(1usize), |x: u8| NodeType::try_from_primitive(x))(i)
+    fn parse(i: &mut (Bytes, usize)) -> crate::munch::ParseResult<Self> {
+        map_res(bits::take(1usize), |x: u8| NodeType::try_from(x)).parse(i)
     }
 }
 

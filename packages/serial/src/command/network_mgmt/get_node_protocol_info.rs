@@ -1,9 +1,7 @@
-use std::borrow::Cow;
-
 use crate::prelude::*;
+use bytes::Bytes;
+use std::borrow::Cow;
 use zwave_core::prelude::*;
-
-use zwave_core::encoding::{self};
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetNodeProtocolInfoRequest {
@@ -37,12 +35,9 @@ impl CommandRequest for GetNodeProtocolInfoRequest {
 }
 
 impl CommandParsable for GetNodeProtocolInfoRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, node_id) = NodeId::parse(i, ctx.node_id_type)?;
-        Ok((i, Self { node_id }))
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let node_id = NodeId::parse(i, ctx.node_id_type)?;
+        Ok(Self { node_id })
     }
 }
 
@@ -85,12 +80,9 @@ impl CommandId for GetNodeProtocolInfoResponse {
 impl CommandBase for GetNodeProtocolInfoResponse {}
 
 impl CommandParsable for GetNodeProtocolInfoResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, protocol_info) = NodeInformationProtocolData::parse(i)?;
-        Ok((i, Self { protocol_info }))
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let protocol_info = NodeInformationProtocolData::parse(i)?;
+        Ok(Self { protocol_info })
     }
 }
 

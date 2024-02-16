@@ -13,7 +13,6 @@ custom_debug_derive.workspace = true
 enum_dispatch.workspace = true
 futures.workspace = true
 hex.workspace = true
-nom.workspace = true
 proc-macros.workspace = true
 serialport.workspace = true
 thiserror.workspace = true

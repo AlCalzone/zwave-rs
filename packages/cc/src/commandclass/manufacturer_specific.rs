@@ -1,22 +1,21 @@
 use crate::prelude::*;
 use crate::values::*;
+use bytes::Bytes;
 use cookie_factory as cf;
-use nom::{
-    bits, bits::complete::take as take_bits, bytes::complete::take, combinator::map_res,
-    number::complete::be_u16, sequence::tuple,
-};
 use proc_macros::{CCValues, TryFromRepr};
 use std::fmt::Display;
 use typed_builder::TypedBuilder;
 use ux::{u3, u5};
 use zwave_core::cache::CacheValue;
-use zwave_core::encoding::{self, encoders::empty};
-use zwave_core::value_id::{ValueId, ValueIdProperties};
-use zwave_core::{
-    encoding::{encoders, BitParsable, BitSerializable, NomTryFromPrimitive},
-    prelude::*,
-    util::ToDiscriminant,
+use zwave_core::encoding::encoders::{self, empty};
+use zwave_core::munch::{
+    bits,
+    bytes::{be_u16, complete::take},
+    combinators::map_res,
 };
+use zwave_core::prelude::*;
+use zwave_core::util::ToDiscriminant;
+use zwave_core::value_id::{ValueId, ValueIdProperties};
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)] // must match the ToDiscriminant impl
@@ -143,14 +142,6 @@ pub enum DeviceIdType {
     PseudoRandom = 0x02,
 }
 
-impl NomTryFromPrimitive for DeviceIdType {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown device id type: {:#04x}", repr)
-    }
-}
-
 impl Display for DeviceIdType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -185,9 +176,9 @@ impl CCId for ManufacturerSpecificCCGet {
 }
 
 impl CCParsable for ManufacturerSpecificCCGet {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
@@ -220,19 +211,16 @@ impl CCId for ManufacturerSpecificCCReport {
 }
 
 impl CCParsable for ManufacturerSpecificCCReport {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
-        let (i, manufacturer_id) = be_u16(i)?;
-        let (i, product_type) = be_u16(i)?;
-        let (i, product_id) = be_u16(i)?;
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+        let manufacturer_id = be_u16().parse(i)?;
+        let product_type = be_u16().parse(i)?;
+        let product_id = be_u16().parse(i)?;
 
-        Ok((
-            i,
-            Self {
-                manufacturer_id,
-                product_type,
-                product_id,
-            },
-        ))
+        Ok(Self {
+            manufacturer_id,
+            product_type,
+            product_id,
+        })
     }
 }
 
@@ -281,15 +269,14 @@ impl CCId for ManufacturerSpecificCCDeviceSpecificGet {
 }
 
 impl CCParsable for ManufacturerSpecificCCDeviceSpecificGet {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
-        let (i, (_reserved73, device_id_type)) = bits(tuple((
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+        let (_reserved73, device_id_type) = bits::bits((
             u5::parse,
-            map_res(take_bits(3usize), |x: u8| {
-                DeviceIdType::try_from_primitive(x)
-            }),
-        )))(i)?;
+            map_res(bits::take(3usize), |x: u8| DeviceIdType::try_from(x)),
+        ))
+        .parse(i)?;
 
-        Ok((i, Self { device_id_type }))
+        Ok(Self { device_id_type })
     }
 }
 
@@ -333,23 +320,19 @@ impl CCId for ManufacturerSpecificCCDeviceSpecificReport {
 }
 
 impl CCParsable for ManufacturerSpecificCCDeviceSpecificReport {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
-        let (i, (_reserved73, device_id_type)) = bits(tuple((
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+        let (_reserved73, device_id_type) = bits::bits((
             u5::parse,
-            map_res(take_bits(3usize), |x: u8| {
-                DeviceIdType::try_from_primitive(x)
-            }),
-        )))(i)?;
-        let (i, (_data_format, data_len)) = bits(tuple((u3::parse, u5::parse)))(i)?;
-        let (i, device_id) = take(u8::from(data_len))(i)?;
-
-        Ok((
-            i,
-            Self {
-                device_id_type,
-                device_id: device_id.to_vec(),
-            },
+            map_res(bits::take(3usize), |x: u8| DeviceIdType::try_from(x)),
         ))
+        .parse(i)?;
+        let (_data_format, data_len) = bits::bits((u3::parse, u5::parse)).parse(i)?;
+        let device_id = take(u8::from(data_len)).parse(i)?;
+
+        Ok(Self {
+            device_id_type,
+            device_id: device_id.to_vec(),
+        })
     }
 }
 

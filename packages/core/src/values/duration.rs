@@ -1,6 +1,7 @@
-use crate::{encoding::NomTryFromPrimitive, prelude::*};
+use crate::munch::{bytes::be_u8, combinators::map_res};
+use crate::prelude::*;
+use bytes::Bytes;
 use cookie_factory as cf;
-use nom::{combinator::map_res, number::complete::be_u8};
 use num_traits::clamp;
 
 const MINUTES_MASK: u8 = 0b1000_0000;
@@ -15,7 +16,7 @@ pub enum DurationSet {
 }
 
 impl TryFrom<u8> for DurationSet {
-    type Error = u8;
+    type Error = TryFromReprError<u8>;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
@@ -26,17 +27,9 @@ impl TryFrom<u8> for DurationSet {
     }
 }
 
-impl NomTryFromPrimitive for DurationSet {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Invalid value for a duration set: {}", repr)
-    }
-}
-
-impl Parsable for DurationSet {
-    fn parse(i: crate::encoding::Input) -> ParseResult<Self> {
-        map_res(be_u8, Self::try_from_primitive)(i)
+impl BytesParsable for DurationSet {
+    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+        map_res(be_u8(), Self::try_from).parse(i)
     }
 }
 
@@ -92,29 +85,21 @@ pub enum DurationReport {
 }
 
 impl TryFrom<u8> for DurationReport {
-    type Error = u8;
+    type Error = TryFromReprError<u8>;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0xfe => Ok(Self::Unknown),
-            0xff => Err(value), // reserved value
+            0xff => Err(TryFromReprError::Invalid(value)), // reserved value
             0..=SECONDS_MASK => Ok(Self::Seconds(value)),
             _ => Ok(Self::Minutes((value & SECONDS_MASK) + 1)),
         }
     }
 }
 
-impl NomTryFromPrimitive for DurationReport {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Invalid value for a duration report: {}", repr)
-    }
-}
-
-impl Parsable for DurationReport {
-    fn parse(i: crate::encoding::Input) -> ParseResult<Self> {
-        map_res(be_u8, Self::try_from_primitive)(i)
+impl BytesParsable for DurationReport {
+    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+        map_res(be_u8(), Self::try_from).parse(i)
     }
 }
 
@@ -163,8 +148,7 @@ impl PartialEq for DurationReport {
 
 #[cfg(test)]
 mod test {
-    use super::DurationReport;
-    use crate::values::{Canonical, DurationSet};
+    use crate::prelude::*;
     use std::convert::TryFrom;
 
     #[test]
@@ -200,7 +184,10 @@ mod test {
         assert_eq!(DurationReport::try_from(0xfe), Ok(DurationReport::Unknown));
         assert_eq!(u8::from(DurationReport::Unknown), 0xfeu8);
 
-        assert_eq!(DurationReport::try_from(0xff), Err(0xff));
+        assert_eq!(
+            DurationReport::try_from(0xff),
+            Err(TryFromReprError::Invalid(0xff))
+        );
 
         assert_eq!(
             DurationReport::Seconds(128).to_canonical(),

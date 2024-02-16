@@ -7,13 +7,14 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bytes.workspace = true
 cookie-factory.workspace = true
 custom_debug_derive.workspace = true
 enum_dispatch.workspace = true
-nom.workspace = true
+hex.workspace = true
+paste.workspace = true
+proc-macros.workspace = true
 thiserror.workspace = true
+typed-builder.workspace = true
 ux.workspace = true
 zwave-core.workspace = true
-typed-builder.workspace = true
-proc-macros.workspace = true
-paste.workspace = true

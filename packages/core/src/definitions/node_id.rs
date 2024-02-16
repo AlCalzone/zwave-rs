@@ -1,7 +1,8 @@
-use super::NodeIdType;
-use crate::encoding;
+use crate::{
+    munch::bytes::{be_u16, be_u8},
+    prelude::*,
+};
 use cookie_factory as cf;
-use nom::number::complete::{be_u16, be_u8};
 use std::fmt::{Debug, Display};
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -72,15 +73,18 @@ impl_conversions_for!(u16);
 impl_conversions_for!(i32);
 
 impl NodeId {
-    pub fn parse(i: encoding::Input, node_id_type: NodeIdType) -> encoding::ParseResult<Self> {
+    pub fn parse(
+        i: &mut bytes::Bytes,
+        node_id_type: NodeIdType,
+    ) -> crate::munch::ParseResult<Self> {
         match node_id_type {
             NodeIdType::NodeId8Bit => {
-                let (i, node_id) = be_u8(i)?;
-                Ok((i, Self(node_id as u16)))
+                let node_id = be_u8().parse(i)?;
+                Ok(Self(node_id as u16))
             }
             NodeIdType::NodeId16Bit => {
-                let (i, node_id) = be_u16(i)?;
-                Ok((i, Self(node_id)))
+                let node_id = be_u16().parse(i)?;
+                Ok(Self(node_id))
             }
         }
     }

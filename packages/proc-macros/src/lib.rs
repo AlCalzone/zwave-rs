@@ -55,7 +55,7 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
         let origin = c.origin;
         quote! {
             (#command_type, #function_type, #origin) => {
-                #command_name::try_from_slice(&raw.payload, &ctx).map(Self::#command_name)
+                #command_name::parse(&mut payload, &ctx).map(Self::#command_name)
             }
         }
     });
@@ -103,28 +103,30 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
 
         impl Command {
             // Implement conversion from a raw command to the correct variant
-            pub fn try_from_raw(raw: CommandRaw, ctx: &CommandEncodingContext) -> std::result::Result<Self, EncodingError> {
+            pub fn try_from_raw(raw: CommandRaw, ctx: &CommandEncodingContext) -> zwave_core::munch::ParseResult<Self> {
                 let command_type = raw.command_type;
                 let function_type = raw.function_type;
+                let mut payload = raw.payload;
                 // We parse commands that are sent by the controller
                 let expected_origin = MessageOrigin::Controller;
 
                 // ...and hope that Rust optimizes the match arms with origin Host away
                 let ret = match (command_type, function_type, expected_origin) {
                     #( #impl_try_from_command_raw_match_arms ),*
-                    _ => Err(EncodingError::NotImplemented("Unknown combination of command_type, function_type and origin")),
+                    _ => Err(zwave_core::munch::ParseError::not_implemented("Unknown combination of command_type, function_type and origin")),
                 };
 
-                if let Err(EncodingError::NotImplemented(_)) = ret {
-                    // If we don't know how to parse the command, we return the raw command
-                    Ok(Self::NotImplemented(NotImplemented {
-                        command_type,
-                        function_type,
-                        payload: raw.payload,
-                    }))
-                } else {
-                    ret
+                if let Err(ref e) = ret {
+                    if let Some(zwave_core::munch::ErrorContext::NotImplemented(_)) = e.context() {
+                        // If we don't know how to parse the command, we return the raw command
+                        return Ok(Self::NotImplemented(NotImplemented {
+                            command_type,
+                            function_type,
+                            payload,
+                        }));
+                    }
                 }
+                ret
             }
 
             pub fn try_into_raw(self, ctx: &CommandEncodingContext) -> std::result::Result<CommandRaw, EncodingError> {
@@ -203,13 +205,13 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
         if let Some(cc_command) = cc_command {
             quote! {
                 (#cc_id, Some(#cc_command)) => {
-                    #cc_name::try_from_slice(raw.payload.as_slice(), &ctx).map(Self::#cc_name)
+                    #cc_name::parse(&mut payload, &ctx).map(Self::#cc_name)
                 }
             }
         } else {
             quote! {
                 (#cc_id, None) => {
-                    #cc_name::try_from_slice(raw.payload.as_slice(), &ctx).map(Self::#cc_name)
+                    #cc_name::parse(&mut payload, &ctx).map(Self::#cc_name)
                 }
             }
         }
@@ -240,25 +242,27 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
 
         impl CC {
             // Implement conversion from a raw CC to the correct variant
-            pub fn try_from_raw(raw: CCRaw, ctx: &CCParsingContext) -> std::result::Result<Self, EncodingError> {
+            pub fn try_from_raw(raw: CCRaw, ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
                 let cc_id = raw.cc_id;
                 let cc_command = raw.cc_command;
+                let mut payload = raw.payload;
 
                 let ret = match (cc_id, cc_command) {
                     #( #impl_try_from_cc_raw_match_arms ),*
-                    _ => Err(EncodingError::NotImplemented("Unknown combination of cc_id and cc_command")),
+                    _ => Err(zwave_core::munch::ParseError::not_implemented("Unknown combination of cc_id and cc_command")),
                 };
 
-                if let Err(EncodingError::NotImplemented(_)) = ret {
-                    // If we don't know how to parse the CC, we return the raw CC
-                    Ok(Self::NotImplemented(NotImplemented {
-                        cc_id,
-                        cc_command,
-                        payload: raw.payload,
-                    }))
-                } else {
-                    ret
+                if let Err(ref e) = ret {
+                    if let Some(zwave_core::munch::ErrorContext::NotImplemented(_)) = e.context() {
+                        // If we don't know how to parse the CC, we return the raw CC
+                        return Ok(Self::NotImplemented(NotImplemented {
+                            cc_id,
+                            cc_command,
+                            payload,
+                        }))
+                    }
                 }
+                ret
             }
 
             pub fn try_into_raw(self) -> std::result::Result<CCRaw, EncodingError> {
@@ -266,7 +270,8 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
                 let raw = CCRaw {
                     cc_id: self.cc_id(),
                     cc_command: self.cc_command(),
-                    payload,
+                    // FIXME: Use Bytes directly
+                    payload: bytes::BytesMut::from(payload.as_slice()).freeze(),
                 };
                 Ok(raw)
             }

@@ -1,16 +1,16 @@
 use crate::prelude::*;
 use crate::values::*;
-use proc_macros::{CCValues, TryFromRepr};
-use zwave_core::value_id::ValueIdProperties;
-use zwave_core::{cache::CacheValue, prelude::*, value_id::ValueId};
-
+use bytes::Bytes;
 use cookie_factory as cf;
-use nom::{
-    combinator::{map, opt},
-    sequence::tuple,
-};
+use proc_macros::{CCValues, TryFromRepr};
 use typed_builder::TypedBuilder;
-use zwave_core::encoding::{self, encoders::empty};
+use zwave_core::encoding::encoders::empty;
+use zwave_core::munch::combinators::{map, opt};
+use zwave_core::prelude::*;
+use zwave_core::{
+    cache::CacheValue,
+    value_id::{ValueId, ValueIdProperties},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)]
@@ -104,10 +104,10 @@ impl CCId for BasicCCSet {
 }
 
 impl CCParsable for BasicCCSet {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
-        let (i, target_value) = LevelSet::parse(i)?;
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+        let target_value = LevelSet::parse(i)?;
 
-        Ok((i, Self { target_value }))
+        Ok(Self { target_value })
     }
 }
 
@@ -141,9 +141,9 @@ impl CCId for BasicCCGet {
 }
 
 impl CCParsable for BasicCCGet {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
@@ -176,21 +176,18 @@ impl CCId for BasicCCReport {
 }
 
 impl CCParsable for BasicCCReport {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
-        let (i, current_value) = LevelReport::parse(i)?;
-        let (i, (target_value, duration)) = map(
-            opt(tuple((LevelReport::parse, DurationReport::parse))),
-            |x| x.unzip(),
-        )(i)?;
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+        let current_value = LevelReport::parse(i)?;
+        let (target_value, duration) = map(opt((LevelReport::parse, DurationReport::parse)), |x| {
+            x.unzip()
+        })
+        .parse(i)?;
 
-        Ok((
-            i,
-            Self {
-                current_value,
-                target_value,
-                duration,
-            },
-        ))
+        Ok(Self {
+            current_value,
+            target_value,
+            duration,
+        })
     }
 }
 

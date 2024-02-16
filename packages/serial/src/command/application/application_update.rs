@@ -1,11 +1,11 @@
 use crate::prelude::*;
+use bytes::Bytes;
 use proc_macros::TryFromRepr;
-use nom::{
-    combinator::map_res,
-    number::complete::{be_u32, be_u8},
+use zwave_core::munch::{
+    bytes::{be_u32, be_u8},
+    combinators::map_res,
 };
-use zwave_core::encoding::{self};
-use zwave_core::{encoding::NomTryFromPrimitive, prelude::*};
+use zwave_core::prelude::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, TryFromRepr)]
 #[repr(u8)]
@@ -22,11 +22,9 @@ pub enum ApplicationUpdateType {
     SucIdChanged = 0x10,
 }
 
-impl NomTryFromPrimitive for ApplicationUpdateType {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown ApplicationUpdateType: {:#04x}", repr)
+impl BytesParsable for ApplicationUpdateType {
+    fn parse(i: &mut Bytes) -> MunchResult<Self> {
+        map_res(be_u8(), ApplicationUpdateType::try_from).parse(i)
     }
 }
 
@@ -97,92 +95,71 @@ impl CommandBase for ApplicationUpdateRequest {
 }
 
 impl CommandParsable for ApplicationUpdateRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, update_type) = map_res(be_u8, ApplicationUpdateType::try_from_primitive)(i)?;
-        let (i, payload) = match update_type {
-            ApplicationUpdateType::SucIdChanged => {
-                (i, ApplicationUpdateRequestPayload::SucIdChanged)
-            }
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let update_type = ApplicationUpdateType::parse(i)?;
+        let payload = match update_type {
+            ApplicationUpdateType::SucIdChanged => ApplicationUpdateRequestPayload::SucIdChanged,
             ApplicationUpdateType::RoutingPending => {
-                (i, ApplicationUpdateRequestPayload::RoutingPending)
+                ApplicationUpdateRequestPayload::RoutingPending
             }
 
             ApplicationUpdateType::NodeInfoReceived => {
-                let (i, node_id) = NodeId::parse(i, ctx.node_id_type)?;
-                let (i, application_data) = NodeInformationApplicationData::parse(i)?;
-                (
-                    i,
-                    ApplicationUpdateRequestPayload::NodeInfoReceived {
-                        node_id,
-                        application_data,
-                    },
-                )
+                let node_id = NodeId::parse(i, ctx.node_id_type)?;
+                let application_data = NodeInformationApplicationData::parse(i)?;
+                ApplicationUpdateRequestPayload::NodeInfoReceived {
+                    node_id,
+                    application_data,
+                }
             }
 
             ApplicationUpdateType::NodeInfoRequestDone => {
-                (i, ApplicationUpdateRequestPayload::NodeInfoRequestDone)
+                ApplicationUpdateRequestPayload::NodeInfoRequestDone
             }
             ApplicationUpdateType::NodeInfoRequestFailed => {
-                (i, ApplicationUpdateRequestPayload::NodeInfoRequestFailed)
+                ApplicationUpdateRequestPayload::NodeInfoRequestFailed
             }
 
             ApplicationUpdateType::NodeAdded => {
-                let (i, node_id) = NodeId::parse(i, ctx.node_id_type)?;
-                let (i, application_data) = NodeInformationApplicationData::parse(i)?;
-                (
-                    i,
-                    ApplicationUpdateRequestPayload::NodeAdded {
-                        node_id,
-                        application_data,
-                    },
-                )
+                let node_id = NodeId::parse(i, ctx.node_id_type)?;
+                let application_data = NodeInformationApplicationData::parse(i)?;
+                ApplicationUpdateRequestPayload::NodeAdded {
+                    node_id,
+                    application_data,
+                }
             }
             ApplicationUpdateType::NodeRemoved => {
-                let (i, node_id) = NodeId::parse(i, ctx.node_id_type)?;
-                (i, ApplicationUpdateRequestPayload::NodeRemoved { node_id })
+                let node_id = NodeId::parse(i, ctx.node_id_type)?;
+                ApplicationUpdateRequestPayload::NodeRemoved { node_id }
             }
 
             ApplicationUpdateType::SmartStartHomeIdReceived => {
-                let (i, node_id) = NodeId::parse(i, ctx.node_id_type)?;
-                let (i, nwi_home_id) = be_u32(i)?;
-                let (i, application_data) = NodeInformationApplicationData::parse(i)?;
-                (
-                    i,
-                    ApplicationUpdateRequestPayload::SmartStartHomeIdReceived {
-                        node_id,
-                        nwi_home_id,
-                        application_data,
-                    },
-                )
+                let node_id = NodeId::parse(i, ctx.node_id_type)?;
+                let nwi_home_id = be_u32().parse(i)?;
+                let application_data = NodeInformationApplicationData::parse(i)?;
+                ApplicationUpdateRequestPayload::SmartStartHomeIdReceived {
+                    node_id,
+                    nwi_home_id,
+                    application_data,
+                }
             }
             ApplicationUpdateType::SmartStartHomeIdReceivedLR => {
-                let (i, node_id) = NodeId::parse(i, ctx.node_id_type)?;
-                let (i, nwi_home_id) = be_u32(i)?;
-                let (i, application_data) = NodeInformationApplicationData::parse(i)?;
-                (
-                    i,
-                    ApplicationUpdateRequestPayload::SmartStartHomeIdReceivedLR {
-                        node_id,
-                        nwi_home_id,
-                        application_data,
-                    },
-                )
+                let node_id = NodeId::parse(i, ctx.node_id_type)?;
+                let nwi_home_id = be_u32().parse(i)?;
+                let application_data = NodeInformationApplicationData::parse(i)?;
+                ApplicationUpdateRequestPayload::SmartStartHomeIdReceivedLR {
+                    node_id,
+                    nwi_home_id,
+                    application_data,
+                }
             }
-            ApplicationUpdateType::SmartStartIncludedNodeInfoReceived => (
-                i,
-                ApplicationUpdateRequestPayload::SmartStartIncludedNodeInfoReceived,
-            ),
+            ApplicationUpdateType::SmartStartIncludedNodeInfoReceived => {
+                ApplicationUpdateRequestPayload::SmartStartIncludedNodeInfoReceived
+            }
         };
-        Ok((
-            i,
-            Self {
-                update_type,
-                payload,
-            },
-        ))
+        Ok(Self {
+            update_type,
+            payload,
+        })
     }
 }
 

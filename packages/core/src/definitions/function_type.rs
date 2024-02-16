@@ -6,7 +6,6 @@ use crate::munch::{
 };
 use crate::prelude::*;
 use bytes::Bytes;
-use cookie_factory as cf;
 use custom_debug_derive::Debug;
 use proc_macros::TryFromRepr;
 
@@ -191,26 +190,10 @@ pub enum FunctionType {
     UNKNOWN_FUNC_ZMESerialApiOptions = 0xf8,
 }
 
-impl NomTryFromPrimitive for FunctionType {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown FunctionType: {:#04x}", repr)
-    }
-}
-
-impl FunctionType {
-    pub fn parse(i: &mut Bytes) -> munch::ParseResult<Self> {
+impl BytesParsable for FunctionType {
+    fn parse(i: &mut Bytes) -> munch::ParseResult<Self> {
         context("FunctionType", map_res(be_u8(), FunctionType::try_from)).parse(i)
     }
-
-    // pub fn serialize<'a, W: std::io::Write + 'a>(
-    //     &'a self,
-    // ) -> impl cookie_factory::SerializeFn<W> + 'a {
-    //     use cf::bytes::be_u8;
-
-    //     be_u8(*self as u8)
-    // }
 }
 
 impl Encoder for FunctionType {

@@ -1,10 +1,9 @@
 use crate::prelude::*;
-use zwave_core::prelude::*;
-
+use bytes::Bytes;
 use cookie_factory as cf;
-use nom::{combinator::map, number::complete::be_u8};
 use typed_builder::TypedBuilder;
-use zwave_core::encoding::{self};
+use zwave_core::munch::{bytes::be_u8, combinators::map};
+use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq, TypedBuilder)]
 pub struct SetRfReceiveModeRequest {
@@ -39,12 +38,9 @@ impl CommandRequest for SetRfReceiveModeRequest {
 }
 
 impl CommandParsable for SetRfReceiveModeRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
         eprintln!("ERROR: SetRfReceiveModeRequest::parse() not implemented");
-        Ok((i, Self::default()))
+        Ok(Self::default())
     }
 }
 
@@ -92,12 +88,9 @@ impl CommandBase for SetRfReceiveModeResponse {
 }
 
 impl CommandParsable for SetRfReceiveModeResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, success) = map(be_u8, |x| x > 0)(i)?;
-        Ok((i, Self { success }))
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let success = map(be_u8(), |x| x > 0).parse(i)?;
+        Ok(Self { success })
     }
 }
 

@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use bytes::Bytes;
 use typed_builder::TypedBuilder;
-use zwave_core::{encoding::Input, prelude::*, submodule};
+use zwave_core::{prelude::*, submodule};
 
 use crate::{frame::SerialFrame, util::hex_fmt};
 use custom_debug_derive::Debug;
@@ -25,11 +25,7 @@ pub trait CommandParsable
 where
     Self: Sized + CommandBase,
 {
-    fn parse<'a>(i: Input<'a>, ctx: &CommandEncodingContext) -> ParseResult<'a, Self>;
-
-    fn try_from_slice(data: &[u8], ctx: &CommandEncodingContext) -> Result<Self, EncodingError> {
-        Self::parse(data, ctx).into_encoding_result()
-    }
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self>;
 }
 
 pub trait CommandSerializable

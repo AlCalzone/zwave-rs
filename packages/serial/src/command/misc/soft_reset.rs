@@ -1,7 +1,7 @@
 use crate::prelude::*;
+use bytes::Bytes;
+use zwave_core::encoding::encoders::empty;
 use zwave_core::prelude::*;
-
-use zwave_core::encoding::{self, encoders::empty};
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct SoftResetRequest {}
@@ -33,14 +33,17 @@ impl CommandRequest for SoftResetRequest {
 }
 
 impl CommandParsable for SoftResetRequest {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CommandEncodingContext) -> encoding::ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
 impl CommandSerializable for SoftResetRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self, _ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
+    fn serialize<'a, W: std::io::Write + 'a>(
+        &'a self,
+        _ctx: &'a CommandEncodingContext,
+    ) -> impl cookie_factory::SerializeFn<W> + 'a {
         // No payload
         empty()
     }

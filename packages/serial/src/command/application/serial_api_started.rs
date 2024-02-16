@@ -1,14 +1,14 @@
 use crate::prelude::*;
-use ux::u7;
-use zwave_core::{
-    encoding::{parsers, BitParsable},
-    prelude::*,
-};
-
+use bytes::Bytes;
 use custom_debug_derive::Debug;
-
-use nom::{bits, combinator::map, complete::bool, number::complete::be_u8, sequence::tuple};
-use zwave_core::encoding::{self};
+use ux::u7;
+use zwave_core::encoding::{parsers, BitParsable};
+use zwave_core::munch::{
+    bits::{self, bool},
+    bytes::be_u8,
+    combinators::map,
+};
+use zwave_core::prelude::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SerialApiStartedRequest {
@@ -39,32 +39,26 @@ impl CommandId for SerialApiStartedRequest {
 impl CommandBase for SerialApiStartedRequest {}
 
 impl CommandParsable for SerialApiStartedRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, wake_up_reason) = SerialApiWakeUpReason::parse(i)?;
-        let (i, watchdog_enabled) = map(be_u8, |x| x == 0x01)(i)?;
-        let (i, (is_listening, _reserved)) = bits(tuple((bool, u7::parse)))(i)?;
-        let (i, generic_device_class) = be_u8(i)?;
-        let (i, specific_device_class) = be_u8(i)?;
-        let (i, (supported_command_classes, controlled_command_classes)) =
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let wake_up_reason = SerialApiWakeUpReason::parse(i)?;
+        let watchdog_enabled = map(be_u8(), |x| x == 0x01).parse(i)?;
+        let (is_listening, _reserved) = bits::bits((bool, u7::parse)).parse(i)?;
+        let generic_device_class = be_u8().parse(i)?;
+        let specific_device_class = be_u8().parse(i)?;
+        let (supported_command_classes, controlled_command_classes) =
             parsers::variable_length_cc_list(i)?;
-        let (i, (_reserved, supports_long_range)) = bits(tuple((u7::parse, bool)))(i)?;
+        let (_reserved, supports_long_range) = bits::bits((u7::parse, bool)).parse(i)?;
 
-        Ok((
-            i,
-            Self {
-                wake_up_reason,
-                watchdog_enabled,
-                generic_device_class,
-                specific_device_class,
-                is_listening,
-                supported_command_classes,
-                controlled_command_classes,
-                supports_long_range,
-            },
-        ))
+        Ok(Self {
+            wake_up_reason,
+            watchdog_enabled,
+            generic_device_class,
+            specific_device_class,
+            is_listening,
+            supported_command_classes,
+            controlled_command_classes,
+            supports_long_range,
+        })
     }
 }
 

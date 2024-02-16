@@ -1,43 +1,37 @@
-use zwave_core::prelude::*;
-
+use bytes::Bytes;
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
-use nom::{
-    combinator::{map, rest},
-    number::complete::be_u8,
+use zwave_core::encoding::{encoders::empty, Serializable};
+use zwave_core::munch::{
+    bytes::{be_u8, rest},
+    combinators::map,
 };
-use zwave_core::{
-    definitions::CommandClasses,
-    encoding::{encoders::empty, Parsable, Serializable},
-};
+use zwave_core::prelude::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CCRaw {
     pub cc_id: CommandClasses,
     pub cc_command: Option<u8>,
     // #[debug(with = "hex_fmt")]
-    pub payload: Vec<u8>,
+    pub payload: Bytes,
 }
 
-impl Parsable for CCRaw {
-    fn parse(i: zwave_core::encoding::Input) -> ParseResult<Self> {
-        let (i, cc_id) = CommandClasses::parse(i)?;
+impl BytesParsable for CCRaw {
+    fn parse(i: &mut Bytes) -> zwave_core::munch::ParseResult<Self> {
+        let cc_id = CommandClasses::parse(i)?;
 
         // All CCs except NoOperation have a CC command
-        let (i, cc_command) = match cc_id {
-            CommandClasses::NoOperation => (i, None),
-            _ => map(be_u8, Some)(i)?,
+        let cc_command = match cc_id {
+            CommandClasses::NoOperation => None,
+            _ => map(be_u8(), Some).parse(i)?,
         };
-        let (i, payload) = rest(i)?;
+        let payload = rest(i)?;
 
-        Ok((
-            i,
-            Self {
-                cc_id,
-                cc_command,
-                payload: payload.to_vec(),
-            },
-        ))
+        Ok(Self {
+            cc_id,
+            cc_command,
+            payload,
+        })
     }
 }
 
@@ -50,7 +44,7 @@ impl Serializable for CCRaw {
                 Some(cc_command) => be_u8(cc_command)(out),
                 None => empty()(out),
             },
-            slice(self.payload.as_slice()),
+            slice(&self.payload),
         ))
     }
 }

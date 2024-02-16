@@ -1,16 +1,18 @@
 use crate::prelude::*;
-use zwave_core::{
-    encoding::{encoders, BitSerializable},
-    prelude::*,
-};
-
+use bytes::Bytes;
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
-use nom::{bits, bits::complete::bool, combinator::opt, sequence::tuple};
 use ux::u4;
 use zwave_core::encoding::{
-    self, encoders::empty, parsers::variable_length_bitmask_u8, BitParsable,
+    encoders::{self, empty},
+    parsers::variable_length_bitmask_u8,
+    BitParsable, BitSerializable,
 };
+use zwave_core::munch::{
+    bits::{self, bool},
+    combinators::opt,
+};
+use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetSerialApiInitDataRequest {}
@@ -42,12 +44,9 @@ impl CommandRequest for GetSerialApiInitDataRequest {
 }
 
 impl CommandParsable for GetSerialApiInitDataRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
@@ -95,31 +94,25 @@ impl CommandId for GetSerialApiInitDataResponse {
 impl CommandBase for GetSerialApiInitDataResponse {}
 
 impl CommandParsable for GetSerialApiInitDataResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, api_version) = ZWaveApiVersion::parse(i)?;
-        let (i, (_reserved, is_sis, is_primary, supports_timers, node_type)) =
-            bits(tuple((u4::parse, bool, bool, bool, NodeType::parse)))(i)?;
-        let (i, node_ids) = variable_length_bitmask_u8(i, 1)?;
-        let (i, chip_type) = opt(ChipType::parse)(i)?;
-        Ok((
-            i,
-            Self {
-                api_version,
-                is_sis,
-                role: if is_primary {
-                    ControllerRole::Primary
-                } else {
-                    ControllerRole::Secondary
-                },
-                supports_timers,
-                node_type,
-                node_ids: node_ids.into_iter().map(|n| n.into()).collect(),
-                chip_type,
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let api_version = ZWaveApiVersion::parse(i)?;
+        let (_reserved, is_sis, is_primary, supports_timers, node_type) =
+            bits::bits((u4::parse, bool, bool, bool, NodeType::parse)).parse(i)?;
+        let node_ids = variable_length_bitmask_u8(i, 1)?;
+        let chip_type = opt(ChipType::parse).parse(i)?;
+        Ok(Self {
+            api_version,
+            is_sis,
+            role: if is_primary {
+                ControllerRole::Primary
+            } else {
+                ControllerRole::Secondary
             },
-        ))
+            supports_timers,
+            node_type,
+            node_ids: node_ids.into_iter().map(|n| n.into()).collect(),
+            chip_type,
+        })
     }
 }
 
@@ -160,7 +153,8 @@ impl CommandSerializable for GetSerialApiInitDataResponse {
 
 impl ToLogPayload for GetSerialApiInitDataResponse {
     fn to_log_payload(&self) -> LogPayload {
-        let mut ret = LogPayloadDict::new().with_entry("Z-Wave API version", self.api_version.to_string());
+        let mut ret =
+            LogPayloadDict::new().with_entry("Z-Wave API version", self.api_version.to_string());
         if let Some(chip_type) = self.chip_type {
             ret = ret.with_entry("Z-Wave chip type", chip_type.to_string());
         }
@@ -185,7 +179,8 @@ impl ToLogPayload for GetSerialApiInitDataResponse {
 #[cfg(test)]
 mod test {
     use crate::{command::GetSerialApiInitDataResponse, prelude::*};
-    use zwave_core::definitions::{ChipType, ControllerRole, NodeId, NodeType, ZWaveApiVersion};
+    use bytes::Bytes;
+    use zwave_core::prelude::*;
 
     #[test]
     fn test_serialize() {
@@ -225,6 +220,7 @@ mod test {
             0x07,
             0x00, // chip type
         ];
+        let mut input = Bytes::from(input);
         let expected = GetSerialApiInitDataResponse {
             api_version: ZWaveApiVersion::Official(1),
             is_sis: true,
@@ -234,11 +230,9 @@ mod test {
             node_ids: vec![1u8, 4, 8, 10].into_iter().map(NodeId::new).collect(),
             chip_type: Some(ChipType::EFR32xG1x),
         };
-        let actual = GetSerialApiInitDataResponse::try_from_slice(
-            &input,
-            &CommandEncodingContext::default(),
-        )
-        .unwrap();
+        let actual =
+            GetSerialApiInitDataResponse::parse(&mut input, &CommandEncodingContext::default())
+                .unwrap();
         assert_eq!(actual, expected)
     }
 }

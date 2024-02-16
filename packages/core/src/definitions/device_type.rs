@@ -1,10 +1,9 @@
-use crate::prelude::*;
-use crate::encoding;
-use proc_macros::TryFromRepr;
-
+use crate::munch::{bytes::be_u8, combinators::map_res};
+use bytes::Bytes;
+use crate::{encoding, prelude::*};
 use cookie_factory as cf;
-use encoding::{Parsable, Serializable};
-use nom::{combinator::map_res, number::complete::be_u8};
+use encoding::Serializable;
+use proc_macros::TryFromRepr;
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
@@ -14,14 +13,6 @@ pub enum BasicDeviceType {
     StaticController = 0x02,
     EndNode = 0x03,
     RoutingEndNode = 0x04,
-}
-
-impl NomTryFromPrimitive for BasicDeviceType {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown basic device type: {:#04x}", repr)
-    }
 }
 
 impl Display for BasicDeviceType {
@@ -35,9 +26,9 @@ impl Display for BasicDeviceType {
     }
 }
 
-impl Parsable for BasicDeviceType {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        map_res(be_u8, BasicDeviceType::try_from_primitive)(i)
+impl BytesParsable for BasicDeviceType {
+    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+        map_res(be_u8(), Self::try_from).parse(i)
     }
 }
 

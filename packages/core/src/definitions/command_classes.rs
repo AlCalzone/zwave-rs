@@ -1,9 +1,11 @@
-use crate::prelude::*;
-use enum_iterator::Sequence;
-use nom::{
-    combinator::{map_res, peek},
-    number::complete::{be_u16, be_u8},
+use crate::{
+    munch::{
+        bytes::{be_u16, be_u8},
+        combinators::{map_res, peek},
+    },
+    prelude::*,
 };
+use enum_iterator::Sequence;
 use proc_macros::TryFromRepr;
 use std::fmt::Display;
 
@@ -135,14 +137,6 @@ pub enum CommandClasses {
     ZWavePlusInfo = 0x5e,
     // Internal CC which is not used directly by applications
     ZWaveProtocol = 0x01,
-}
-
-impl NomTryFromPrimitive for CommandClasses {
-    type Repr = u16;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown command class: {:#06x}", repr)
-    }
 }
 
 impl CommandClasses {
@@ -477,16 +471,16 @@ fn test_non_application_ccs() {
     assert!(nac.contains(&CommandClasses::Association));
 }
 
-impl Parsable for CommandClasses {
-    fn parse(i: crate::encoding::Input) -> crate::prelude::ParseResult<Self> {
-        let (i, cc_id) = peek(be_u8)(i)?;
+impl BytesParsable for CommandClasses {
+    fn parse(i: &mut bytes::Bytes) -> crate::munch::ParseResult<Self> {
+        let cc_id = peek(be_u8()).parse(i)?;
         // FIXME: Support unknown CCs
-        let (i, cc) = if CommandClasses::is_extended(cc_id) {
-            map_res(be_u16, CommandClasses::try_from_primitive)(i)?
+        let cc = if CommandClasses::is_extended(cc_id) {
+            map_res(be_u16(), CommandClasses::try_from).parse(i)?
         } else {
-            map_res(be_u8, |x| CommandClasses::try_from_primitive(x as u16))(i)?
+            map_res(be_u8(), |x| CommandClasses::try_from(x as u16)).parse(i)?
         };
-        Ok((i, cc))
+        Ok(cc)
     }
 }
 

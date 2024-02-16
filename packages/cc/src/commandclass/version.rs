@@ -1,17 +1,16 @@
 use crate::prelude::*;
 use crate::values::*;
+use bytes::Bytes;
 use cookie_factory as cf;
-use nom::{
-    combinator::{map, opt},
-    multi::length_count,
-    number::complete::{be_u16, be_u8},
-    sequence::tuple,
-};
 use proc_macros::{CCValues, TryFromRepr};
 use std::borrow::Cow;
 use typed_builder::TypedBuilder;
 use zwave_core::cache::CacheValue;
-use zwave_core::encoding::{self, encoders::empty, parsers};
+use zwave_core::encoding::{encoders::empty, parsers};
+use zwave_core::munch::{
+    bytes::{be_u16, be_u8},
+    combinators::{map, map_repeat, opt},
+};
 use zwave_core::prelude::*;
 use zwave_core::util::ToDiscriminant;
 use zwave_core::value_id::{ValueId, ValueIdProperties};
@@ -292,9 +291,9 @@ impl CCId for VersionCCGet {
 }
 
 impl CCParsable for VersionCCGet {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
@@ -361,32 +360,27 @@ impl CCId for VersionCCReport {
 }
 
 impl CCParsable for VersionCCReport {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
-        let (i, library_type) = ZWaveLibraryType::parse(i)?;
-        let (i, protocol_version) = parsers::version_major_minor(i)?;
-        let (i, firmware_0_version) = parsers::version_major_minor(i)?;
-        let (i, (hardware_version, additional_firmware_versions)) = map(
-            opt(tuple((
-                be_u8,
-                length_count(be_u8, parsers::version_major_minor),
-            ))),
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+        let library_type = ZWaveLibraryType::parse(i)?;
+        let protocol_version = parsers::version_major_minor(i)?;
+        let firmware_0_version = parsers::version_major_minor(i)?;
+        let (hardware_version, additional_firmware_versions) = map(
+            opt((be_u8(), map_repeat(be_u8(), parsers::version_major_minor))),
             Option::unzip,
-        )(i)?;
+        )
+        .parse(i)?;
         let firmware_versions = {
             let mut versions = vec![firmware_0_version];
             versions.extend(additional_firmware_versions.unwrap_or_default());
             versions
         };
 
-        Ok((
-            i,
-            Self {
-                library_type,
-                protocol_version,
-                firmware_versions,
-                hardware_version,
-            },
-        ))
+        Ok(Self {
+            library_type,
+            protocol_version,
+            firmware_versions,
+            hardware_version,
+        })
     }
 }
 
@@ -429,10 +423,10 @@ impl CCId for VersionCCCommandClassGet {
 }
 
 impl CCParsable for VersionCCCommandClassGet {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
-        let (i, requested_cc) = CommandClasses::parse(i)?;
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+        let requested_cc = CommandClasses::parse(i)?;
 
-        Ok((i, Self { requested_cc }))
+        Ok(Self { requested_cc })
     }
 }
 
@@ -461,17 +455,14 @@ impl CCId for VersionCCCommandClassReport {
 }
 
 impl CCParsable for VersionCCCommandClassReport {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
-        let (i, requested_cc) = CommandClasses::parse(i)?;
-        let (i, version) = be_u8(i)?;
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+        let requested_cc = CommandClasses::parse(i)?;
+        let version = be_u8().parse(i)?;
 
-        Ok((
-            i,
-            Self {
-                requested_cc,
-                version,
-            },
-        ))
+        Ok(Self {
+            requested_cc,
+            version,
+        })
     }
 }
 
@@ -507,9 +498,9 @@ impl CCId for VersionCCCapabilitiesGet {
 }
 
 impl CCParsable for VersionCCCapabilitiesGet {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
@@ -538,16 +529,13 @@ impl CCId for VersionCCCapabilitiesReport {
 }
 
 impl CCParsable for VersionCCCapabilitiesReport {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
-        let (i, capabilities) = be_u8(i)?;
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+        let capabilities = be_u8().parse(i)?;
         let supports_zwave_software_get = capabilities & 0b100 != 0;
 
-        Ok((
-            i,
-            Self {
-                supports_zwave_software_get,
-            },
-        ))
+        Ok(Self {
+            supports_zwave_software_get,
+        })
     }
 }
 
@@ -587,9 +575,9 @@ impl CCId for VersionCCZWaveSoftwareGet {
 }
 
 impl CCParsable for VersionCCZWaveSoftwareGet {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
@@ -676,12 +664,12 @@ impl CCId for VersionCCZWaveSoftwareReport {
 }
 
 impl CCParsable for VersionCCZWaveSoftwareReport {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
         fn parse_opt_version_and_build_number(
-            i: encoding::Input,
-        ) -> encoding::ParseResult<Option<(Version, u16)>> {
+            i: &mut Bytes,
+        ) -> zwave_core::munch::ParseResult<Option<(Version, u16)>> {
             map(
-                tuple((parsers::version_major_minor_patch, be_u16)),
+                (parsers::version_major_minor_patch, be_u16()),
                 |(version, build_number)| {
                     if version.major == 0 && version.minor == 0 && version.patch == Some(0) {
                         None
@@ -689,25 +677,23 @@ impl CCParsable for VersionCCZWaveSoftwareReport {
                         Some((version, build_number))
                     }
                 },
-            )(i)
+            )
+            .parse(i)
         }
 
-        let (i, sdk_version) = parsers::version_major_minor_patch(i)?;
-        let (i, application_framework_version) = parse_opt_version_and_build_number(i)?;
-        let (i, host_interface_version) = parse_opt_version_and_build_number(i)?;
-        let (i, zwave_protocol_version) = parse_opt_version_and_build_number(i)?;
-        let (i, application_version) = parse_opt_version_and_build_number(i)?;
+        let sdk_version = parsers::version_major_minor_patch(i)?;
+        let application_framework_version = parse_opt_version_and_build_number(i)?;
+        let host_interface_version = parse_opt_version_and_build_number(i)?;
+        let zwave_protocol_version = parse_opt_version_and_build_number(i)?;
+        let application_version = parse_opt_version_and_build_number(i)?;
 
-        Ok((
-            i,
-            Self {
-                sdk_version,
-                application_framework_version,
-                host_interface_version,
-                zwave_protocol_version,
-                application_version,
-            },
-        ))
+        Ok(Self {
+            sdk_version,
+            application_framework_version,
+            host_interface_version,
+            zwave_protocol_version,
+            application_version,
+        })
     }
 }
 

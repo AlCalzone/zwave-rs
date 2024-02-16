@@ -1,7 +1,10 @@
-use crate::encoding;
+use crate::munch::{
+    bytes::be_u8,
+    combinators::{context, map_res},
+};
 use crate::prelude::*;
+use bytes::Bytes;
 use cookie_factory as cf;
-use nom::{combinator::map_res, error::context, number::complete::be_u8};
 use proc_macros::TryFromRepr;
 use std::fmt::Display;
 
@@ -45,17 +48,9 @@ impl Display for RfRegion {
     }
 }
 
-impl NomTryFromPrimitive for RfRegion {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown RF region: {:#04x}", repr)
-    }
-}
-
-impl Parsable for RfRegion {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context("RfRegion", map_res(be_u8, RfRegion::try_from_primitive))(i)
+impl BytesParsable for RfRegion {
+    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+        context("RfRegion", map_res(be_u8(), Self::try_from)).parse(i)
     }
 }
 

@@ -1,7 +1,8 @@
 use crate::prelude::*;
+use bytes::Bytes;
 use cookie_factory as cf;
 use proc_macros::CCValues;
-use zwave_core::encoding::{self, encoders::empty};
+use zwave_core::encoding::encoders::empty;
 use zwave_core::prelude::*;
 
 // No Operation CC has no subcommands
@@ -22,9 +23,9 @@ impl CCId for NoOperationCC {
 }
 
 impl CCParsable for NoOperationCC {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 

@@ -1,8 +1,10 @@
-use crate::encoding::{self, Parsable, Serializable};
-
+use crate::munch::{
+    bytes::be_u8,
+    combinators::{context, map, map_res},
+};
+use crate::prelude::*;
+use bytes::Bytes;
 use cookie_factory as cf;
-
-use nom::{combinator::map, error::context, number::complete::be_u8};
 use std::fmt::{self, Display};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,9 +41,9 @@ impl From<ZWaveApiVersion> for u8 {
     }
 }
 
-impl Parsable for ZWaveApiVersion {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context("ZWaveApiVersion", map(be_u8, ZWaveApiVersion::from))(i)
+impl BytesParsable for ZWaveApiVersion {
+    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+        context("ZWaveApiVersion", map(be_u8(), Self::from)).parse(i)
     }
 }
 

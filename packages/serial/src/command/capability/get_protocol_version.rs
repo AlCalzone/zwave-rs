@@ -1,13 +1,12 @@
 use crate::prelude::*;
+use bytes::Bytes;
 use hex::ToHex;
-use nom::bytes::complete::take;
-use nom::combinator::{cond, opt};
-use nom::number::complete::{be_u16, be_u8};
-use nom::sequence::tuple;
 use zwave_core::encoding::encoders::empty;
-use zwave_core::{encoding, prelude::*};
-
-use nom::combinator::map;
+use zwave_core::munch::{
+    bytes::{be_u16, be_u8, complete::take},
+    combinators::{cond, map, opt},
+};
+use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetProtocolVersionRequest {}
@@ -39,12 +38,9 @@ impl CommandRequest for GetProtocolVersionRequest {
 }
 
 impl CommandParsable for GetProtocolVersionRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
@@ -89,23 +85,21 @@ impl CommandId for GetProtocolVersionResponse {
 impl CommandBase for GetProtocolVersionResponse {}
 
 impl CommandParsable for GetProtocolVersionResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, protocol_type) = ProtocolType::parse(i)?;
-        let (i, version) = map(tuple((be_u8, be_u8, be_u8)), |(major, minor, patch)| {
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let protocol_type = ProtocolType::parse(i)?;
+        let version = map((be_u8(), be_u8(), be_u8()), |(major, minor, patch)| {
             Version {
                 major,
                 minor,
                 patch: Some(patch),
             }
-        })(i)?;
-        let (i, app_framework_build_number) = opt(be_u16)(i)?;
-        let (i, git_commit_hash) = map(
+        })
+        .parse(i)?;
+        let app_framework_build_number = opt(be_u16()).parse(i)?;
+        let git_commit_hash = map(
             cond(app_framework_build_number.is_some(), opt(take(16usize))),
             |o| {
-                o.flatten().and_then(|hash: &[u8]| {
+                o.flatten().and_then(|hash: Bytes| {
                     // An empty hash may be serialized as all zeroes
                     if !hash.iter().all(|&b| b == 0) {
                         Some(hash.encode_hex::<String>())
@@ -114,17 +108,15 @@ impl CommandParsable for GetProtocolVersionResponse {
                     }
                 })
             },
-        )(i)?;
+        )
+        .parse(i)?;
 
-        Ok((
-            i,
-            Self {
-                protocol_type,
-                version,
-                app_framework_build_number,
-                git_commit_hash,
-            },
-        ))
+        Ok(Self {
+            protocol_type,
+            version,
+            app_framework_build_number,
+            git_commit_hash,
+        })
     }
 }
 
@@ -143,10 +135,7 @@ impl ToLogPayload for GetProtocolVersionResponse {
             .with_entry("protocol type", self.protocol_type.to_string())
             .with_entry("version", self.version.to_string());
         if let Some(app_framework_build_number) = self.app_framework_build_number {
-            ret = ret.with_entry(
-                "app framework build number",
-                app_framework_build_number,
-            )
+            ret = ret.with_entry("app framework build number", app_framework_build_number)
         }
         if let Some(git_commit_hash) = &self.git_commit_hash {
             ret = ret.with_entry("git commit hash", git_commit_hash.to_string())

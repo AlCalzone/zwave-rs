@@ -1,10 +1,10 @@
 use crate::prelude::*;
-use zwave_core::prelude::*;
-
+use bytes::Bytes;
 use cookie_factory as cf;
-use nom::{combinator::map, number::complete::be_u8};
 use typed_builder::TypedBuilder;
-use zwave_core::encoding::{self, parser_not_implemented};
+use zwave_core::encoding::parser_not_implemented;
+use zwave_core::munch::{bytes::be_u8, combinators::map};
+use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq, TypedBuilder)]
 pub struct SetSucNodeIdRequest {
@@ -58,12 +58,9 @@ impl CommandRequest for SetSucNodeIdRequest {
 }
 
 impl CommandParsable for SetSucNodeIdRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        return parser_not_implemented(i, "ERROR: SetSucNodeIdRequest::parse() not implemented");
-        // Ok((i, Self {}))
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        parser_not_implemented("ERROR: SetSucNodeIdRequest::parse() not implemented")
+        // Ok(Self {})
     }
 }
 
@@ -119,12 +116,9 @@ impl CommandBase for SetSucNodeIdResponse {
 }
 
 impl CommandParsable for SetSucNodeIdResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, was_executed) = map(be_u8, |x| x > 0)(i)?;
-        Ok((i, Self { was_executed }))
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let was_executed = map(be_u8(), |x| x > 0).parse(i)?;
+        Ok(Self { was_executed })
     }
 }
 
@@ -177,22 +171,16 @@ impl CommandBase for SetSucNodeIdCallback {
 }
 
 impl CommandParsable for SetSucNodeIdCallback {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, callback_id) = be_u8(i)?;
-        let (i, status) = be_u8(i)?;
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let callback_id = be_u8().parse(i)?;
+        let status = be_u8().parse(i)?;
 
         // Status is either 0x05 (success) or 0x06 (failure)
 
-        Ok((
-            i,
-            Self {
-                callback_id: Some(callback_id),
-                success: status == 0x05,
-            },
-        ))
+        Ok(Self {
+            callback_id: Some(callback_id),
+            success: status == 0x05,
+        })
     }
 }
 

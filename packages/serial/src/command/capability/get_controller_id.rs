@@ -1,11 +1,10 @@
 use crate::prelude::*;
-use zwave_core::prelude::*;
-
+use bytes::Bytes;
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
-
-use nom::number::complete::be_u32;
-use zwave_core::encoding::{self, encoders::empty};
+use zwave_core::encoding::encoders::empty;
+use zwave_core::munch::bytes::be_u32;
+use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetControllerIdRequest {}
@@ -37,12 +36,9 @@ impl CommandRequest for GetControllerIdRequest {
 }
 
 impl CommandParsable for GetControllerIdRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
@@ -86,20 +82,14 @@ impl CommandId for GetControllerIdResponse {
 impl CommandBase for GetControllerIdResponse {}
 
 impl CommandParsable for GetControllerIdResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, home_id) = be_u32(i)?;
-        let (i, own_node_id) = NodeId::parse(i, ctx.node_id_type)?;
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let home_id = be_u32().parse(i)?;
+        let own_node_id = NodeId::parse(i, ctx.node_id_type)?;
 
-        Ok((
-            i,
-            Self {
-                home_id,
-                own_node_id,
-            },
-        ))
+        Ok(Self {
+            home_id,
+            own_node_id,
+        })
     }
 }
 

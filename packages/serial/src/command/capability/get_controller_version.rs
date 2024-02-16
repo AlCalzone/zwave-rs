@@ -1,9 +1,12 @@
 use crate::{command::CommandId, prelude::*};
-use zwave_core::prelude::*;
-
+use bytes::Bytes;
 use cookie_factory as cf;
-use nom::{bytes::complete::tag, character::complete::none_of, combinator::map, multi::many1};
-use zwave_core::encoding::{self, encoders::empty};
+use zwave_core::encoding::encoders::empty;
+use zwave_core::munch::{
+    bytes::complete::{literal, take_while1},
+    combinators::map,
+};
+use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetControllerVersionRequest {}
@@ -35,12 +38,9 @@ impl CommandRequest for GetControllerVersionRequest {
 }
 
 impl CommandParsable for GetControllerVersionRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
@@ -83,21 +83,18 @@ impl CommandId for GetControllerVersionResponse {
 impl CommandBase for GetControllerVersionResponse {}
 
 impl CommandParsable for GetControllerVersionResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, version) = map(many1(none_of("\0")), |v| v.into_iter().collect::<String>())(i)?;
-        let (i, _) = tag("\0")(i)?;
-        let (i, library_type) = ZWaveLibraryType::parse(i)?;
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let version = map(take_while1(|b| b != 0), |b| {
+            String::from_utf8_lossy(&b).to_string()
+        })
+        .parse(i)?;
+        let _ = literal(0).parse(i)?;
+        let library_type = ZWaveLibraryType::parse(i)?;
 
-        Ok((
-            i,
-            Self {
-                library_type,
-                library_version: version,
-            },
-        ))
+        Ok(Self {
+            library_type,
+            library_version: version,
+        })
     }
 }
 

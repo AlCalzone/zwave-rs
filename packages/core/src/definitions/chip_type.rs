@@ -1,8 +1,14 @@
-use crate::encoding::{self, Parsable, Serializable};
+use crate::{
+    encoding::Serializable,
+    munch::{
+        bytes::be_u16,
+        combinators::{context, map},
+    },
+    prelude::*,
+};
 
-use std::fmt::Display;
 use cookie_factory as cf;
-use nom::{combinator::map, error::context, number::complete::be_u16};
+use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u16)]
@@ -47,9 +53,9 @@ impl From<u16> for ChipType {
     }
 }
 
-impl Parsable for ChipType {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context("ChipType", map(be_u16, ChipType::from))(i)
+impl BytesParsable for ChipType {
+    fn parse(i: &mut bytes::Bytes) -> crate::munch::ParseResult<Self> {
+        context("ChipType", map(be_u16(), ChipType::from)).parse(i)
     }
 }
 

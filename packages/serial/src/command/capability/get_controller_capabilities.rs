@@ -1,9 +1,9 @@
 use crate::prelude::*;
+use bytes::Bytes;
 use ux::{u1, u3};
-use zwave_core::{encoding::BitParsable, prelude::*};
-
-use nom::{bits, complete::bool, sequence::tuple};
-use zwave_core::encoding::{self, encoders::empty};
+use zwave_core::encoding::{encoders::empty, BitParsable};
+use zwave_core::munch::bits::{self, bool};
+use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetControllerCapabilitiesRequest {}
@@ -35,12 +35,9 @@ impl CommandRequest for GetControllerCapabilitiesRequest {
 }
 
 impl CommandParsable for GetControllerCapabilitiesRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
@@ -86,25 +83,19 @@ impl CommandId for GetControllerCapabilitiesResponse {
 impl CommandBase for GetControllerCapabilitiesResponse {}
 
 impl CommandParsable for GetControllerCapabilitiesResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, (_reserved765, is_suc, _reserved3, sis_present, other_network, secondary)) =
-            bits(tuple((u3::parse, bool, u1::parse, bool, bool, bool)))(i)?;
-        Ok((
-            i,
-            Self {
-                role: if secondary {
-                    ControllerRole::Secondary
-                } else {
-                    ControllerRole::Primary
-                },
-                started_this_network: !other_network,
-                sis_present,
-                is_suc,
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let (_reserved765, is_suc, _reserved3, sis_present, other_network, secondary) =
+            bits::bits((u3::parse, bool, u1::parse, bool, bool, bool)).parse(i)?;
+        Ok(Self {
+            role: if secondary {
+                ControllerRole::Secondary
+            } else {
+                ControllerRole::Primary
             },
-        ))
+            started_this_network: !other_network,
+            sis_present,
+            is_suc,
+        })
     }
 }
 

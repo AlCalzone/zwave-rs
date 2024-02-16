@@ -1,13 +1,13 @@
 use crate::prelude::*;
+use bytes::Bytes;
 use cookie_factory as cf;
-use nom::{
-    combinator::{map, map_res},
-    multi::length_value,
-    number::complete::be_u8,
-};
 use typed_builder::TypedBuilder;
 use zwave_cc::prelude::*;
-use zwave_core::encoding;
+use zwave_core::munch::{
+    bytes::be_u8,
+    combinators::{map, map_res},
+    multi::length_value,
+};
 use zwave_core::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, TypedBuilder)]
@@ -60,27 +60,22 @@ impl CommandRequest for SendDataRequest {
 }
 
 impl CommandParsable for SendDataRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, node_id) = NodeId::parse(i, ctx.node_id_type)?;
-        let (i, cc) = map_res(length_value(be_u8, CCRaw::parse), |raw| {
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let node_id = NodeId::parse(i, ctx.node_id_type)?;
+        let cc = map_res(length_value(be_u8(), CCRaw::parse), |raw| {
             let ctx = CCParsingContext::default();
             CC::try_from_raw(raw, &ctx)
-        })(i)?;
-        let (i, transmit_options) = TransmitOptions::parse(i)?;
-        let (i, callback_id) = be_u8(i)?;
+        })
+        .parse(i)?;
+        let transmit_options = TransmitOptions::parse(i)?;
+        let callback_id = be_u8().parse(i)?;
 
-        Ok((
-            i,
-            Self {
-                node_id,
-                callback_id: Some(callback_id),
-                transmit_options,
-                command: cc,
-            },
-        ))
+        Ok(Self {
+            node_id,
+            callback_id: Some(callback_id),
+            transmit_options,
+            command: cc,
+        })
     }
 }
 
@@ -150,12 +145,9 @@ impl CommandId for SendDataResponse {
 }
 
 impl CommandParsable for SendDataResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, was_sent) = map(be_u8, |x| x > 0)(i)?;
-        Ok((i, Self { was_sent }))
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let was_sent = map(be_u8(), |x| x > 0).parse(i)?;
+        Ok(Self { was_sent })
     }
 }
 
@@ -209,23 +201,16 @@ impl CommandId for SendDataCallback {
 }
 
 impl CommandParsable for SendDataCallback {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, callback_id) = be_u8(i)?;
-        let (i, transmit_status) = TransmitStatus::parse(i)?;
-        let (i, transmit_report) =
-            TransmitReport::parse(i, transmit_status != TransmitStatus::NoAck)?;
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let callback_id = be_u8().parse(i)?;
+        let transmit_status = TransmitStatus::parse(i)?;
+        let transmit_report = TransmitReport::parse(i, transmit_status != TransmitStatus::NoAck)?;
 
-        Ok((
-            i,
-            Self {
-                callback_id: Some(callback_id),
-                transmit_status,
-                transmit_report,
-            },
-        ))
+        Ok(Self {
+            callback_id: Some(callback_id),
+            transmit_status,
+            transmit_report,
+        })
     }
 }
 

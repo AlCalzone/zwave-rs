@@ -5,4 +5,5 @@
         "--message-format=json",
         "--all-targets",
     ],
+    "rust-analyzer.cargo.buildScripts.rebuildOnSave": true
 }

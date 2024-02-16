@@ -1,9 +1,7 @@
+use crate::munch::{bytes::be_u8, combinators::map_res};
 use crate::prelude::*;
-use crate::encoding;
-use proc_macros::TryFromRepr;
-
 use cookie_factory as cf;
-use nom::{combinator::map_res, number::complete::be_u8};
+use proc_macros::TryFromRepr;
 use std::fmt::Display;
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
@@ -12,14 +10,6 @@ pub enum NodeIdType {
     #[default]
     NodeId8Bit = 0x01,
     NodeId16Bit = 0x02,
-}
-
-impl NomTryFromPrimitive for NodeIdType {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown node ID type: {:#04x}", repr)
-    }
 }
 
 impl Display for NodeIdType {
@@ -31,9 +21,9 @@ impl Display for NodeIdType {
     }
 }
 
-impl Parsable for NodeIdType {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        map_res(be_u8, NodeIdType::try_from_primitive)(i)
+impl BytesParsable for NodeIdType {
+    fn parse(i: &mut bytes::Bytes) -> crate::munch::ParseResult<Self> {
+        map_res(be_u8(), NodeIdType::try_from).parse(i)
     }
 }
 

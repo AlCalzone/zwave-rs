@@ -1,7 +1,7 @@
 use crate::encoding::TryFromReprError;
 use std::{
     borrow::Cow,
-    fmt::{Debug, Display},
+    fmt::{Debug, Display, Error},
 };
 use thiserror::Error;
 
@@ -15,13 +15,17 @@ pub enum Needed {
 pub enum ErrorContext {
     None,
     String(Cow<'static, str>),
+    NotImplemented(Cow<'static, str>),
+    Validation(Cow<'static, str>),
 }
 
 impl Display for ErrorContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ErrorContext::None => write!(f, "No context"),
-            ErrorContext::String(s) => write!(f, "{}", s),
+            ErrorContext::String(s)
+            | ErrorContext::Validation(s)
+            | ErrorContext::NotImplemented(s) => write!(f, "{}", s),
         }
     }
 }
@@ -56,7 +60,7 @@ pub enum ParseError {
     Incomplete(Needed),
     #[error("Recoverable error: {0}")]
     Recoverable(ErrorContext),
-    #[error("Final error: {0}")]
+    #[error("{0}")]
     Final(ErrorContext),
 }
 
@@ -71,6 +75,21 @@ impl ParseError {
 
     pub fn final_error(ctx: impl Into<ErrorContext>) -> Self {
         ParseError::Final(ctx.into())
+    }
+
+    pub fn not_implemented(ctx: impl Into<Cow<'static, str>>) -> Self {
+        ParseError::Final(ErrorContext::NotImplemented(ctx.into()))
+    }
+
+    pub fn validation_failure(ctx: impl Into<Cow<'static, str>>) -> Self {
+        ParseError::Final(ErrorContext::Validation(ctx.into()))
+    }
+
+    pub fn context(&self) -> Option<ErrorContext> {
+        match self {
+            ParseError::Recoverable(ctx) | ParseError::Final(ctx) => Some(ctx.clone()),
+            _ => None,
+        }
     }
 }
 

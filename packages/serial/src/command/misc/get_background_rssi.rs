@@ -1,8 +1,8 @@
 use crate::prelude::*;
+use bytes::Bytes;
+use zwave_core::encoding::encoders::empty;
+use zwave_core::munch::combinators::opt;
 use zwave_core::prelude::*;
-
-use nom::combinator::opt;
-use zwave_core::encoding::{self, encoders::empty};
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetBackgroundRssiRequest {}
@@ -34,12 +34,9 @@ impl CommandRequest for GetBackgroundRssiRequest {
 }
 
 impl CommandParsable for GetBackgroundRssiRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
@@ -83,21 +80,15 @@ impl CommandId for GetBackgroundRssiResponse {
 impl CommandBase for GetBackgroundRssiResponse {}
 
 impl CommandParsable for GetBackgroundRssiResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, rssi0) = RSSI::parse(i)?;
-        let (i, rssi1) = RSSI::parse(i)?;
-        let (i, rssi2) = opt(RSSI::parse)(i)?;
-        Ok((
-            i,
-            Self {
-                rssi_channel_0: rssi0,
-                rssi_channel_1: rssi1,
-                rssi_channel_2: rssi2,
-            },
-        ))
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let rssi0 = RSSI::parse(i)?;
+        let rssi1 = RSSI::parse(i)?;
+        let rssi2 = opt(RSSI::parse).parse(i)?;
+        Ok(Self {
+            rssi_channel_0: rssi0,
+            rssi_channel_1: rssi1,
+            rssi_channel_2: rssi2,
+        })
     }
 }
 

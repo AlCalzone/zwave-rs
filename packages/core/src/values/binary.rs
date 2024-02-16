@@ -1,6 +1,7 @@
-use crate::{encoding::NomTryFromPrimitive, prelude::*};
+use crate::munch::{bytes::be_u8, combinators::map_res};
+use crate::prelude::*;
+use bytes::Bytes;
 use cookie_factory as cf;
-use nom::{combinator::map_res, number::complete::be_u8};
 
 // All values from 1 to BINARY_SET_MAX are interpreted as ON in SET commands
 pub const BINARY_SET_MAX: u8 = 99;
@@ -17,29 +18,21 @@ pub enum BinaryReport {
 }
 
 impl TryFrom<u8> for BinaryReport {
-    type Error = u8;
+    type Error = TryFromReprError<u8>;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(Self::Off),
             BINARY_UNKNOWN => Ok(Self::Unknown),
             BINARY_ON => Ok(Self::On),
-            _ => Err(value),
+            _ => Err(TryFromReprError::Invalid(value)),
         }
     }
 }
 
-impl NomTryFromPrimitive for BinaryReport {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Invalid value for a binary report: {}", repr)
-    }
-}
-
-impl Parsable for BinaryReport {
-    fn parse(i: crate::encoding::Input) -> ParseResult<Self> {
-        map_res(be_u8, Self::try_from_primitive)(i)
+impl BytesParsable for BinaryReport {
+    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+        map_res(be_u8(), Self::try_from).parse(i)
     }
 }
 
@@ -121,28 +114,20 @@ pub enum BinarySet {
 }
 
 impl TryFrom<u8> for BinarySet {
-    type Error = u8;
+    type Error = TryFromReprError<u8>;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(Self::Off),
             1..=BINARY_SET_MAX | BINARY_ON => Ok(Self::On),
-            _ => Err(value),
+            _ => Err(TryFromReprError::Invalid(value)),
         }
     }
 }
 
-impl NomTryFromPrimitive for BinarySet {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Invalid value for binary set: {}", repr)
-    }
-}
-
-impl Parsable for BinarySet {
-    fn parse(i: crate::encoding::Input) -> ParseResult<Self> {
-        map_res(be_u8, Self::try_from_primitive)(i)
+impl BytesParsable for BinarySet {
+    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+        map_res(be_u8(), Self::try_from).parse(i)
     }
 }
 
@@ -194,6 +179,7 @@ impl From<BinarySet> for LevelSet {
 #[cfg(test)]
 mod test {
     use crate::values::LevelSet;
+    use crate::prelude::*;
 
     #[test]
     fn test_binary_report() {
@@ -201,9 +187,9 @@ mod test {
         use std::convert::TryFrom;
 
         assert_eq!(BinaryReport::try_from(0), Ok(BinaryReport::Off));
-        assert_eq!(BinaryReport::try_from(1), Err(1));
-        assert_eq!(BinaryReport::try_from(99), Err(99));
-        assert_eq!(BinaryReport::try_from(100), Err(100));
+        assert_eq!(BinaryReport::try_from(1), Err(TryFromReprError::Invalid(1)));
+        assert_eq!(BinaryReport::try_from(99), Err(TryFromReprError::Invalid(99)));
+        assert_eq!(BinaryReport::try_from(100), Err(TryFromReprError::Invalid(100)));
         assert_eq!(BinaryReport::try_from(0xfe), Ok(BinaryReport::Unknown));
         assert_eq!(BinaryReport::try_from(0xff), Ok(BinaryReport::On));
     }
@@ -216,8 +202,8 @@ mod test {
         assert_eq!(BinarySet::try_from(0), Ok(BinarySet::Off));
         assert_eq!(BinarySet::try_from(1), Ok(BinarySet::On));
         assert_eq!(BinarySet::try_from(99), Ok(BinarySet::On));
-        assert_eq!(BinarySet::try_from(100), Err(100));
-        assert_eq!(BinarySet::try_from(0xfe), Err(0xfe));
+        assert_eq!(BinarySet::try_from(100), Err(TryFromReprError::Invalid(100)));
+        assert_eq!(BinarySet::try_from(0xfe), Err(TryFromReprError::Invalid(0xfe)));
         assert_eq!(BinarySet::try_from(0xff), Ok(BinarySet::On));
     }
 

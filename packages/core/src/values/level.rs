@@ -1,8 +1,9 @@
-use std::fmt::Display;
-
-use crate::{encoding::NomTryFromPrimitive, prelude::*};
+use crate::munch::{bytes::be_u8, combinators::map_res};
+use crate::prelude::*;
+use crate::prelude::*;
+use bytes::Bytes;
 use cookie_factory as cf;
-use nom::{combinator::verify, number::complete::be_u8};
+use std::fmt::Display;
 
 pub const LEVEL_MAX: u8 = 99;
 pub const LEVEL_UNKNOWN: u8 = 0xfe;
@@ -16,23 +17,15 @@ pub enum LevelReport {
 }
 
 impl TryFrom<u8> for LevelReport {
-    type Error = u8;
+    type Error = TryFromReprError<u8>;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             LEVEL_UNKNOWN => Ok(Self::Unknown),
             LEVEL_ON => Ok(Self::Level(LEVEL_MAX)),
             0..=LEVEL_MAX => Ok(Self::Level(value)),
-            _ => Err(value),
+            _ => Err(TryFromReprError::Invalid(value)),
         }
-    }
-}
-
-impl NomTryFromPrimitive for LevelReport {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Invalid level for a report: {}", repr)
     }
 }
 
@@ -45,16 +38,9 @@ impl Display for LevelReport {
     }
 }
 
-impl Parsable for LevelReport {
-    fn parse(i: crate::encoding::Input) -> ParseResult<Self> {
-        let (i, level) = verify(be_u8, |v| {
-            v <= &LEVEL_MAX || v == &LEVEL_UNKNOWN || v == &LEVEL_ON
-        })(i)?;
-        match level {
-            LEVEL_UNKNOWN => Ok((i, Self::Unknown)),
-            LEVEL_ON => Ok((i, Self::Level(LEVEL_MAX))),
-            _ => Ok((i, Self::Level(level))),
-        }
+impl BytesParsable for LevelReport {
+    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+        map_res(be_u8(), Self::try_from).parse(i)
     }
 }
 
@@ -95,23 +81,15 @@ impl Canonical for LevelSet {
 }
 
 impl TryFrom<u8> for LevelSet {
-    type Error = u8;
+    type Error = TryFromReprError<u8>;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(Self::Level(0)),
             LEVEL_ON => Ok(Self::On),
             1..=LEVEL_MAX => Ok(Self::Level(value)),
-            _ => Err(value),
+            _ => Err(TryFromReprError::Invalid(value)),
         }
-    }
-}
-
-impl NomTryFromPrimitive for LevelSet {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Invalid level: {}", repr)
     }
 }
 
@@ -125,13 +103,9 @@ impl Display for LevelSet {
     }
 }
 
-impl Parsable for LevelSet {
-    fn parse(i: crate::encoding::Input) -> ParseResult<Self> {
-        let (i, level) = verify(be_u8, |v| v <= &LEVEL_MAX || v == &LEVEL_ON)(i)?;
-        match level {
-            LEVEL_ON => Ok((i, Self::On)),
-            level => Ok((i, Self::Level(level))),
-        }
+impl BytesParsable for LevelSet {
+    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+        map_res(be_u8(), Self::try_from).parse(i)
     }
 }
 
@@ -149,6 +123,7 @@ impl Serializable for LevelSet {
 #[cfg(test)]
 mod test {
     use super::{LevelReport, LevelSet};
+    use crate::prelude::*;
     use std::convert::TryFrom;
 
     #[test]
@@ -156,7 +131,10 @@ mod test {
         assert_eq!(LevelReport::try_from(0), Ok(LevelReport::Level(0)));
         assert_eq!(LevelReport::try_from(1), Ok(LevelReport::Level(1)));
         assert_eq!(LevelReport::try_from(99), Ok(LevelReport::Level(99)));
-        assert_eq!(LevelReport::try_from(100), Err(100));
+        assert_eq!(
+            LevelReport::try_from(100),
+            Err(TryFromReprError::Invalid(100))
+        );
         assert_eq!(LevelReport::try_from(0xfe), Ok(LevelReport::Unknown));
         assert_eq!(LevelReport::try_from(0xff), Ok(LevelReport::Level(99)));
     }
@@ -166,8 +144,11 @@ mod test {
         assert_eq!(LevelSet::try_from(0), Ok(LevelSet::Level(0)));
         assert_eq!(LevelSet::try_from(1), Ok(LevelSet::Level(1)));
         assert_eq!(LevelSet::try_from(99), Ok(LevelSet::Level(99)));
-        assert_eq!(LevelSet::try_from(100), Err(100));
-        assert_eq!(LevelSet::try_from(0xfe), Err(0xfe));
+        assert_eq!(LevelSet::try_from(100), Err(TryFromReprError::Invalid(100)));
+        assert_eq!(
+            LevelSet::try_from(0xfe),
+            Err(TryFromReprError::Invalid(0xfe))
+        );
         assert_eq!(LevelSet::try_from(0xff), Ok(LevelSet::On));
     }
 }

@@ -3,10 +3,14 @@ use crate::{frame::SerialControlByte, util::hex_fmt};
 use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
 use zwave_core::bake::{self, Encoder};
-use zwave_core::munch::bytes::be_u8;
-use zwave_core::munch::combinators::peek;
-use zwave_core::munch::complete::{literal, skip, take};
-use zwave_core::munch::validate;
+use zwave_core::munch::{
+    bytes::{
+        be_u8,
+        complete::{literal, skip, take},
+    },
+    combinators::peek,
+    validate,
+};
 use zwave_core::prelude::*;
 
 #[derive(Debug, Clone, PartialEq)]

@@ -1,8 +1,11 @@
-use crate::encoding;
+use crate::munch::{
+    bytes::be_u8,
+    combinators::{context, map_res},
+};
 use crate::prelude::*;
+use bytes::Bytes;
 use cookie_factory as cf;
 use custom_debug_derive::Debug;
-use nom::{combinator::map_res, error::context, number::complete::be_u8};
 use proc_macros::TryFromRepr;
 use std::fmt::Display;
 
@@ -51,20 +54,13 @@ impl Display for SerialApiWakeUpReason {
     }
 }
 
-impl NomTryFromPrimitive for SerialApiWakeUpReason {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown wakeup reason: {:#04x}", repr)
-    }
-}
-
-impl Parsable for SerialApiWakeUpReason {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
+impl BytesParsable for SerialApiWakeUpReason {
+    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         context(
             "SerialApiWakeUpReason",
-            map_res(be_u8, SerialApiWakeUpReason::try_from_primitive),
-        )(i)
+            map_res(be_u8(), SerialApiWakeUpReason::try_from),
+        )
+        .parse(i)
     }
 }
 

@@ -1,14 +1,12 @@
 use crate::prelude::*;
 use crate::values::*;
+use bytes::Bytes;
 use cookie_factory as cf;
-use nom::{
-    combinator::{map, opt},
-    sequence::tuple,
-};
 use proc_macros::{CCValues, TryFromRepr};
 use typed_builder::TypedBuilder;
 use zwave_core::cache::CacheValue;
-use zwave_core::encoding::{self, encoders::empty};
+use zwave_core::encoding::encoders::empty;
+use zwave_core::munch::combinators::{map, opt};
 use zwave_core::prelude::*;
 use zwave_core::value_id::{ValueId, ValueIdProperties};
 
@@ -100,17 +98,14 @@ impl CCId for BinarySwitchCCSet {
 }
 
 impl CCParsable for BinarySwitchCCSet {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
-        let (i, target_value) = BinarySet::parse(i)?;
-        let (i, duration) = opt(DurationSet::parse)(i)?;
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+        let target_value = BinarySet::parse(i)?;
+        let duration = opt(DurationSet::parse).parse(i)?;
 
-        Ok((
-            i,
-            Self {
-                target_value,
-                duration,
-            },
-        ))
+        Ok(Self {
+            target_value,
+            duration,
+        })
     }
 }
 
@@ -145,9 +140,9 @@ impl CCId for BinarySwitchCCGet {
 }
 
 impl CCParsable for BinarySwitchCCGet {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
@@ -180,21 +175,19 @@ impl CCId for BinarySwitchCCReport {
 }
 
 impl CCParsable for BinarySwitchCCReport {
-    fn parse<'a>(i: encoding::Input<'a>, _ctx: &CCParsingContext) -> ParseResult<'a, Self> {
-        let (i, current_value) = BinaryReport::parse(i)?;
-        let (i, (target_value, duration)) = map(
-            opt(tuple((BinaryReport::parse, DurationReport::parse))),
-            |x| x.unzip(),
-        )(i)?;
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+        let current_value = BinaryReport::parse(i)?;
+        let (target_value, duration) =
+            map(opt((BinaryReport::parse, DurationReport::parse)), |x| {
+                x.unzip()
+            })
+            .parse(i)?;
 
-        Ok((
-            i,
-            Self {
-                current_value,
-                target_value,
-                duration,
-            },
-        ))
+        Ok(Self {
+            current_value,
+            target_value,
+            duration,
+        })
     }
 }
 

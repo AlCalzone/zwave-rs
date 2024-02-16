@@ -1,8 +1,7 @@
 use crate::prelude::*;
-use zwave_core::{
-    encoding::{self, encoders::empty},
-    prelude::*,
-};
+use bytes::Bytes;
+use zwave_core::encoding::encoders::empty;
+use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetSucNodeIdRequest {}
@@ -34,12 +33,9 @@ impl CommandRequest for GetSucNodeIdRequest {
 }
 
 impl CommandParsable for GetSucNodeIdRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
@@ -81,21 +77,15 @@ impl CommandId for GetSucNodeIdResponse {
 impl CommandBase for GetSucNodeIdResponse {}
 
 impl CommandParsable for GetSucNodeIdResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, suc_node_id) = NodeId::parse(i, ctx.node_id_type)?;
-        Ok((
-            i,
-            Self {
-                suc_node_id: if suc_node_id == 0u8 {
-                    None
-                } else {
-                    Some(suc_node_id)
-                },
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self> {
+        let suc_node_id = NodeId::parse(i, ctx.node_id_type)?;
+        Ok(Self {
+            suc_node_id: if suc_node_id == 0u8 {
+                None
+            } else {
+                Some(suc_node_id)
             },
-        ))
+        })
     }
 }
 

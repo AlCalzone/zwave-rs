@@ -1,12 +1,13 @@
-use crate::prelude::*;
-use crate::encoding;
+use crate::munch::{
+    bits::take as take_bits,
+    bytes::be_u8,
+    combinators::{context, map_res},
+};
+use crate::prelude::{Parser, *};
+use bytes::Bytes;
 use proc_macros::TryFromRepr;
 
 use cookie_factory as cf;
-use nom::{
-    bits::complete::take as take_bits, combinator::map_res, error::context,
-    number::complete::be_u8,
-};
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
@@ -27,31 +28,23 @@ impl Display for ProtocolVersion {
     }
 }
 
-impl NomTryFromPrimitive for ProtocolVersion {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown protocol version: {:#04x}", repr)
-    }
-}
-
-impl Parsable for ProtocolVersion {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
+impl BytesParsable for ProtocolVersion {
+    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         context(
             "ProtocolVersion",
-            map_res(be_u8, ProtocolVersion::try_from_primitive),
-        )(i)
+            map_res(be_u8(), ProtocolVersion::try_from),
+        )
+        .parse(i)
     }
 }
 
 impl BitParsable for ProtocolVersion {
-    fn parse(i: encoding::BitInput) -> encoding::BitParseResult<Self> {
+    fn parse(i: &mut (Bytes, usize)) -> crate::munch::ParseResult<Self> {
         context(
             "ProtocolVersion",
-            map_res(take_bits(3usize), |x: u8| {
-                ProtocolVersion::try_from_primitive(x)
-            }),
-        )(i)
+            map_res(take_bits(3usize), |x: u8| ProtocolVersion::try_from(x)),
+        )
+        .parse(i)
     }
 }
 

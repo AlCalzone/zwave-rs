@@ -1,14 +1,9 @@
-
-use std::fmt::Display;
-
-use crate::encoding::{
-    self, encoders, BitParsable, BitSerializable, Parsable, Serializable,
-};
-
+use crate::encoding::encoders;
+use crate::munch::bits::{bits, bool};
+use crate::prelude::*;
+use bytes::Bytes;
 use cookie_factory as cf;
-use nom::{
-    bits, bits::complete::bool, sequence::tuple,
-};
+use std::fmt::Display;
 use ux::{u1, u2};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -100,22 +95,16 @@ impl TransmitOptions {
     }
 }
 
-impl Parsable for TransmitOptions {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        let (i, (_reserved76, explore, no_route, _reserved3, auto_route, _reserved1, ack)) = bits(
-            tuple((u2::parse, bool, bool, u1::parse, bool, u1::parse, bool)),
-        )(
-            i
-        )?;
+impl BytesParsable for TransmitOptions {
+    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+        let (_reserved76, explore, no_route, _reserved3, auto_route, _reserved1, ack) =
+            bits((u2::parse, bool, bool, u1::parse, bool, u1::parse, bool)).parse(i)?;
 
-        Ok((
-            i,
-            Self::new()
-                .ack(ack)
-                .auto_route(auto_route)
-                .no_route(no_route)
-                .explore(explore),
-        ))
+        Ok(Self::new()
+            .ack(ack)
+            .auto_route(auto_route)
+            .no_route(no_route)
+            .explore(explore))
     }
 }
 
@@ -140,8 +129,8 @@ impl Serializable for TransmitOptions {
 
 #[test]
 fn test_parse() {
-    let raw = vec![0b1111_1111];
-    let (_, opts) = TransmitOptions::parse(&raw).unwrap();
+    let mut raw = Bytes::copy_from_slice(&vec![0b1111_1111]);
+    let opts = TransmitOptions::parse(&mut raw).unwrap();
     let expected = TransmitOptions::new()
         .ack(true)
         .auto_route(true)
