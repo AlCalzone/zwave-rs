@@ -41,10 +41,10 @@ impl CommandBase for SerialApiStartedRequest {}
 impl CommandParsable for SerialApiStartedRequest {
     fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
         let wake_up_reason = SerialApiWakeUpReason::parse(i)?;
-        let watchdog_enabled = map(be_u8(), |x| x == 0x01).parse(i)?;
+        let watchdog_enabled = map(be_u8, |x| x == 0x01).parse(i)?;
         let (is_listening, _reserved) = bits::bits((bool, u7::parse)).parse(i)?;
-        let generic_device_class = be_u8().parse(i)?;
-        let specific_device_class = be_u8().parse(i)?;
+        let generic_device_class = be_u8(i)?;
+        let specific_device_class = be_u8(i)?;
         let (supported_command_classes, controlled_command_classes) =
             parsers::variable_length_cc_list(i)?;
         let (_reserved, supports_long_range) = bits::bits((u7::parse, bool)).parse(i)?;

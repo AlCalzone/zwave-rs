@@ -212,9 +212,9 @@ impl CCId for ManufacturerSpecificCCReport {
 
 impl CCParsable for ManufacturerSpecificCCReport {
     fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
-        let manufacturer_id = be_u16().parse(i)?;
-        let product_type = be_u16().parse(i)?;
-        let product_id = be_u16().parse(i)?;
+        let manufacturer_id = be_u16(i)?;
+        let product_type = be_u16(i)?;
+        let product_id = be_u16(i)?;
 
         Ok(Self {
             manufacturer_id,

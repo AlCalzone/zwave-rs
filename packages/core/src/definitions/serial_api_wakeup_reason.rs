@@ -58,7 +58,7 @@ impl BytesParsable for SerialApiWakeUpReason {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         context(
             "SerialApiWakeUpReason",
-            map_res(be_u8(), SerialApiWakeUpReason::try_from),
+            map_res(be_u8, SerialApiWakeUpReason::try_from),
         )
         .parse(i)
     }

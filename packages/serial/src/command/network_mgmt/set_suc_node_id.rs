@@ -117,7 +117,7 @@ impl CommandBase for SetSucNodeIdResponse {
 
 impl CommandParsable for SetSucNodeIdResponse {
     fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
-        let was_executed = map(be_u8(), |x| x > 0).parse(i)?;
+        let was_executed = map(be_u8, |x| x > 0).parse(i)?;
         Ok(Self { was_executed })
     }
 }
@@ -172,8 +172,8 @@ impl CommandBase for SetSucNodeIdCallback {
 
 impl CommandParsable for SetSucNodeIdCallback {
     fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
-        let callback_id = be_u8().parse(i)?;
-        let status = be_u8().parse(i)?;
+        let callback_id = be_u8(i)?;
+        let status = be_u8(i)?;
 
         // Status is either 0x05 (success) or 0x06 (failure)
 

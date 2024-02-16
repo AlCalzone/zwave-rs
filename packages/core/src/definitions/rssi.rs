@@ -56,7 +56,7 @@ impl From<RSSI> for i8 {
 
 impl BytesParsable for RSSI {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
-        context("RSSI", map(be_i8(), RSSI::from)).parse(i)
+        context("RSSI", map(be_i8, RSSI::from)).parse(i)
     }
 }
 

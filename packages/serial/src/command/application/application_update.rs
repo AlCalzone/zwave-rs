@@ -24,7 +24,7 @@ pub enum ApplicationUpdateType {
 
 impl BytesParsable for ApplicationUpdateType {
     fn parse(i: &mut Bytes) -> MunchResult<Self> {
-        map_res(be_u8(), ApplicationUpdateType::try_from).parse(i)
+        map_res(be_u8, ApplicationUpdateType::try_from).parse(i)
     }
 }
 
@@ -134,7 +134,7 @@ impl CommandParsable for ApplicationUpdateRequest {
 
             ApplicationUpdateType::SmartStartHomeIdReceived => {
                 let node_id = NodeId::parse(i, ctx.node_id_type)?;
-                let nwi_home_id = be_u32().parse(i)?;
+                let nwi_home_id = be_u32(i)?;
                 let application_data = NodeInformationApplicationData::parse(i)?;
                 ApplicationUpdateRequestPayload::SmartStartHomeIdReceived {
                     node_id,
@@ -144,7 +144,7 @@ impl CommandParsable for ApplicationUpdateRequest {
             }
             ApplicationUpdateType::SmartStartHomeIdReceivedLR => {
                 let node_id = NodeId::parse(i, ctx.node_id_type)?;
-                let nwi_home_id = be_u32().parse(i)?;
+                let nwi_home_id = be_u32(i)?;
                 let application_data = NodeInformationApplicationData::parse(i)?;
                 ApplicationUpdateRequestPayload::SmartStartHomeIdReceivedLR {
                     node_id,

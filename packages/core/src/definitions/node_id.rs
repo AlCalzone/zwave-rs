@@ -79,11 +79,11 @@ impl NodeId {
     ) -> crate::munch::ParseResult<Self> {
         match node_id_type {
             NodeIdType::NodeId8Bit => {
-                let node_id = be_u8().parse(i)?;
+                let node_id = be_u8(i)?;
                 Ok(Self(node_id as u16))
             }
             NodeIdType::NodeId16Bit => {
-                let node_id = be_u16().parse(i)?;
+                let node_id = be_u16(i)?;
                 Ok(Self(node_id))
             }
         }

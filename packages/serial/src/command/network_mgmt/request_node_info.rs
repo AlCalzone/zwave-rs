@@ -107,7 +107,7 @@ impl CommandBase for RequestNodeInfoResponse {
 
 impl CommandParsable for RequestNodeInfoResponse {
     fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
-        let was_sent = map(be_u8(), |x| x > 0).parse(i)?;
+        let was_sent = map(be_u8, |x| x > 0).parse(i)?;
         Ok(Self { was_sent })
     }
 }

@@ -351,7 +351,7 @@ impl CommandBase for SerialApiSetupResponse {}
 
 impl CommandParsable for SerialApiSetupResponse {
     fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self> {
-        let command = map_res(be_u8(), SerialApiSetupCommand::try_from).parse(i)?;
+        let command = map_res(be_u8, SerialApiSetupCommand::try_from).parse(i)?;
         let payload = match command {
             SerialApiSetupCommand::Unsupported => {
                 SerialApiSetupResponsePayload::Unsupported(command)
@@ -383,7 +383,7 @@ impl CommandParsable for SerialApiSetupResponse {
                     .parse(i)?
                 } else {
                     // This module only uses the single byte power-of-2 bitmask. Decode it manually.
-                    let bitmask = be_u8().parse(i)?;
+                    let bitmask = be_u8(i)?;
                     let commands = [
                         SerialApiSetupCommand::GetSupportedCommands,
                         SerialApiSetupCommand::SetTxStatusReport,
@@ -414,17 +414,17 @@ impl CommandParsable for SerialApiSetupResponse {
             }
 
             SerialApiSetupCommand::SetTxStatusReport => {
-                let success = map(be_u8(), |x| x > 0).parse(i)?;
+                let success = map(be_u8, |x| x > 0).parse(i)?;
                 SerialApiSetupResponsePayload::SetTxStatusReport { success }
             }
 
             SerialApiSetupCommand::SetPowerlevel => {
-                let success = map(be_u8(), |x| x > 0).parse(i)?;
+                let success = map(be_u8, |x| x > 0).parse(i)?;
                 SerialApiSetupResponsePayload::SetPowerlevel { success }
             }
             SerialApiSetupCommand::GetPowerlevel => {
-                let tx_power_dbm = map(be_i8(), |x| x as f32 / 10f32).parse(i)?;
-                let measured_at_0_dbm = map(be_i8(), |x| x as f32 / 10f32).parse(i)?;
+                let tx_power_dbm = map(be_i8, |x| x as f32 / 10f32).parse(i)?;
+                let measured_at_0_dbm = map(be_i8, |x| x as f32 / 10f32).parse(i)?;
                 SerialApiSetupResponsePayload::GetPowerlevel {
                     powerlevel: Powerlevel {
                         tx_power: tx_power_dbm,
@@ -434,7 +434,7 @@ impl CommandParsable for SerialApiSetupResponse {
             }
 
             SerialApiSetupCommand::GetMaximumPayloadSize => {
-                let size = be_u8().parse(i)?;
+                let size = be_u8(i)?;
                 SerialApiSetupResponsePayload::GetMaximumPayloadSize { size }
             }
             SerialApiSetupCommand::GetRFRegion => {
@@ -442,32 +442,32 @@ impl CommandParsable for SerialApiSetupResponse {
                 SerialApiSetupResponsePayload::GetRFRegion { region }
             }
             SerialApiSetupCommand::SetRFRegion => {
-                let success = map(be_u8(), |x| x > 0).parse(i)?;
+                let success = map(be_u8, |x| x > 0).parse(i)?;
                 SerialApiSetupResponsePayload::SetRFRegion { success }
             }
             SerialApiSetupCommand::SetNodeIDType => {
-                let success = map(be_u8(), |x| x > 0).parse(i)?;
+                let success = map(be_u8, |x| x > 0).parse(i)?;
                 SerialApiSetupResponsePayload::SetNodeIDType { success }
             }
             SerialApiSetupCommand::SetLRMaximumTxPower => {
-                let success = map(be_u8(), |x| x > 0).parse(i)?;
+                let success = map(be_u8, |x| x > 0).parse(i)?;
                 SerialApiSetupResponsePayload::SetLRMaximumTxPower { success }
             }
             SerialApiSetupCommand::GetLRMaximumTxPower => {
-                let max_power = map(be_i16(), |x| x as f32 / 10f32).parse(i)?;
+                let max_power = map(be_i16, |x| x as f32 / 10f32).parse(i)?;
                 SerialApiSetupResponsePayload::GetLRMaximumTxPower { max_power }
             }
             SerialApiSetupCommand::GetLRMaximumPayloadSize => {
-                let size = be_u8().parse(i)?;
+                let size = be_u8(i)?;
                 SerialApiSetupResponsePayload::GetLRMaximumPayloadSize { size }
             }
             SerialApiSetupCommand::SetPowerlevel16Bit => {
-                let success = map(be_u8(), |x| x > 0).parse(i)?;
+                let success = map(be_u8, |x| x > 0).parse(i)?;
                 SerialApiSetupResponsePayload::SetPowerlevel16Bit { success }
             }
             SerialApiSetupCommand::GetPowerlevel16Bit => {
-                let tx_power_dbm = map(be_i16(), |x| x as f32 / 10f32).parse(i)?;
-                let measured_at_0_dbm = map(be_i16(), |x| x as f32 / 10f32).parse(i)?;
+                let tx_power_dbm = map(be_i16, |x| x as f32 / 10f32).parse(i)?;
+                let measured_at_0_dbm = map(be_i16, |x| x as f32 / 10f32).parse(i)?;
 
                 SerialApiSetupResponsePayload::GetPowerlevel16Bit {
                     powerlevel: Powerlevel {

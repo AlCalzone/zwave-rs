@@ -22,7 +22,7 @@ pub enum CommandType {
 
 impl BytesParsable for CommandType {
     fn parse(i: &mut Bytes) -> munch::ParseResult<Self> {
-        context("CommandType", map_res(be_u8(), CommandType::try_from)).parse(i)
+        context("CommandType", map_res(be_u8, CommandType::try_from)).parse(i)
     }
 }
 

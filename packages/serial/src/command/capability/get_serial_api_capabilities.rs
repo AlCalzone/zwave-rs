@@ -96,15 +96,15 @@ impl CommandBase for GetSerialApiCapabilitiesResponse {}
 
 impl CommandParsable for GetSerialApiCapabilitiesResponse {
     fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
-        let firmware_version = map((be_u8(), be_u8()), |(major, minor)| Version {
+        let firmware_version = map((be_u8, be_u8), |(major, minor)| Version {
             major,
             minor,
             patch: None,
         })
         .parse(i)?;
-        let manufacturer_id = be_u16().parse(i)?;
-        let product_type = be_u16().parse(i)?;
-        let product_id = be_u16().parse(i)?;
+        let manufacturer_id = be_u16(i)?;
+        let product_type = be_u16(i)?;
+        let product_id = be_u16(i)?;
         let supported_function_types = fixed_length_bitmask_u8(i, 1, NUM_FUNCTION_BYTES)?;
         let supported_function_types = supported_function_types
             .iter()

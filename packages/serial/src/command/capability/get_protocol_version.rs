@@ -87,7 +87,7 @@ impl CommandBase for GetProtocolVersionResponse {}
 impl CommandParsable for GetProtocolVersionResponse {
     fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
         let protocol_type = ProtocolType::parse(i)?;
-        let version = map((be_u8(), be_u8(), be_u8()), |(major, minor, patch)| {
+        let version = map((be_u8, be_u8, be_u8), |(major, minor, patch)| {
             Version {
                 major,
                 minor,
@@ -95,7 +95,7 @@ impl CommandParsable for GetProtocolVersionResponse {
             }
         })
         .parse(i)?;
-        let app_framework_build_number = opt(be_u16()).parse(i)?;
+        let app_framework_build_number = opt(be_u16).parse(i)?;
         let git_commit_hash = map(
             cond(app_framework_build_number.is_some(), opt(take(16usize))),
             |o| {

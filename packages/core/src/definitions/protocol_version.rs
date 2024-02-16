@@ -32,7 +32,7 @@ impl BytesParsable for ProtocolVersion {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         context(
             "ProtocolVersion",
-            map_res(be_u8(), ProtocolVersion::try_from),
+            map_res(be_u8, ProtocolVersion::try_from),
         )
         .parse(i)
     }

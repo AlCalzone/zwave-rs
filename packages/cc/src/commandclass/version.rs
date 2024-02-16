@@ -365,7 +365,7 @@ impl CCParsable for VersionCCReport {
         let protocol_version = parsers::version_major_minor(i)?;
         let firmware_0_version = parsers::version_major_minor(i)?;
         let (hardware_version, additional_firmware_versions) = map(
-            opt((be_u8(), map_repeat(be_u8(), parsers::version_major_minor))),
+            opt((be_u8, map_repeat(be_u8, parsers::version_major_minor))),
             Option::unzip,
         )
         .parse(i)?;
@@ -457,7 +457,7 @@ impl CCId for VersionCCCommandClassReport {
 impl CCParsable for VersionCCCommandClassReport {
     fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
         let requested_cc = CommandClasses::parse(i)?;
-        let version = be_u8().parse(i)?;
+        let version = be_u8(i)?;
 
         Ok(Self {
             requested_cc,
@@ -530,7 +530,7 @@ impl CCId for VersionCCCapabilitiesReport {
 
 impl CCParsable for VersionCCCapabilitiesReport {
     fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
-        let capabilities = be_u8().parse(i)?;
+        let capabilities = be_u8(i)?;
         let supports_zwave_software_get = capabilities & 0b100 != 0;
 
         Ok(Self {
@@ -669,7 +669,7 @@ impl CCParsable for VersionCCZWaveSoftwareReport {
             i: &mut Bytes,
         ) -> zwave_core::munch::ParseResult<Option<(Version, u16)>> {
             map(
-                (parsers::version_major_minor_patch, be_u16()),
+                (parsers::version_major_minor_patch, be_u16),
                 |(version, build_number)| {
                     if version.major == 0 && version.minor == 0 && version.patch == Some(0) {
                         None

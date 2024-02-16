@@ -43,7 +43,7 @@ impl From<ZWaveApiVersion> for u8 {
 
 impl BytesParsable for ZWaveApiVersion {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
-        context("ZWaveApiVersion", map(be_u8(), Self::from)).parse(i)
+        context("ZWaveApiVersion", map(be_u8, Self::from)).parse(i)
     }
 }
 

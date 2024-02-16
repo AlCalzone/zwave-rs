@@ -63,8 +63,8 @@ impl BytesParsable for NodeInformationProtocolData {
         let (_reserved73, _reserved21, speed_100k) = bits((u5::parse, u2::parse, bool)).parse(i)?;
 
         let basic_device_type = BasicDeviceType::parse(i)?;
-        let generic_device_class = be_u8().parse(i)?;
-        let specific_device_class = cond(has_specific_device_class, be_u8()).parse(i)?;
+        let generic_device_class = be_u8(i)?;
+        let specific_device_class = cond(has_specific_device_class, be_u8).parse(i)?;
 
         let mut supported_data_rates = Vec::new();
         if speed_100k {
@@ -113,10 +113,10 @@ pub struct NodeInformationApplicationData {
 impl BytesParsable for NodeInformationApplicationData {
     fn parse(i: &mut bytes::Bytes) -> crate::munch::ParseResult<Self> {
         // The specs call this CC list length, but this includes the device class bytes
-        let remaining_len = be_u8().parse(i)?;
+        let remaining_len = be_u8(i)?;
         let basic_device_type = BasicDeviceType::parse(i)?;
-        let generic_device_class = be_u8().parse(i)?;
-        let specific_device_class = be_u8().parse(i)?;
+        let generic_device_class = be_u8(i)?;
+        let specific_device_class = be_u8(i)?;
         let supported_command_classes =
             parsers::fixed_length_cc_list_only_supported(i, (remaining_len - 3) as usize)?;
 

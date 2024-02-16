@@ -38,7 +38,7 @@ impl Display for RoutingScheme {
 
 impl BytesParsable for RoutingScheme {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
-        context("RoutingScheme", map_res(be_u8(), RoutingScheme::try_from)).parse(i)
+        context("RoutingScheme", map_res(be_u8, RoutingScheme::try_from)).parse(i)
     }
 }
 

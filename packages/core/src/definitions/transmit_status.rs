@@ -22,7 +22,7 @@ pub enum TransmitStatus {
 
 impl BytesParsable for TransmitStatus {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
-        context("TransmitStatus", map_res(be_u8(), TransmitStatus::try_from)).parse(i)
+        context("TransmitStatus", map_res(be_u8, TransmitStatus::try_from)).parse(i)
     }
 }
 

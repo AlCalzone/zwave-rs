@@ -63,7 +63,7 @@ impl BytesParsable for ProtocolDataRate {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         context(
             "ProtocolDataRate",
-            map_res(be_u8(), ProtocolDataRate::try_from),
+            map_res(be_u8, ProtocolDataRate::try_from),
         )
         .parse(i)
     }
@@ -96,7 +96,7 @@ impl Display for DataRate {
 
 impl BytesParsable for DataRate {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
-        context("DataRate", map_res(be_u8(), DataRate::try_from)).parse(i)
+        context("DataRate", map_res(be_u8, DataRate::try_from)).parse(i)
     }
 }
 

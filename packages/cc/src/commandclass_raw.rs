@@ -23,7 +23,7 @@ impl BytesParsable for CCRaw {
         // All CCs except NoOperation have a CC command
         let cc_command = match cc_id {
             CommandClasses::NoOperation => None,
-            _ => map(be_u8(), Some).parse(i)?,
+            _ => map(be_u8, Some).parse(i)?,
         };
         let payload = rest(i)?;
 

@@ -473,12 +473,12 @@ fn test_non_application_ccs() {
 
 impl BytesParsable for CommandClasses {
     fn parse(i: &mut bytes::Bytes) -> crate::munch::ParseResult<Self> {
-        let cc_id = peek(be_u8()).parse(i)?;
+        let cc_id = peek(be_u8).parse(i)?;
         // FIXME: Support unknown CCs
         let cc = if CommandClasses::is_extended(cc_id) {
-            map_res(be_u16(), CommandClasses::try_from).parse(i)?
+            map_res(be_u16, CommandClasses::try_from).parse(i)?
         } else {
-            map_res(be_u8(), |x| CommandClasses::try_from(x as u16)).parse(i)?
+            map_res(be_u8, |x| CommandClasses::try_from(x as u16)).parse(i)?
         };
         Ok(cc)
     }

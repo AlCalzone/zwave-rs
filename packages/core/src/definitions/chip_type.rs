@@ -55,7 +55,7 @@ impl From<u16> for ChipType {
 
 impl BytesParsable for ChipType {
     fn parse(i: &mut bytes::Bytes) -> crate::munch::ParseResult<Self> {
-        context("ChipType", map(be_u16(), ChipType::from)).parse(i)
+        context("ChipType", map(be_u16, ChipType::from)).parse(i)
     }
 }
 

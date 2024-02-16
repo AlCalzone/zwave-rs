@@ -39,7 +39,7 @@ impl CommandParsable for ApplicationCommandRequest {
     fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self> {
         let frame_info = FrameInfo::parse(i)?;
         let source_node_id = NodeId::parse(i, ctx.node_id_type)?;
-        let cc = map_res(length_value(be_u8(), CCRaw::parse), |raw| {
+        let cc = map_res(length_value(be_u8, CCRaw::parse), |raw| {
             let ctx = CCParsingContext::default();
             CC::try_from_raw(raw, &ctx)
         })

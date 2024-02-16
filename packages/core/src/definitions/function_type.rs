@@ -192,7 +192,7 @@ pub enum FunctionType {
 
 impl BytesParsable for FunctionType {
     fn parse(i: &mut Bytes) -> munch::ParseResult<Self> {
-        context("FunctionType", map_res(be_u8(), FunctionType::try_from)).parse(i)
+        context("FunctionType", map_res(be_u8, FunctionType::try_from)).parse(i)
     }
 }
 

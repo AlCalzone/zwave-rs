@@ -245,7 +245,7 @@ pub mod parsers {
         i: &mut Bytes,
         bit0_value: u8,
     ) -> crate::munch::ParseResult<Vec<u8>> {
-        let bitmask = length_data(be_u8()).parse(i)?;
+        let bitmask = length_data(be_u8).parse(i)?;
 
         let view = bitmask.view_bits::<Lsb0>();
         let ret = view
@@ -279,7 +279,7 @@ pub mod parsers {
         Vec<CommandClasses>, // controlled
     )> {
         map_parser(
-            length_data(be_u8()),
+            length_data(be_u8),
             separated_pair(
                 many_0(CommandClasses::parse),
                 literal(COMMAND_CLASS_SUPPORT_CONTROL_MARK),
@@ -317,7 +317,7 @@ pub mod parsers {
     }
 
     pub fn version_major_minor_patch(i: &mut Bytes) -> crate::munch::ParseResult<Version> {
-        map((be_u8(), be_u8(), be_u8()), |(major, minor, patch)| {
+        map((be_u8, be_u8, be_u8), |(major, minor, patch)| {
             Version {
                 major,
                 minor,
@@ -328,7 +328,7 @@ pub mod parsers {
     }
 
     pub fn version_major_minor(i: &mut Bytes) -> crate::munch::ParseResult<Version> {
-        map((be_u8(), be_u8()), |(major, minor)| Version {
+        map((be_u8, be_u8), |(major, minor)| Version {
             major,
             minor,
             patch: None,

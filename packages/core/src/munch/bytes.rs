@@ -105,36 +105,30 @@ pub fn rest(input: &mut Bytes) -> ParseResult<Bytes> {
 macro_rules! impl_int {
     ($un:ident, 1) => {
         paste::paste! {
-            pub fn [<be_ $un>]() -> impl Parser<Bytes, $un> {
-                move |input: &mut Bytes| {
-                    if input.remaining() < 1 {
-                        Err(ParseError::Incomplete(Needed::Size(1)))
-                    } else {
-                        Ok(input.[<get_ $un>]())
-                    }
+            pub fn [<be_ $un>](input: &mut Bytes) -> ParseResult<$un> {
+                if input.remaining() < 1 {
+                    Err(ParseError::Incomplete(Needed::Size(1)))
+                } else {
+                    Ok(input.[<get_ $un>]())
                 }
             }
         }
     };
     ($un:ident, $bytes:literal) => {
         paste::paste! {
-            pub fn [<be_ $un>]() -> impl Parser<Bytes, $un> {
-                move |input: &mut Bytes| {
-                    if input.remaining() < $bytes {
-                        Err(ParseError::Incomplete(Needed::Size($bytes)))
-                    } else {
-                        Ok(input.[<get_ $un>]())
-                    }
+            pub fn [<be_ $un>](input: &mut Bytes) -> ParseResult<$un> {
+                if input.remaining() < $bytes {
+                    Err(ParseError::Incomplete(Needed::Size($bytes)))
+                } else {
+                    Ok(input.[<get_ $un>]())
                 }
             }
 
-            pub fn [<le_ $un>]() -> impl Parser<Bytes, $un> {
-                move |input: &mut Bytes| {
-                    if input.remaining() < $bytes {
-                        Err(ParseError::Incomplete(Needed::Size($bytes)))
-                    } else {
-                        Ok(input.[<get_ $un _le>]())
-                    }
+            pub fn [<le_ $un>](input: &mut Bytes) -> ParseResult<$un> {
+                if input.remaining() < $bytes {
+                    Err(ParseError::Incomplete(Needed::Size($bytes)))
+                } else {
+                    Ok(input.[<get_ $un _le>]())
                 }
             }
         }

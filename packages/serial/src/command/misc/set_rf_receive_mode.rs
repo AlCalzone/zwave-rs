@@ -89,7 +89,7 @@ impl CommandBase for SetRfReceiveModeResponse {
 
 impl CommandParsable for SetRfReceiveModeResponse {
     fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
-        let success = map(be_u8(), |x| x > 0).parse(i)?;
+        let success = map(be_u8, |x| x > 0).parse(i)?;
         Ok(Self { success })
     }
 }

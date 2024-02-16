@@ -83,7 +83,7 @@ impl CommandBase for GetControllerIdResponse {}
 
 impl CommandParsable for GetControllerIdResponse {
     fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self> {
-        let home_id = be_u32().parse(i)?;
+        let home_id = be_u32(i)?;
         let own_node_id = NodeId::parse(i, ctx.node_id_type)?;
 
         Ok(Self {

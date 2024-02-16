@@ -62,7 +62,7 @@ impl BytesParsable for CommandRaw {
             // ...starts with SOF
             literal(SerialControlByte::SOF as u8),
             // (read length)
-            be_u8(),
+            be_u8,
             // ...and contains at least 5 bytes
             take(3usize),
         ))
@@ -77,7 +77,7 @@ impl BytesParsable for CommandRaw {
         let command_type = CommandType::parse(i)?;
         let function_type = FunctionType::parse(i)?;
         let payload = take(len - 3).parse(i)?;
-        let checksum = be_u8().parse(i)?;
+        let checksum = be_u8(i)?;
 
         let expected_checksum = compute_checksum(&raw_data);
         validate(

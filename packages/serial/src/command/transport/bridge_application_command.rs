@@ -41,7 +41,7 @@ impl CommandParsable for BridgeApplicationCommandRequest {
         let frame_info = FrameInfo::parse(i)?;
         let destination_node_id = NodeId::parse(i, ctx.node_id_type)?;
         let source_node_id = NodeId::parse(i, ctx.node_id_type)?;
-        let cc = map_res(length_value(be_u8(), CCRaw::parse), |raw| {
+        let cc = map_res(length_value(be_u8, CCRaw::parse), |raw| {
             let ctx = CCParsingContext::default();
             CC::try_from_raw(raw, &ctx)
         })

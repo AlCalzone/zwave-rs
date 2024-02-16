@@ -29,7 +29,7 @@ impl TryFrom<u8> for DurationSet {
 
 impl BytesParsable for DurationSet {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
-        map_res(be_u8(), Self::try_from).parse(i)
+        map_res(be_u8, Self::try_from).parse(i)
     }
 }
 
@@ -99,7 +99,7 @@ impl TryFrom<u8> for DurationReport {
 
 impl BytesParsable for DurationReport {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
-        map_res(be_u8(), Self::try_from).parse(i)
+        map_res(be_u8, Self::try_from).parse(i)
     }
 }
 

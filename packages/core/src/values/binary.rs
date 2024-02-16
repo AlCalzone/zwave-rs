@@ -32,7 +32,7 @@ impl TryFrom<u8> for BinaryReport {
 
 impl BytesParsable for BinaryReport {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
-        map_res(be_u8(), Self::try_from).parse(i)
+        map_res(be_u8, Self::try_from).parse(i)
     }
 }
 
@@ -127,7 +127,7 @@ impl TryFrom<u8> for BinarySet {
 
 impl BytesParsable for BinarySet {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
-        map_res(be_u8(), Self::try_from).parse(i)
+        map_res(be_u8, Self::try_from).parse(i)
     }
 }
 
