@@ -20,7 +20,8 @@ where
 
         let mut offset = *bit_offset;
 
-        let needed_bytes = (count + offset) / 8;
+        let needed_bits = count + offset;
+        let needed_bytes = needed_bits / 8 + if needed_bits % 8 > 0 { 1 } else { 0 };
         if input.remaining() < needed_bytes {
             return Err(ParseError::Incomplete(Needed::Size(
                 needed_bytes - input.remaining(),
@@ -46,6 +47,7 @@ where
                 // ..xxxxx.
                 ret = (ret << remaining) + (val >> (8 - offset - remaining));
                 offset += remaining;
+                remaining = 0;
             } else {
                 // There are no remaining bits on the right, e.g.
                 // remaining = 6, offset = 2
@@ -56,9 +58,9 @@ where
                 ret = (ret << (8 - offset)) + val;
                 offset = 0;
                 skip_bytes += 1;
+                remaining -= 8 - offset;
             }
 
-            remaining -= 8 - offset;
             if remaining == 0 {
                 break;
             }

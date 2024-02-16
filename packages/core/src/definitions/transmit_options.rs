@@ -129,7 +129,7 @@ impl Serializable for TransmitOptions {
 
 #[test]
 fn test_parse() {
-    let mut raw = Bytes::copy_from_slice(&vec![0b1111_1111]);
+    let mut raw = Bytes::copy_from_slice(&[0b1111_1111]);
     let opts = TransmitOptions::parse(&mut raw).unwrap();
     let expected = TransmitOptions::new()
         .ack(true)
