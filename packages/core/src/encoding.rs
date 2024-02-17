@@ -130,8 +130,6 @@ pub type EncodingResult<T> = std::result::Result<T, EncodingError>;
 #[derive(Error, Debug)]
 /// A simple error type concerning conversion from/to binary data
 pub enum EncodingError {
-    #[error("Parse error: {0:?}")]
-    Parse(Option<String>),
     #[error("Serialization error: {0:?}")]
     Serialize(String),
     #[error("Not implemented: {0:?}")]
@@ -156,13 +154,6 @@ impl<T> IntoEncodingResult for std::result::Result<T, GenError> {
 
     fn into_encoding_result(self) -> EncodingResult<Self::Output> {
         self.map_err(EncodingError::from)
-    }
-}
-
-impl From<std::io::Error> for EncodingError {
-    fn from(e: std::io::Error) -> Self {
-        // IO Errors should only happen while writing to the serial port
-        EncodingError::Serialize(format!("{:?}", e))
     }
 }
 

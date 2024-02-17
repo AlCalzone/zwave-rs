@@ -29,20 +29,8 @@ impl SerialBinding for SerialPort {
     }
 
     async fn write(&mut self, frame: RawSerialFrame) -> Result<()> {
-        // Not sure why, but doing this exects EncodingError to implement From<io::Error>,
-        // although we'd actually want our local error type to be used.
-        // TODO: Fix this at some point
-        self.writer.send(frame).await.map_err(|e| match e {
-            EncodingError::Parse(_) => {
-                todo!("A parse error should not occur when sending data to the serial port")
-            }
-            EncodingError::NotImplemented(_) => {
-                todo!(
-                    "A not implemented error should not occur when sending data to the serial port"
-                )
-            }
-            EncodingError::Serialize(reason) => std::io::Error::other(reason).into(),
-        })
+        self.writer.send(frame).await?;
+        Ok(())
     }
 
     async fn read(&mut self) -> Option<RawSerialFrame> {
@@ -58,7 +46,7 @@ struct SerialFrameCodec;
 
 impl Decoder for SerialFrameCodec {
     type Item = RawSerialFrame;
-    type Error = encoding::EncodingError;
+    type Error = std::io::Error;
 
     fn decode(
         &mut self,
@@ -67,18 +55,22 @@ impl Decoder for SerialFrameCodec {
         match RawSerialFrame::parse_mut(src) {
             Ok(frame) => Ok(Some(frame)),
             Err(ParseError::Incomplete(n)) => {
+                // When expecting more bytes, reserve space for them
                 if let Needed::Size(n) = n {
                     src.reserve(n);
                 }
                 Ok(None)
             }
-            Err(_) => Err(EncodingError::Parse(None)),
+            Err(_) => {
+                // There was a problem parsing the frame, but the serial port doesn't care about that
+                Ok(None)
+            }
         }
     }
 }
 
 impl Encoder<RawSerialFrame> for SerialFrameCodec {
-    type Error = encoding::EncodingError;
+    type Error = std::io::Error;
 
     fn encode(
         &mut self,
