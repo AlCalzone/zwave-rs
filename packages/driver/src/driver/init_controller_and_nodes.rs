@@ -142,7 +142,7 @@ impl Driver<Ready> {
 
         if should_promote {
             self.controller_log()
-                .info("there is no SUC/SIS in the network - promoting ourselves...");
+                .info(|| "there is no SUC/SIS in the network - promoting ourselves...");
             let own_node_id = self.controller().own_node_id();
             match self
                 .set_suc_node_id(own_node_id, own_node_id, true, true, None)
@@ -150,10 +150,12 @@ impl Driver<Ready> {
             {
                 Ok(success) => {
                     self.controller_log().message(
-                        format!(
-                            "Promotion to SUC/SIS {}",
-                            if success { "succeeded" } else { "failed" }
-                        ),
+                        || {
+                            format!(
+                                "Promotion to SUC/SIS {}",
+                                if success { "succeeded" } else { "failed" }
+                            )
+                        },
                         if success {
                             Loglevel::Info
                         } else {
@@ -163,12 +165,12 @@ impl Driver<Ready> {
                 }
                 Err(e) => {
                     self.controller_log()
-                        .error(format!("error while promoting to SUC/SIS: {:?}", e));
+                        .error(|| format!("error while promoting to SUC/SIS: {:?}", e));
                 }
             }
         } else {
             self.controller_log()
-                .info("there is a SUC/SIS in the network - not promoting ourselves");
+                .info(|| "there is a SUC/SIS in the network - not promoting ourselves");
         }
 
         Ok(())

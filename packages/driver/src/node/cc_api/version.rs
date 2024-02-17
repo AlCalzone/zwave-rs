@@ -43,7 +43,7 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
         // Therefore we use the root endpoint for all queries
         let api = Self::new(node);
 
-        ctx.log.info("interviewing Version CC...");
+        ctx.log.info(|| "interviewing Version CC...");
 
         // On the root endpoint, query the VersionCC version and static version information
         if endpoint.index() == EndpointIndex::Root {
@@ -51,12 +51,10 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
             // TODO: When we use CC versions to check support for features,
             // we might have to update the version after this call
 
-            ctx.log.info("querying node versions...");
+            ctx.log.info(|| "querying node versions...");
             if let Some(response) = api.get().await? {
-                ctx.log.info(format!(
-                    "received response for node versions: {:?}",
-                    response
-                ));
+                ctx.log
+                    .info(|| format!("received response for node versions: {:?}", response));
             }
         }
 
@@ -78,7 +76,7 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
         if endpoint.index() == EndpointIndex::Root
             && node.get_cc_version(CommandClasses::Version) >= Some(3)
         {
-            ctx.log.info("querying Version CC capabilities...");
+            ctx.log.info(|| "querying Version CC capabilities...");
             if let Some(response) = api.get_capabilities().await? {
                 println!(
                     "received Version CC capabilities capabilities: {:?}",
@@ -87,7 +85,7 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
 
                 if cache.read_bool(&VersionCCValues::supports_zwave_software_get().id) == Some(true)
                 {
-                    ctx.log.info("querying Z-Wave software version...");
+                    ctx.log.info(|| "querying Z-Wave software version...");
                     if let Some(response) = api.get_zwave_software().await? {
                         println!("received Z-Wave software version: {:?}", response);
                     }
@@ -112,15 +110,16 @@ impl VersionCCAPI<'_> {
     ) -> CCAPIResult<()> {
         if get_implemented_version(cc).is_none() {
             ctx.log
-                .info(format!("skipping query for not yet implemented CC {}", cc));
+                .info(|| format!("skipping query for not yet implemented CC {}", cc));
             return Ok(());
         }
 
-        ctx.log.info(format!("querying version for CC {}...", cc));
+        ctx.log
+            .info(|| format!("querying version for CC {}...", cc));
         if let Some(version) = self.get_cc_version(cc).await? {
             if version > 0 {
                 ctx.log
-                    .info(format!("supports CC {} in version {}", cc, version));
+                    .info(|| format!("supports CC {} in version {}", cc, version));
                 self.endpoint
                     .modify_cc_info(cc, &PartialCommandClassInfo::default().version(version))
             } else {
@@ -132,15 +131,13 @@ impl VersionCCAPI<'_> {
                 if is_critical {
                     todo!()
                 } else {
-                    ctx.log.info(format!("does not support CC {}", cc));
+                    ctx.log.info(|| format!("does not support CC {}", cc));
                     self.endpoint.remove_cc(cc);
                 }
             }
         } else {
-            ctx.log.info(format!(
-                "CC version query for {} timed out. Assuming version 1",
-                cc
-            ));
+            ctx.log
+                .info(|| format!("CC version query for {} timed out. Assuming version 1", cc));
             self.endpoint
                 .modify_cc_info(cc, &PartialCommandClassInfo::default().version(1))
         }

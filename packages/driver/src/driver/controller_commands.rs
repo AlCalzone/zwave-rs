@@ -35,7 +35,7 @@ where
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetSerialApiCapabilitiesResponse> {
         self.controller_log()
-            .info("querying Serial API capabilities...");
+            .info(|| "querying Serial API capabilities...");
         let response = self
             .exec_controller_command(GetSerialApiCapabilitiesRequest::default(), options)
             .await;
@@ -44,10 +44,10 @@ where
             expect_controller_command_result!(response, GetSerialApiCapabilitiesResponse);
 
         if self.controller_log().level() < Loglevel::Debug {
-            self.controller_log().info(
+            self.controller_log().info(|| {
                 LogPayloadText::new("received Serial API capabilities:")
-                    .with_nested(capabilities.to_log_payload()),
-            );
+                    .with_nested(capabilities.to_log_payload())
+            });
         }
 
         Ok(capabilities)
@@ -58,7 +58,7 @@ where
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetSerialApiInitDataResponse> {
         self.controller_log()
-            .info("querying additional controller information...");
+            .info(|| "querying additional controller information...");
         let response = self
             .exec_controller_command(GetSerialApiInitDataRequest::default(), options)
             .await;
@@ -66,10 +66,10 @@ where
         let init_data = expect_controller_command_result!(response, GetSerialApiInitDataResponse);
 
         if self.controller_log().level() < Loglevel::Debug {
-            self.controller_log().info(
+            self.controller_log().info(|| {
                 LogPayloadText::new("received additional controller information:")
-                    .with_nested(init_data.to_log_payload()),
-            );
+                    .with_nested(init_data.to_log_payload())
+            });
         }
 
         Ok(init_data)
@@ -80,7 +80,7 @@ where
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetControllerCapabilitiesResponse> {
         self.controller_log()
-            .info("querying controller capabilities...");
+            .info(|| "querying controller capabilities...");
         let response = self
             .exec_controller_command(GetControllerCapabilitiesRequest::default(), options)
             .await;
@@ -89,10 +89,10 @@ where
             expect_controller_command_result!(response, GetControllerCapabilitiesResponse);
 
         if self.controller_log().level() < Loglevel::Debug {
-            self.controller_log().info(
+            self.controller_log().info(|| {
                 LogPayloadText::new("received controller capabilities:")
-                    .with_nested(capabilities.to_log_payload()),
-            );
+                    .with_nested(capabilities.to_log_payload())
+            });
         }
 
         Ok(capabilities)
@@ -103,7 +103,7 @@ where
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetControllerVersionResponse> {
         self.controller_log()
-            .info("querying controller version info...");
+            .info(|| "querying controller version info...");
         let response = self
             .exec_controller_command(GetControllerVersionRequest::default(), options)
             .await;
@@ -112,10 +112,10 @@ where
             expect_controller_command_result!(response, GetControllerVersionResponse);
 
         if self.controller_log().level() < Loglevel::Debug {
-            self.controller_log().info(
+            self.controller_log().info(|| {
                 LogPayloadText::new("received controller version info:")
-                    .with_nested(version_info.to_log_payload()),
-            );
+                    .with_nested(version_info.to_log_payload())
+            });
         }
 
         Ok(version_info)
@@ -125,7 +125,7 @@ where
         &self,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetControllerIdResponse> {
-        self.controller_log().info("querying controller IDs...");
+        self.controller_log().info(|| "querying controller IDs...");
         let response = self
             .exec_controller_command(GetControllerIdRequest::default(), options)
             .await;
@@ -133,9 +133,9 @@ where
         let ids = expect_controller_command_result!(response, GetControllerIdResponse);
 
         if self.controller_log().level() < Loglevel::Debug {
-            self.controller_log().info(
-                LogPayloadText::new("received controller IDs:").with_nested(ids.to_log_payload()),
-            );
+            self.controller_log().info(|| {
+                LogPayloadText::new("received controller IDs:").with_nested(ids.to_log_payload())
+            });
         }
 
         Ok(ids)
@@ -146,7 +146,7 @@ where
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<GetProtocolVersionResponse> {
         self.controller_log()
-            .info("querying protocol version info...");
+            .info(|| "querying protocol version info...");
         let response = self
             .exec_controller_command(GetProtocolVersionRequest::default(), options)
             .await;
@@ -155,10 +155,10 @@ where
             expect_controller_command_result!(response, GetProtocolVersionResponse);
 
         if self.controller_log().level() < Loglevel::Debug {
-            self.controller_log().info(
+            self.controller_log().info(|| {
                 LogPayloadText::new("received protocol version info:")
-                    .with_nested(protocol_version.to_log_payload()),
-            );
+                    .with_nested(protocol_version.to_log_payload())
+            });
         }
 
         Ok(protocol_version)
@@ -169,7 +169,7 @@ where
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<Option<NodeId>> {
         self.controller_log()
-            .info("determining which node is the SUC...");
+            .info(|| "determining which node is the SUC...");
         let response = self
             .exec_controller_command(GetSucNodeIdRequest::default(), options)
             .await;
@@ -179,9 +179,9 @@ where
 
         if let Some(suc_node_id) = suc_node_id {
             self.controller_log()
-                .info(format!("node {} is the SUC", suc_node_id));
+                .info(|| format!("node {} is the SUC", suc_node_id));
         } else {
-            self.controller_log().info("no SUC in the network");
+            self.controller_log().info(|| "no SUC in the network");
         }
 
         Ok(suc_node_id)
@@ -192,7 +192,7 @@ where
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<Vec<SerialApiSetupCommand>> {
         self.controller_log()
-            .info("querying supported Serial API setup commands...");
+            .info(|| "querying supported Serial API setup commands...");
         let response = self
             .exec_controller_command(SerialApiSetupRequest::get_supported_commands(), options)
             .await;
@@ -204,11 +204,11 @@ where
         )?;
 
         if self.controller_log().level() < Loglevel::Debug {
-            self.controller_log().info(
+            self.controller_log().info(|| {
                 LogPayloadText::new("supported Serial API setup commands:").with_nested(
                     LogPayloadList::new(ret.iter().map(|cmd| format!("{:?}", cmd).into())),
-                ),
-            );
+                )
+            });
         }
 
         Ok(ret)
@@ -219,10 +219,8 @@ where
         node_id_type: NodeIdType,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<bool> {
-        self.controller_log().info(format!(
-            "switching serial API to {} node IDs...",
-            node_id_type
-        ));
+        self.controller_log()
+            .info(|| format!("switching serial API to {} node IDs...", node_id_type));
         let response = self
             .exec_controller_command(
                 SerialApiSetupRequest::set_node_id_type(node_id_type),
@@ -236,11 +234,13 @@ where
             SerialApiSetupResponsePayload::SetNodeIDType { success } => success
         )?;
 
-        self.controller_log().info(format!(
-            "Switching serial API to {} node IDs {}",
-            node_id_type,
-            if success { "succeeded" } else { "failed" }
-        ));
+        self.controller_log().info(|| {
+            format!(
+                "Switching serial API to {} node IDs {}",
+                node_id_type,
+                if success { "succeeded" } else { "failed" }
+            )
+        });
 
         if success {
             self.storage.set_node_id_type(node_id_type);
@@ -260,14 +260,14 @@ where
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<NodeInformationProtocolData> {
         let log = self.node_log(*node_id, EndpointIndex::Root);
-        log.info("querying protocol info...");
+        log.info(||"querying protocol info...");
 
         let cmd = GetNodeProtocolInfoRequest { node_id: *node_id };
         let response = self.exec_controller_command(cmd, options).await;
         let response = expect_controller_command_result!(response, GetNodeProtocolInfoResponse);
 
         if self.controller_log().level() < Loglevel::Debug {
-            log.info(
+            log.info(||
                 LogPayloadText::new("received protocol info:")
                     .with_nested(response.to_log_payload()),
             );
@@ -284,7 +284,7 @@ impl Driver<Ready> {
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<RfRegion> {
         self.controller_log()
-            .info("querying configured RF region...");
+            .info(|| "querying configured RF region...");
         let response = self
             .exec_controller_command(SerialApiSetupRequest::get_rf_region(), options)
             .await;
@@ -298,7 +298,7 @@ impl Driver<Ready> {
         self.controller().set_rf_region(Some(rf_region));
 
         self.controller_log()
-            .info(format!("the controller is using RF region {}", rf_region));
+            .info(|| format!("the controller is using RF region {}", rf_region));
 
         Ok(rf_region)
     }
@@ -308,7 +308,7 @@ impl Driver<Ready> {
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<Powerlevel> {
         self.controller_log()
-            .info("querying configured powerlevel...");
+            .info(|| "querying configured powerlevel...");
         let response = self
             .exec_controller_command(SerialApiSetupRequest::get_powerlevel(), options)
             .await;
@@ -322,7 +322,7 @@ impl Driver<Ready> {
         self.controller().set_powerlevel(Some(powerlevel));
 
         self.controller_log()
-            .info(format!("the controller is using powerlevel {}", powerlevel));
+            .info(|| format!("the controller is using powerlevel {}", powerlevel));
 
         Ok(powerlevel)
     }
@@ -332,10 +332,12 @@ impl Driver<Ready> {
         enabled: bool,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<bool> {
-        self.controller_log().info(format!(
-            "{} TX status reports...",
-            if enabled { "enabling" } else { "disabling" }
-        ));
+        self.controller_log().info(|| {
+            format!(
+                "{} TX status reports...",
+                if enabled { "enabling" } else { "disabling" }
+            )
+        });
         let response = self
             .exec_controller_command(
                 SerialApiSetupRequest::set_tx_status_report(enabled),
@@ -350,11 +352,13 @@ impl Driver<Ready> {
         )?;
 
         // FIXME: use warning/error for failure
-        self.controller_log().info(format!(
-            "{} TX status reports {}",
-            if enabled { "enabling" } else { "disabling" },
-            if success { "succeeded" } else { "failed" }
-        ));
+        self.controller_log().info(|| {
+            format!(
+                "{} TX status reports {}",
+                if enabled { "enabling" } else { "disabling" },
+                if success { "succeeded" } else { "failed" }
+            )
+        });
 
         Ok(success)
     }
@@ -404,7 +408,7 @@ impl Driver<Ready> {
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<NodeInformationApplicationData> {
         self.controller_log()
-            .info(format!("querying node info for node {}...", node_id));
+            .info(|| format!("querying node info for node {}...", node_id));
         let response = self
             .exec_controller_command(RequestNodeInfoRequest::new(*node_id), options)
             .await;
@@ -426,7 +430,8 @@ impl Driver<Ready> {
                 ))
             }
             Err(e) => {
-                self.controller_log().error("querying the node info failed");
+                self.controller_log()
+                    .error(|| "querying the node info failed");
                 return Err(e.into());
             }
         };

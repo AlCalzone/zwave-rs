@@ -23,43 +23,43 @@ impl DriverLogger {
     }
 
     pub fn logo(&self) {
-        self.info(LOGO);
+        self.info(|| LOGO);
     }
 
     // FIXME: Remove duplication with ControllerLogger
-    pub fn message(&self, message: impl Into<Cow<'static, str>>, level: Loglevel) {
+    pub fn message<L: Into<Cow<'static, str>>>(&self, message: impl Fn() -> L, level: Loglevel) {
         if self.level() < level {
             return;
         }
 
         let log = LogInfo::builder()
             .label("DRIVER")
-            .payload(LogPayload::Flat(to_lines(message)))
+            .payload(LogPayload::Flat(to_lines(message())))
             .build();
         self.inner.log(log, level);
     }
 
-    pub fn error(&self, message: impl Into<Cow<'static, str>>) {
+    pub fn error<L: Into<Cow<'static, str>>>(&self, message: impl Fn() -> L) {
         self.message(message, Loglevel::Error);
     }
 
-    pub fn warn(&self, message: impl Into<Cow<'static, str>>) {
+    pub fn warn<L: Into<Cow<'static, str>>>(&self, message: impl Fn() -> L) {
         self.message(message, Loglevel::Warn);
     }
 
-    pub fn info(&self, message: impl Into<Cow<'static, str>>) {
+    pub fn info<L: Into<Cow<'static, str>>>(&self, message: impl Fn() -> L) {
         self.message(message, Loglevel::Info);
     }
 
-    pub fn verbose(&self, message: impl Into<Cow<'static, str>>) {
+    pub fn verbose<L: Into<Cow<'static, str>>>(&self, message: impl Fn() -> L) {
         self.message(message, Loglevel::Verbose);
     }
 
-    pub fn debug(&self, message: impl Into<Cow<'static, str>>) {
+    pub fn debug<L: Into<Cow<'static, str>>>(&self, message: impl Fn() -> L) {
         self.message(message, Loglevel::Debug);
     }
 
-    pub fn silly(&self, message: impl Into<Cow<'static, str>>) {
+    pub fn silly<L: Into<Cow<'static, str>>>(&self, message: impl Fn() -> L) {
         self.message(message, Loglevel::Silly);
     }
 

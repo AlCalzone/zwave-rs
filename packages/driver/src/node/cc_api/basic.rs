@@ -27,7 +27,7 @@ impl<'a> CCAPI<'a> for BasicCCAPI<'a> {
         let node = endpoint.get_node();
         let cache = node.value_cache();
 
-        ctx.log.info("interviewing Basic CC...");
+        ctx.log.info(||"interviewing Basic CC...");
 
         // Try to query the current state
         self.refresh_values().await?;
@@ -37,7 +37,7 @@ impl<'a> CCAPI<'a> for BasicCCAPI<'a> {
             .read_level_report(&BasicCCValues::current_value().id)
             .is_none()
         {
-            ctx.log.info(
+            ctx.log.info(||
                 "No response to Basic Get command, assuming the node does not support Basic CC...",
             );
 

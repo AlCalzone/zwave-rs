@@ -123,17 +123,17 @@ impl Driver<Init> {
         let log_thread = thread::spawn(move || log_loop(log_cmd_rx, loglevel));
 
         driver_logger.logo();
-        driver_logger.info("version 0.0.1-alpha");
-        driver_logger.info("");
-        driver_logger.info(format!("opening serial port {}", path));
+        driver_logger.info(|| "version 0.0.1-alpha");
+        driver_logger.info(|| "");
+        driver_logger.info(|| format!("opening serial port {}", path));
 
         let port = match SerialPort::new(path) {
             Ok(port) => {
-                driver_logger.info("serial port opened");
+                driver_logger.info(|| "serial port opened");
                 port
             }
             Err(e) => {
-                driver_logger.error(format!("failed to open serial port: {}", e));
+                driver_logger.error(|| format!("failed to open serial port: {}", e));
                 return Err(e.into());
             }
         };
@@ -183,7 +183,7 @@ impl Driver<Init> {
         let logger = self.log();
 
         // Synchronize the serial port
-        logger.verbose("synchronizing serial port...");
+        logger.verbose(|| "synchronizing serial port...");
         exec_background_task!(
             self.tasks.serial_cmd,
             SerialTaskCommand::SendFrame,

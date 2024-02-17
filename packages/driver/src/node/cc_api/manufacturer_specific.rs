@@ -26,9 +26,9 @@ impl<'a> CCAPI<'a> for ManufacturerSpecificCCAPI<'a> {
     async fn interview<'ctx: 'a>(&self, ctx: &CCInterviewContext<'ctx>) -> CCAPIResult<()> {
         let _endpoint = ctx.endpoint;
 
-        ctx.log.info("interviewing Manufacturer Specific CC...");
+        ctx.log.info(|| "interviewing Manufacturer Specific CC...");
 
-        ctx.log.info("querying manufacturer information...");
+        ctx.log.info(|| "querying manufacturer information...");
         if let Some(response) = self.get().await? {
             println!(
                 "received response for manufacturer information: {:?}",

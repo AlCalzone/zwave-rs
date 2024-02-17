@@ -22,7 +22,7 @@ impl NodeLogger {
     }
 
     // FIXME: Remove duplication with DriverLogger
-    pub fn message(&self, message: impl Into<LogPayload>, level: Loglevel) {
+    pub fn message<L: Into<LogPayload>>(&self, message: impl Fn() -> L, level: Loglevel) {
         if self.inner.log_level() < level {
             return;
         }
@@ -35,7 +35,7 @@ impl NodeLogger {
         let log = LogInfo::builder()
             .label("CNTRLR")
             .primary_tags(primary_tags)
-            .payload(message.into())
+            .payload(message().into())
             .build();
         self.inner.log(log, level);
     }
@@ -75,27 +75,27 @@ impl NodeLogger {
         self.inner.log(log, level);
     }
 
-    pub fn error(&self, message: impl Into<LogPayload>) {
+    pub fn error<L: Into<LogPayload>>(&self, message: impl Fn() -> L) {
         self.message(message, Loglevel::Error);
     }
 
-    pub fn warn(&self, message: impl Into<LogPayload>) {
+    pub fn warn<L: Into<LogPayload>>(&self, message: impl Fn() -> L) {
         self.message(message, Loglevel::Warn);
     }
 
-    pub fn info(&self, message: impl Into<LogPayload>) {
+    pub fn info<L: Into<LogPayload>>(&self, message: impl Fn() -> L) {
         self.message(message, Loglevel::Info);
     }
 
-    pub fn verbose(&self, message: impl Into<LogPayload>) {
+    pub fn verbose<L: Into<LogPayload>>(&self, message: impl Fn() -> L) {
         self.message(message, Loglevel::Verbose);
     }
 
-    pub fn debug(&self, message: impl Into<LogPayload>) {
+    pub fn debug<L: Into<LogPayload>>(&self, message: impl Fn() -> L) {
         self.message(message, Loglevel::Debug);
     }
 
-    pub fn silly(&self, message: impl Into<LogPayload>) {
+    pub fn silly<L: Into<LogPayload>>(&self, message: impl Fn() -> L) {
         self.message(message, Loglevel::Silly);
     }
 

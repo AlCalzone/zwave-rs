@@ -15,14 +15,14 @@ const PORT: &str = "COM6";
 async fn main() {
     let options = DriverOptions::builder()
         .path(PORT)
-        // .loglevel(Loglevel::Info)
+        .loglevel(Loglevel::Error)
         .build();
     let driver = zwave_driver::Driver::new(options).unwrap();
 
     let driver = driver.init().await.unwrap();
 
     driver.interview_nodes().await.unwrap();
-    driver.log().info("all nodes interviewed");
+    driver.log().info(|| "all nodes interviewed");
 
     // node2.ping().await.unwrap();
 

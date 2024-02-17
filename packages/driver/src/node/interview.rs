@@ -20,10 +20,12 @@ pub enum InterviewStage {
 impl<'a> Node<'a> {
     pub async fn interview(&self) -> Result<()> {
         let log = self.driver.node_log(self.id(), EndpointIndex::Root);
-        log.info(format!(
-            "Beginning interview - current stage: {:?}",
-            self.interview_stage(),
-        ));
+        log.info(|| {
+            format!(
+                "Beginning interview - current stage: {:?}",
+                self.interview_stage(),
+            )
+        });
 
         if self.interview_stage() == InterviewStage::None {
             self.set_interview_stage(InterviewStage::NodeInfo);
