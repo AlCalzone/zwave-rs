@@ -95,7 +95,7 @@ impl TransmitOptions {
     }
 }
 
-impl BytesParsable for TransmitOptions {
+impl Parsable for TransmitOptions {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         let (_reserved76, explore, no_route, _reserved3, auto_route, _reserved1, ack) =
             bits((u2::parse, bool, bool, u1::parse, bool, u1::parse, bool)).parse(i)?;

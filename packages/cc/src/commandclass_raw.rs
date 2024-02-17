@@ -16,7 +16,7 @@ pub struct CCRaw {
     pub payload: Bytes,
 }
 
-impl BytesParsable for CCRaw {
+impl Parsable for CCRaw {
     fn parse(i: &mut Bytes) -> zwave_core::munch::ParseResult<Self> {
         let cc_id = CommandClasses::parse(i)?;
 

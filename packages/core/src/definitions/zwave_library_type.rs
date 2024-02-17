@@ -44,7 +44,7 @@ impl Display for ZWaveLibraryType {
     }
 }
 
-impl BytesParsable for ZWaveLibraryType {
+impl Parsable for ZWaveLibraryType {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         context("ZWaveLibraryType", map_res(be_u8, Self::try_from)).parse(i)
     }

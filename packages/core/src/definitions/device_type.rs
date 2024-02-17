@@ -26,7 +26,7 @@ impl Display for BasicDeviceType {
     }
 }
 
-impl BytesParsable for BasicDeviceType {
+impl Parsable for BasicDeviceType {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         map_res(be_u8, Self::try_from).parse(i)
     }

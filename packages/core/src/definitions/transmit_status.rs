@@ -20,7 +20,7 @@ pub enum TransmitStatus {
     NoRoute = 0x04,
 }
 
-impl BytesParsable for TransmitStatus {
+impl Parsable for TransmitStatus {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         context("TransmitStatus", map_res(be_u8, TransmitStatus::try_from)).parse(i)
     }

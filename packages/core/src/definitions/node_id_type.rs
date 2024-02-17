@@ -21,7 +21,7 @@ impl Display for NodeIdType {
     }
 }
 
-impl BytesParsable for NodeIdType {
+impl Parsable for NodeIdType {
     fn parse(i: &mut bytes::Bytes) -> crate::munch::ParseResult<Self> {
         map_res(be_u8, NodeIdType::try_from).parse(i)
     }

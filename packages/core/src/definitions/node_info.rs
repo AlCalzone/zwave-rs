@@ -38,7 +38,7 @@ pub struct NodeInformationProtocolData {
     pub specific_device_class: Option<u8>,
 }
 
-impl BytesParsable for NodeInformationProtocolData {
+impl Parsable for NodeInformationProtocolData {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         let (listening, routing, _reserved5, speed_40k, speed_9k6, protocol_version) = bits((
             bool,
@@ -110,7 +110,7 @@ pub struct NodeInformationApplicationData {
     pub supported_command_classes: Vec<CommandClasses>,
 }
 
-impl BytesParsable for NodeInformationApplicationData {
+impl Parsable for NodeInformationApplicationData {
     fn parse(i: &mut bytes::Bytes) -> crate::munch::ParseResult<Self> {
         // The specs call this CC list length, but this includes the device class bytes
         let remaining_len = be_u8(i)?;

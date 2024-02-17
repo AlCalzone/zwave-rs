@@ -26,7 +26,7 @@ impl Display for ProtocolType {
     }
 }
 
-impl BytesParsable for ProtocolType {
+impl Parsable for ProtocolType {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         context("ProtocolType", map_res(be_u8, ProtocolType::try_from)).parse(i)
     }

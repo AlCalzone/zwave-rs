@@ -28,7 +28,7 @@ impl Display for ProtocolVersion {
     }
 }
 
-impl BytesParsable for ProtocolVersion {
+impl Parsable for ProtocolVersion {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         context(
             "ProtocolVersion",

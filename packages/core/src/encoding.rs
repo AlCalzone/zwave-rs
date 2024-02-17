@@ -33,7 +33,7 @@ pub enum TryFromReprError<T: std::fmt::Debug> {
 pub type BitOutput = BitVec<u8, Msb0>;
 
 // FIXME: Get rid of this trait and use Parser instead
-pub trait BytesParsable
+pub trait Parsable
 where
     Self: Sized,
 {
@@ -227,7 +227,7 @@ pub mod encoders {
 }
 
 pub mod parsers {
-    use super::BytesParsable;
+    use super::Parsable;
     use crate::munch::{
         bytes::{
             be_u8,
@@ -317,12 +317,10 @@ pub mod parsers {
     }
 
     pub fn version_major_minor_patch(i: &mut Bytes) -> crate::munch::ParseResult<Version> {
-        map((be_u8, be_u8, be_u8), |(major, minor, patch)| {
-            Version {
-                major,
-                minor,
-                patch: Some(patch),
-            }
+        map((be_u8, be_u8, be_u8), |(major, minor, patch)| Version {
+            major,
+            minor,
+            patch: Some(patch),
         })
         .parse(i)
     }

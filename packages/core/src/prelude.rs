@@ -1,6 +1,6 @@
 pub use crate::definitions::*;
 pub use crate::encoding::{
-    BitParsable, BitSerializable, BytesParsable, EncodingError, EncodingResult, IntoEncodingResult,
+    BitParsable, BitSerializable, Parsable, EncodingError, EncodingResult, IntoEncodingResult,
     Serializable, TryFromReprError,
 };
 pub use crate::log::{

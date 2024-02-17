@@ -54,7 +54,7 @@ impl Display for SerialApiWakeUpReason {
     }
 }
 
-impl BytesParsable for SerialApiWakeUpReason {
+impl Parsable for SerialApiWakeUpReason {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         context(
             "SerialApiWakeUpReason",

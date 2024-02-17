@@ -55,7 +55,7 @@ impl CommandRaw {
     }
 }
 
-impl BytesParsable for CommandRaw {
+impl Parsable for CommandRaw {
     fn parse(i: &mut Bytes) -> MunchResult<Self> {
         // Extract the length, while ensuring that the buffer...
         let (_, len, _) = peek((

@@ -38,7 +38,7 @@ impl Display for LevelReport {
     }
 }
 
-impl BytesParsable for LevelReport {
+impl Parsable for LevelReport {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         map_res(be_u8, Self::try_from).parse(i)
     }
@@ -103,7 +103,7 @@ impl Display for LevelSet {
     }
 }
 
-impl BytesParsable for LevelSet {
+impl Parsable for LevelSet {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         map_res(be_u8, Self::try_from).parse(i)
     }

@@ -49,7 +49,7 @@ pub struct FrameInfo {
     pub foreign_home_id: bool,
 }
 
-impl BytesParsable for FrameInfo {
+impl Parsable for FrameInfo {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         let (
             foreign_home_id,

@@ -20,7 +20,7 @@ pub enum CommandType {
     Response = 0x01,
 }
 
-impl BytesParsable for CommandType {
+impl Parsable for CommandType {
     fn parse(i: &mut Bytes) -> munch::ParseResult<Self> {
         context("CommandType", map_res(be_u8, CommandType::try_from)).parse(i)
     }

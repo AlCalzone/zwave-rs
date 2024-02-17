@@ -471,7 +471,7 @@ fn test_non_application_ccs() {
     assert!(nac.contains(&CommandClasses::Association));
 }
 
-impl BytesParsable for CommandClasses {
+impl Parsable for CommandClasses {
     fn parse(i: &mut bytes::Bytes) -> crate::munch::ParseResult<Self> {
         let cc_id = peek(be_u8).parse(i)?;
         // FIXME: Support unknown CCs

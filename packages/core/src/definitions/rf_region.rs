@@ -48,7 +48,7 @@ impl Display for RfRegion {
     }
 }
 
-impl BytesParsable for RfRegion {
+impl Parsable for RfRegion {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
         context("RfRegion", map_res(be_u8, Self::try_from)).parse(i)
     }

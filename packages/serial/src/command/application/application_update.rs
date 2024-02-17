@@ -22,7 +22,7 @@ pub enum ApplicationUpdateType {
     SucIdChanged = 0x10,
 }
 
-impl BytesParsable for ApplicationUpdateType {
+impl Parsable for ApplicationUpdateType {
     fn parse(i: &mut Bytes) -> MunchResult<Self> {
         map_res(be_u8, ApplicationUpdateType::try_from).parse(i)
     }
