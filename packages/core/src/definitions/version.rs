@@ -1,7 +1,5 @@
+use crate::munch::ParseError;
 use std::fmt::{self, Display};
-
-use crate::encoding::SimpleParseError;
-
 #[derive(Clone, Copy, Eq, PartialOrd)]
 pub struct Version {
     pub major: u8,
@@ -34,14 +32,17 @@ impl Display for Version {
 }
 
 impl TryFrom<&str> for Version {
-    type Error = SimpleParseError;
+    type Error = ParseError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let parts: Result<Vec<_>, _> = value.split('.').take(3).map(|s| s.parse::<u8>()).collect();
-        let parts =
-            parts.map_err(|_| SimpleParseError(Some(format!("Invalid version {}", value))))?;
+        let parts = parts
+            .map_err(|_| ParseError::validation_failure(format!("Invalid version {}", value)))?;
         if parts.len() < 2 {
-            return Err(SimpleParseError(Some(format!("Invalid version {}", value))));
+            return Err(ParseError::validation_failure(format!(
+                "Invalid version {}",
+                value
+            )));
         }
 
         Ok(Version {

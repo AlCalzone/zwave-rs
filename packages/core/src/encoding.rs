@@ -138,14 +138,6 @@ pub enum EncodingError {
     NotImplemented(&'static str),
 }
 
-/// A simple result type concerning conversion from and to binary data
-pub type SimpleParseResult<T> = std::result::Result<T, SimpleParseError>;
-
-#[derive(Error, Debug)]
-#[error("Parse error: {0:?}")]
-/// A simple error type concerning parsing things
-pub struct SimpleParseError(pub Option<String>);
-
 /// Provides a way to convert custom results into this library's result type
 /// without breaking the orphan rule
 pub trait IntoEncodingResult {

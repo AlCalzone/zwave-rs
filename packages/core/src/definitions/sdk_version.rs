@@ -1,6 +1,7 @@
-use crate::{encoding::SimpleParseResult, prelude::*};
+use crate::prelude::*;
+use crate::munch::ParseResult;
 
-pub fn parse_libary_version(version: &str) -> SimpleParseResult<Version> {
+pub fn parse_libary_version(version: &str) -> ParseResult<Version> {
     let version = if version.starts_with("Z-Wave ") {
         version.split_at("Z-Wave ".len()).1
     } else {
@@ -22,8 +23,8 @@ pub fn protocol_version_to_sdk_version(protocol_version: &Version) -> Version {
         (6, 2) => Version::try_from("6.81.1").unwrap(),  // Serial API Version: 8
         (6, 1) => Version::try_from("6.81.0").unwrap(),  // Serial API Version: 8
         // (6, 1) => Version::try_from("6.80.0-beta").unwrap(), // Serial API Version: 8
-        (5, 3) => Version::try_from("6.71.3").unwrap(),  // Serial API Version: 7
-        (5, 2) => Version::try_from("6.71.2").unwrap(),  // Serial API Version: 7
+        (5, 3) => Version::try_from("6.71.3").unwrap(), // Serial API Version: 7
+        (5, 2) => Version::try_from("6.71.2").unwrap(), // Serial API Version: 7
         (4, 61) => Version::try_from("6.71.1").unwrap(), // Serial API Version: 7
         (4, 60) => Version::try_from("6.71.0").unwrap(), // Serial API Version: 7
         (4, 45) => Version::try_from("6.70.1").unwrap(), // Serial API Version: 6
@@ -35,8 +36,8 @@ pub fn protocol_version_to_sdk_version(protocol_version: &Version) -> Version {
         (4, 38) => Version::try_from("6.51.9").unwrap(), // Serial API Version: 5
         (4, 34) => Version::try_from("6.51.8").unwrap(), // Serial API Version: 5
         (4, 24) => Version::try_from("6.51.7").unwrap(), // Serial API Version: 5
-        (4, 5) => Version::try_from("6.51.6").unwrap(),  // Serial API Version: 5
-        (4, 1) => Version::try_from("6.51.4").unwrap(),  // Serial API Version: 5
+        (4, 5) => Version::try_from("6.51.6").unwrap(), // Serial API Version: 5
+        (4, 1) => Version::try_from("6.51.4").unwrap(), // Serial API Version: 5
         (3, 99) => Version::try_from("6.51.3").unwrap(), // Serial API Version: 5
         (3, 95) => Version::try_from("6.51.2").unwrap(), // Serial API Version: 5
         (3, 92) => Version::try_from("6.51.1").unwrap(), // Serial API Version: 5
@@ -53,20 +54,20 @@ pub fn protocol_version_to_sdk_version(protocol_version: &Version) -> Version {
         (3, 33) => Version::try_from("6.1.2").unwrap(),  // Serial API Version: 5
         (3, 26) => Version::try_from("6.1.1").unwrap(),  // Serial API Version: 5 / 2-ch
         (3, 10) => Version::try_from("6.1.0").unwrap(),  // Serial API Version: 5
-        (3, 7) => Version::try_from("6.0.5").unwrap(), // Serial API Version: 5
-        (3, 6) => Version::try_from("6.0.4").unwrap(), // Serial API Version: 5
-        (3, 4) => Version::try_from("6.0.3").unwrap(), // Serial API Version: 5
-        (3, 3) => Version::try_from("6.0.2").unwrap(), // Serial API Version: 5
-        (2, 99) => Version::try_from("6.0.1").unwrap(), // Serial API Version: 5
-        (2, 96) => Version::try_from("6.0.0").unwrap(), // Serial API Version: 5
+        (3, 7) => Version::try_from("6.0.5").unwrap(),   // Serial API Version: 5
+        (3, 6) => Version::try_from("6.0.4").unwrap(),   // Serial API Version: 5
+        (3, 4) => Version::try_from("6.0.3").unwrap(),   // Serial API Version: 5
+        (3, 3) => Version::try_from("6.0.2").unwrap(),   // Serial API Version: 5
+        (2, 99) => Version::try_from("6.0.1").unwrap(),  // Serial API Version: 5
+        (2, 96) => Version::try_from("6.0.0").unwrap(),  // Serial API Version: 5
         (3, 28) => Version::try_from("5.3.0").unwrap(),  // Serial API Version: 5
         (2, 78) => Version::try_from("5.2.3").unwrap(),  // Serial API Version: 5
         (2, 64) => Version::try_from("5.2.2").unwrap(),  // Serial API Version: 5
         (2, 51) => Version::try_from("5.2.1").unwrap(),  // Serial API Version: 5
         (2, 48) => Version::try_from("5.2.0").unwrap(),  // Serial API Version: 5
         (2, 36) => Version::try_from("5.1.0").unwrap(),  // Serial API Version: 5
-        (2, 22) => Version::try_from("5.0.1").unwrap(), // Serial API Version: 5
-        (2, 16) => Version::try_from("5.0.0").unwrap(), // Serial API Version: 5
+        (2, 22) => Version::try_from("5.0.1").unwrap(),  // Serial API Version: 5
+        (2, 16) => Version::try_from("5.0.0").unwrap(),  // Serial API Version: 5
         (3, 67) => Version::try_from("4.55.0").unwrap(), // Serial API Version: 5
         (3, 52) => Version::try_from("4.54.2").unwrap(), // Serial API Version: 5
         (3, 42) => Version::try_from("4.54.1").unwrap(), // Serial API Version: 5
