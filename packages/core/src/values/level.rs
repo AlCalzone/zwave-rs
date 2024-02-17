@@ -1,8 +1,7 @@
+use crate::bake::{self, Encoder};
 use crate::munch::{bytes::be_u8, combinators::map_res};
 use crate::prelude::*;
-use crate::prelude::*;
-use bytes::Bytes;
-use cookie_factory as cf;
+use bytes::{Bytes, BytesMut};
 use std::fmt::Display;
 
 pub const LEVEL_MAX: u8 = 99;
@@ -44,13 +43,14 @@ impl Parsable for LevelReport {
     }
 }
 
-impl Serializable for LevelReport {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
-        move |out| match self {
-            Self::Level(level) => be_u8(*level)(out),
-            Self::Unknown => be_u8(LEVEL_UNKNOWN)(out),
-        }
+impl Encoder for LevelReport {
+    fn write(&self, output: &mut BytesMut) {
+        use bake::bytes::be_u8;
+        let val = match self {
+            Self::Level(level) => *level,
+            Self::Unknown => LEVEL_UNKNOWN,
+        };
+        be_u8(val).write(output)
     }
 }
 
@@ -109,14 +109,15 @@ impl Parsable for LevelSet {
     }
 }
 
-impl Serializable for LevelSet {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
-        move |out| match self.to_canonical() {
-            Self::Off => be_u8(0)(out),
-            Self::Level(level) => be_u8(level)(out),
-            Self::On => be_u8(LEVEL_ON)(out),
-        }
+impl Encoder for LevelSet {
+    fn write(&self, output: &mut BytesMut) {
+        use bake::bytes::be_u8;
+        let val = match self.to_canonical() {
+            Self::Off => 0,
+            Self::Level(level) => level,
+            Self::On => LEVEL_ON,
+        };
+        be_u8(val).write(output)
     }
 }
 

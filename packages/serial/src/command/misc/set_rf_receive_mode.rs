@@ -1,7 +1,7 @@
 use crate::prelude::*;
-use bytes::Bytes;
-use cookie_factory as cf;
+use bytes::{Bytes, BytesMut};
 use typed_builder::TypedBuilder;
+use zwave_core::bake::{self, Encoder, EncoderWith};
 use zwave_core::munch::{bytes::be_u8, combinators::map};
 use zwave_core::prelude::*;
 
@@ -44,13 +44,10 @@ impl CommandParsable for SetRfReceiveModeRequest {
     }
 }
 
-impl CommandSerializable for SetRfReceiveModeRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
-        be_u8(if self.enabled { 1 } else { 0 })
+impl EncoderWith<&CommandEncodingContext> for SetRfReceiveModeRequest {
+    fn write(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        use bake::bytes::be_u8;
+        be_u8(if self.enabled { 1 } else { 0 }).write(output);
     }
 }
 
@@ -94,12 +91,9 @@ impl CommandParsable for SetRfReceiveModeResponse {
     }
 }
 
-impl CommandSerializable for SetRfReceiveModeResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |_out| todo!("ERROR: SetRfReceiveModeResponse::serialize() not implemented")
+impl EncoderWith<&CommandEncodingContext> for SetRfReceiveModeResponse {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        todo!("ERROR: SetRfReceiveModeResponse::write() not implemented");
     }
 }
 

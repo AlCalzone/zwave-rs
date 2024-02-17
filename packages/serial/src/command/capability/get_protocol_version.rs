@@ -1,7 +1,7 @@
 use crate::prelude::*;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use hex::ToHex;
-use zwave_core::encoding::encoders::empty;
+use zwave_core::bake::EncoderWith;
 use zwave_core::munch::{
     bytes::{be_u16, be_u8, complete::take},
     combinators::{cond, map, opt},
@@ -44,13 +44,9 @@ impl CommandParsable for GetProtocolVersionRequest {
     }
 }
 
-impl CommandSerializable for GetProtocolVersionRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl EncoderWith<&CommandEncodingContext> for GetProtocolVersionRequest {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
-        empty()
     }
 }
 
@@ -87,12 +83,10 @@ impl CommandBase for GetProtocolVersionResponse {}
 impl CommandParsable for GetProtocolVersionResponse {
     fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
         let protocol_type = ProtocolType::parse(i)?;
-        let version = map((be_u8, be_u8, be_u8), |(major, minor, patch)| {
-            Version {
-                major,
-                minor,
-                patch: Some(patch),
-            }
+        let version = map((be_u8, be_u8, be_u8), |(major, minor, patch)| Version {
+            major,
+            minor,
+            patch: Some(patch),
         })
         .parse(i)?;
         let app_framework_build_number = opt(be_u16).parse(i)?;
@@ -120,12 +114,9 @@ impl CommandParsable for GetProtocolVersionResponse {
     }
 }
 
-impl CommandSerializable for GetProtocolVersionResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |_out| todo!()
+impl EncoderWith<&CommandEncodingContext> for GetProtocolVersionResponse {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        todo!("ERROR: GetProtocolVersionResponse::write() not implemented")
     }
 }
 

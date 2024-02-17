@@ -1,7 +1,6 @@
 use crate::{command::CommandId, prelude::*};
-use bytes::Bytes;
-use cookie_factory as cf;
-use zwave_core::encoding::encoders::empty;
+use bytes::{Bytes, BytesMut};
+use zwave_core::bake::{self, Encoder, EncoderWith};
 use zwave_core::munch::{
     bytes::complete::{literal, take_while1},
     combinators::map,
@@ -44,13 +43,9 @@ impl CommandParsable for GetControllerVersionRequest {
     }
 }
 
-impl CommandSerializable for GetControllerVersionRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl EncoderWith<&CommandEncodingContext> for GetControllerVersionRequest {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
-        empty()
     }
 }
 
@@ -98,17 +93,17 @@ impl CommandParsable for GetControllerVersionResponse {
     }
 }
 
-impl CommandSerializable for GetControllerVersionResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, combinator::string, sequence::tuple};
+impl EncoderWith<&CommandEncodingContext> for GetControllerVersionResponse {
+    fn write(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        use bake::bytes::{be_u8, slice};
+        use bake::sequence::tuple;
+
         tuple((
-            string(&self.library_version),
+            slice(self.library_version.as_bytes()),
             be_u8(0),
-            self.library_type.serialize(),
+            self.library_type,
         ))
+        .write(output);
     }
 }
 

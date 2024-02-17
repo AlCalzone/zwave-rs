@@ -3,8 +3,8 @@ use crate::munch::{
     combinators::{context, map_res},
 };
 use crate::prelude::*;
-use bytes::Bytes;
-use cookie_factory as cf;
+use bytes::{BytesMut, Bytes};
+use crate::bake::{self, Encoder};
 use proc_macros::TryFromRepr;
 use std::fmt::Display;
 
@@ -54,8 +54,9 @@ impl Parsable for RfRegion {
     }
 }
 
-impl Serializable for RfRegion {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        cf::bytes::be_u8(*self as u8)
+impl Encoder for RfRegion {
+    fn write(&self, output: &mut BytesMut) {
+        use bake::bytes::be_u8;
+        be_u8(*self as u8).write(output)
     }
 }

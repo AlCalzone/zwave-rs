@@ -9,7 +9,6 @@ edition.workspace = true
 [dependencies]
 bitvec.workspace = true
 bytes.workspace = true
-cookie-factory.workspace = true
 crc16.workspace = true
 custom_debug_derive.workspace = true
 enum-iterator.workspace = true

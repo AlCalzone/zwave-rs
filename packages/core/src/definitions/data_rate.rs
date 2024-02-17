@@ -1,4 +1,4 @@
-use crate::encoding;
+use crate::bake::Encoder;
 use crate::encoding::WriteLastNBits;
 use crate::munch::{
     bits,
@@ -6,8 +6,8 @@ use crate::munch::{
     combinators::{context, map_res},
 };
 use crate::prelude::*;
-use bytes::Bytes;
-use cookie_factory as cf;
+use crate::{bake, encoding};
+use bytes::{Bytes, BytesMut};
 use proc_macros::TryFromRepr;
 use std::fmt::Display;
 
@@ -100,8 +100,9 @@ impl Parsable for DataRate {
     }
 }
 
-impl Serializable for DataRate {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        cf::bytes::be_u8(*self as u8)
+impl Encoder for DataRate {
+    fn write(&self, output: &mut BytesMut) {
+        use bake::bytes::be_u8;
+        be_u8(*self as u8).write(output)
     }
 }

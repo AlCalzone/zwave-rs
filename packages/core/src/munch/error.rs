@@ -1,7 +1,7 @@
 use crate::encoding::TryFromReprError;
 use std::{
     borrow::Cow,
-    fmt::{Debug, Display, Error},
+    fmt::{Debug, Display},
 };
 use thiserror::Error;
 

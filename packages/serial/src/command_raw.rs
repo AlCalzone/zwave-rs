@@ -35,26 +35,6 @@ fn test_checksum() {
     assert_eq!(compute_checksum(&input), expected);
 }
 
-impl CommandRaw {
-    fn serialize_no_checksum(&self) -> impl Encoder + '_ {
-        use bake::bytes::{be_u8, slice};
-
-        let sof = be_u8(SerialControlByte::SOF as u8);
-        let len = be_u8(self.payload.len() as u8 + 3);
-        let payload = slice(self.payload.clone());
-        let checksum = be_u8(0); // placeholder
-
-        (
-            sof,
-            len,
-            self.command_type,
-            self.function_type,
-            payload,
-            checksum,
-        )
-    }
-}
-
 impl Parsable for CommandRaw {
     fn parse(i: &mut Bytes) -> MunchResult<Self> {
         // Extract the length, while ensuring that the buffer...
@@ -94,6 +74,29 @@ impl Parsable for CommandRaw {
             payload,
             checksum,
         })
+    }
+}
+
+impl CommandRaw {
+    fn serialize_no_checksum(&self) -> impl Encoder + '_ {
+        use bake::{
+            bytes::{be_u8, slice},
+            sequence::tuple,
+        };
+
+        let sof = be_u8(SerialControlByte::SOF as u8);
+        let len = be_u8(self.payload.len() as u8 + 3);
+        let payload = slice(&self.payload);
+        let checksum = be_u8(0); // placeholder
+
+        tuple((
+            sof,
+            len,
+            self.command_type,
+            self.function_type,
+            payload,
+            checksum,
+        ))
     }
 }
 

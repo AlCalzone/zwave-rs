@@ -1,16 +1,17 @@
 use crate::prelude::*;
 use crate::values::*;
-use bytes::Bytes;
-use cookie_factory as cf;
+use bytes::{Bytes, BytesMut};
 use proc_macros::{CCValues, TryFromRepr};
 use typed_builder::TypedBuilder;
-use zwave_core::encoding::encoders::empty;
+use zwave_core::bake::Encoder;
 use zwave_core::munch::combinators::{map, opt};
 use zwave_core::prelude::*;
 use zwave_core::{
     cache::CacheValue,
     value_id::{ValueId, ValueIdProperties},
 };
+
+use super::CCEncoder;
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)]
@@ -111,9 +112,9 @@ impl CCParsable for BasicCCSet {
     }
 }
 
-impl CCSerializable for BasicCCSet {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        self.target_value.serialize()
+impl CCEncoder for BasicCCSet {
+    fn write(&self, output: &mut BytesMut) {
+        self.target_value.write(output)
     }
 }
 
@@ -147,9 +148,9 @@ impl CCParsable for BasicCCGet {
     }
 }
 
-impl CCSerializable for BasicCCGet {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        empty()
+impl CCEncoder for BasicCCGet {
+    fn write(&self, _output: &mut BytesMut) {
+        // No payload
     }
 }
 
@@ -191,22 +192,14 @@ impl CCParsable for BasicCCReport {
     }
 }
 
-impl CCSerializable for BasicCCReport {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        use cf::sequence::tuple;
+impl CCEncoder for BasicCCReport {
+    fn write(&self, output: &mut BytesMut) {
+        self.current_value.write(output);
 
-        let serialize_target_and_duration = move |out| match self.target_value {
-            Some(target_value) => tuple((
-                target_value.serialize(),
-                self.duration.unwrap_or_default().serialize(),
-            ))(out),
-            None => empty()(out),
-        };
-
-        tuple((
-            self.current_value.serialize(),
-            serialize_target_and_duration,
-        ))
+        if let Some(ref target_value) = self.target_value {
+            target_value.write(output);
+            self.duration.unwrap_or_default().write(output);
+        }
     }
 }
 

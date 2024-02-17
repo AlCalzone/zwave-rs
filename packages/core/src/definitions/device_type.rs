@@ -1,8 +1,7 @@
+use crate::bake::{self, Encoder};
 use crate::munch::{bytes::be_u8, combinators::map_res};
-use bytes::Bytes;
-use crate::{encoding, prelude::*};
-use cookie_factory as cf;
-use encoding::Serializable;
+use bytes::{Bytes, BytesMut};
+use crate::prelude::*;
 use proc_macros::TryFromRepr;
 use std::fmt::Display;
 
@@ -32,9 +31,9 @@ impl Parsable for BasicDeviceType {
     }
 }
 
-impl Serializable for BasicDeviceType {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
-        be_u8((*self) as u8)
+impl Encoder for BasicDeviceType {
+    fn write(&self, output: &mut BytesMut) {
+        use bake::bytes::be_u8;
+        be_u8(*self as u8).write(output)
     }
 }

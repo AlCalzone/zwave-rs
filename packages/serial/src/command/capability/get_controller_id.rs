@@ -1,8 +1,7 @@
 use crate::prelude::*;
-use bytes::Bytes;
-use cookie_factory as cf;
+use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
-use zwave_core::encoding::encoders::empty;
+use zwave_core::bake::{self, Encoder, EncoderWith};
 use zwave_core::munch::bytes::be_u32;
 use zwave_core::prelude::*;
 
@@ -42,13 +41,9 @@ impl CommandParsable for GetControllerIdRequest {
     }
 }
 
-impl CommandSerializable for GetControllerIdRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl EncoderWith<&CommandEncodingContext> for GetControllerIdRequest {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
-        empty()
     }
 }
 
@@ -93,16 +88,11 @@ impl CommandParsable for GetControllerIdResponse {
     }
 }
 
-impl CommandSerializable for GetControllerIdResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u32, sequence::tuple};
-        tuple((
-            be_u32(self.home_id),
-            self.own_node_id.serialize(ctx.node_id_type),
-        ))
+impl EncoderWith<&CommandEncodingContext> for GetControllerIdResponse {
+    fn write(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
+        use bake::bytes::be_u32;
+        be_u32(self.home_id).write(output);
+        self.own_node_id.write(output, ctx.node_id_type);
     }
 }
 

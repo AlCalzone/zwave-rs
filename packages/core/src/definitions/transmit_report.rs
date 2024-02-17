@@ -1,14 +1,14 @@
+use crate::bake::Encoder;
+use crate::prelude::*;
 use crate::{
-    encoding::{BitParsable, Serializable},
+    encoding::BitParsable,
     munch::{
         bits::bits,
         bytes::{be_i8, be_u16, be_u8},
         combinators::{cond, map, opt, repeat},
     },
-    prelude::*,
 };
-use bytes::Bytes;
-use cookie_factory as cf;
+use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
 use std::fmt::Display;
 use ux::{u1, u2};
@@ -185,10 +185,9 @@ impl TransmitReport {
     }
 }
 
-impl Serializable for TransmitReport {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        // use cf::{bytes::be_u8, sequence::tuple};
-        move |_out| todo!("ERROR: TransmitReport::serialize() not implemented")
+impl Encoder for TransmitReport {
+    fn write(&self, _output: &mut BytesMut) {
+        todo!("ERROR: TransmitReport::write() not implemented")
     }
 }
 

@@ -6,7 +6,7 @@ use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
 use tokio_serial::{SerialPortBuilderExt, SerialStream};
 use tokio_util::codec::{Decoder, Encoder, Framed};
-use zwave_core::encoding;
+
 use zwave_core::munch::{Needed, ParseError};
 use zwave_core::prelude::*;
 

@@ -1,12 +1,12 @@
 use crate::prelude::*;
 use crate::values::*;
 use bytes::Bytes;
-use cookie_factory as cf;
 use proc_macros::{CCValues, TryFromRepr};
 use std::borrow::Cow;
 use typed_builder::TypedBuilder;
+use zwave_core::bake::{self, Encoder};
 use zwave_core::cache::CacheValue;
-use zwave_core::encoding::{encoders::empty, parsers};
+use zwave_core::encoding::parsers;
 use zwave_core::munch::{
     bytes::{be_u16, be_u8},
     combinators::{map, map_repeat, opt},
@@ -14,6 +14,8 @@ use zwave_core::munch::{
 use zwave_core::prelude::*;
 use zwave_core::util::ToDiscriminant;
 use zwave_core::value_id::{ValueId, ValueIdProperties};
+
+use super::CCEncoder;
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)] // must match the ToDiscriminant impl
@@ -297,9 +299,9 @@ impl CCParsable for VersionCCGet {
     }
 }
 
-impl CCSerializable for VersionCCGet {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        empty()
+impl CCEncoder for VersionCCGet {
+    fn write(&self, _output: &mut bytes::BytesMut) {
+        // No payload
     }
 }
 
@@ -384,10 +386,9 @@ impl CCParsable for VersionCCReport {
     }
 }
 
-impl CCSerializable for VersionCCReport {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        // use cf::{bytes::be_u8, sequence::tuple};
-        move |_out| todo!("ERROR: VersionCCReport::serialize() not implemented")
+impl CCEncoder for VersionCCReport {
+    fn write(&self, _output: &mut bytes::BytesMut) {
+        todo!("ERROR: VersionCCReport::serialize() not implemented")
     }
 }
 
@@ -430,9 +431,9 @@ impl CCParsable for VersionCCCommandClassGet {
     }
 }
 
-impl CCSerializable for VersionCCCommandClassGet {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        self.requested_cc.serialize()
+impl CCEncoder for VersionCCCommandClassGet {
+    fn write(&self, output: &mut bytes::BytesMut) {
+        self.requested_cc.write(output);
     }
 }
 
@@ -466,11 +467,11 @@ impl CCParsable for VersionCCCommandClassReport {
     }
 }
 
-impl CCSerializable for VersionCCCommandClassReport {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, sequence::tuple};
-
-        tuple((self.requested_cc.serialize(), be_u8(self.version)))
+impl CCEncoder for VersionCCCommandClassReport {
+    fn write(&self, output: &mut bytes::BytesMut) {
+        use bake::bytes::be_u8;
+        self.requested_cc.write(output);
+        be_u8(self.version).write(output);
     }
 }
 
@@ -504,9 +505,9 @@ impl CCParsable for VersionCCCapabilitiesGet {
     }
 }
 
-impl CCSerializable for VersionCCCapabilitiesGet {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        empty()
+impl CCEncoder for VersionCCCapabilitiesGet {
+    fn write(&self, _output: &mut bytes::BytesMut) {
+        // No payload
     }
 }
 
@@ -539,15 +540,15 @@ impl CCParsable for VersionCCCapabilitiesReport {
     }
 }
 
-impl CCSerializable for VersionCCCapabilitiesReport {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
+impl CCEncoder for VersionCCCapabilitiesReport {
+    fn write(&self, output: &mut bytes::BytesMut) {
+        use bake::bytes::be_u8;
         let capabilities = if self.supports_zwave_software_get {
             0b100
         } else {
             0
         };
-        be_u8(capabilities)
+        be_u8(capabilities).write(output);
     }
 }
 
@@ -581,9 +582,9 @@ impl CCParsable for VersionCCZWaveSoftwareGet {
     }
 }
 
-impl CCSerializable for VersionCCZWaveSoftwareGet {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        empty()
+impl CCEncoder for VersionCCZWaveSoftwareGet {
+    fn write(&self, _output: &mut bytes::BytesMut) {
+        // No payload
     }
 }
 
@@ -697,8 +698,8 @@ impl CCParsable for VersionCCZWaveSoftwareReport {
     }
 }
 
-impl CCSerializable for VersionCCZWaveSoftwareReport {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        move |_out| todo!("ERROR: VersionCCZWaveSoftwareReport::serialize() not implemented")
+impl CCEncoder for VersionCCZWaveSoftwareReport {
+    fn write(&self, _output: &mut bytes::BytesMut) {
+        todo!("ERROR: VersionCCZWaveSoftwareReport::serialize() not implemented")
     }
 }

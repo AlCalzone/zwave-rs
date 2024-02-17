@@ -1,14 +1,17 @@
 use crate::prelude::*;
 use crate::values::*;
 use bytes::Bytes;
-use cookie_factory as cf;
+use bytes::BytesMut;
 use proc_macros::{CCValues, TryFromRepr};
 use typed_builder::TypedBuilder;
+use zwave_core::bake;
+use zwave_core::bake::Encoder;
 use zwave_core::cache::CacheValue;
-use zwave_core::encoding::encoders::empty;
 use zwave_core::munch::combinators::{map, opt};
 use zwave_core::prelude::*;
 use zwave_core::value_id::{ValueId, ValueIdProperties};
+
+use super::CCEncoder;
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)]
@@ -109,10 +112,10 @@ impl CCParsable for BinarySwitchCCSet {
     }
 }
 
-impl CCSerializable for BinarySwitchCCSet {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        use cf::sequence::tuple;
-        tuple((self.target_value.serialize(), self.duration.serialize()))
+impl CCEncoder for BinarySwitchCCSet {
+    fn write(&self, output: &mut bytes::BytesMut) {
+        use bake::sequence::tuple;
+        tuple((self.target_value, self.duration)).write(output)
     }
 }
 
@@ -146,9 +149,9 @@ impl CCParsable for BinarySwitchCCGet {
     }
 }
 
-impl CCSerializable for BinarySwitchCCGet {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        empty()
+impl CCEncoder for BinarySwitchCCGet {
+    fn write(&self, _output: &mut BytesMut) {
+        // No payload
     }
 }
 
@@ -191,21 +194,13 @@ impl CCParsable for BinarySwitchCCReport {
     }
 }
 
-impl CCSerializable for BinarySwitchCCReport {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        use cf::sequence::tuple;
+impl CCEncoder for BinarySwitchCCReport {
+    fn write(&self, output: &mut bytes::BytesMut) {
+        self.current_value.write(output);
 
-        let serialize_target_and_duration = move |out| match self.target_value {
-            Some(target_value) => tuple((
-                target_value.serialize(),
-                self.duration.unwrap_or_default().serialize(),
-            ))(out),
-            None => empty()(out),
-        };
-
-        tuple((
-            self.current_value.serialize(),
-            serialize_target_and_duration,
-        ))
+        if let Some(target_value) = self.target_value {
+            target_value.write(output);
+            self.duration.unwrap_or_default().write(output);
+        }
     }
 }

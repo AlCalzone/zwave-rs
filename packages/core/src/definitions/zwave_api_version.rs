@@ -1,10 +1,10 @@
+use crate::bake::{self, Encoder};
 use crate::munch::{
     bytes::be_u8,
-    combinators::{context, map, map_res},
+    combinators::{context, map},
 };
 use crate::prelude::*;
-use bytes::Bytes;
-use cookie_factory as cf;
+use bytes::{Bytes, BytesMut};
 use std::fmt::{self, Display};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,8 +47,9 @@ impl Parsable for ZWaveApiVersion {
     }
 }
 
-impl Serializable for ZWaveApiVersion {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        cf::bytes::be_u8((*self).into())
+impl Encoder for ZWaveApiVersion {
+    fn write(&self, output: &mut BytesMut) {
+        use bake::bytes::be_u8;
+        be_u8((*self).into()).write(output)
     }
 }

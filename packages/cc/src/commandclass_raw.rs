@@ -1,7 +1,6 @@
-use bytes::Bytes;
-use cookie_factory as cf;
+use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
-use zwave_core::encoding::{encoders::empty, Serializable};
+use zwave_core::bake::{self, Encoder};
 use zwave_core::munch::{
     bytes::{be_u8, rest},
     combinators::map,
@@ -35,16 +34,20 @@ impl Parsable for CCRaw {
     }
 }
 
-impl Serializable for CCRaw {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, combinator::slice, sequence::tuple};
+impl Encoder for CCRaw {
+    fn write(&self, output: &mut bytes::BytesMut) {
+        use bake::{
+            bytes::{be_u8, empty, slice},
+            sequence::tuple,
+        };
         tuple((
-            self.cc_id.serialize(),
-            move |out| match self.cc_command {
-                Some(cc_command) => be_u8(cc_command)(out),
-                None => empty()(out),
+            self.cc_id,
+            move |out: &mut BytesMut| match self.cc_command {
+                Some(cc_command) => be_u8(cc_command).write(out),
+                None => empty(out),
             },
             slice(&self.payload),
         ))
+        .write(output)
     }
 }

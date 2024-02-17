@@ -15,11 +15,12 @@ pub(crate) struct CommandInfoExtractor<'ast> {
 
 impl<'ast> Visit<'ast> for CommandInfoExtractor<'ast> {
     fn visit_item_impl(&mut self, i: &'ast syn::ItemImpl) {
-        if i.trait_.is_none() {
+        let Some((_, trait_path, _)) = i.trait_.as_ref() else {
             return;
-        }
-        let (_, trait_path, _) = &i.trait_.as_ref().unwrap();
-        let trait_name = trait_path.get_ident().unwrap();
+        };
+        let Some(trait_name) = trait_path.get_ident() else {
+            return;
+        };
         if trait_name != "CommandId" {
             return;
         }

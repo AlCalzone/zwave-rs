@@ -1,6 +1,7 @@
 use crate::prelude::*;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use std::borrow::Cow;
+use zwave_core::bake::EncoderWith;
 use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -41,12 +42,9 @@ impl CommandParsable for GetNodeProtocolInfoRequest {
     }
 }
 
-impl CommandSerializable for GetNodeProtocolInfoRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        self.node_id.serialize(ctx.node_id_type)
+impl EncoderWith<&CommandEncodingContext> for GetNodeProtocolInfoRequest {
+    fn write(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
+        self.node_id.write(output, ctx.node_id_type)
     }
 }
 
@@ -86,12 +84,9 @@ impl CommandParsable for GetNodeProtocolInfoResponse {
     }
 }
 
-impl CommandSerializable for GetNodeProtocolInfoResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |_out| todo!("ERROR: GetNodeProtocolInfoResponse::serialize() not implemented")
+impl EncoderWith<&CommandEncodingContext> for GetNodeProtocolInfoResponse {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        todo!("ERROR: GetNodeProtocolInfoResponse::write() not implemented")
     }
 }
 

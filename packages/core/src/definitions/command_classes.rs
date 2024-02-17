@@ -1,9 +1,8 @@
 use crate::{
-    munch::{
+    bake::{self, Encoder}, munch::{
         bytes::{be_u16, be_u8},
         combinators::{map_res, peek},
-    },
-    prelude::*,
+    }, prelude::*
 };
 use enum_iterator::Sequence;
 use proc_macros::TryFromRepr;
@@ -484,15 +483,13 @@ impl Parsable for CommandClasses {
     }
 }
 
-impl Serializable for CommandClasses {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cookie_factory::bytes::{be_u16, be_u8};
-        move |out| {
-            if self.is_extended_cc() {
-                be_u16(*self as u16)(out)
-            } else {
-                be_u8(*self as u8)(out)
-            }
+impl Encoder for CommandClasses {
+    fn write(&self, output: &mut bytes::BytesMut) {
+        use bake::bytes::{be_u16, be_u8};
+        if self.is_extended_cc() {
+            be_u16(*self as u16).write(output);
+        } else {
+            be_u8(*self as u8).write(output);
         }
     }
 }

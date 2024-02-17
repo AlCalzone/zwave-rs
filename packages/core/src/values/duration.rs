@@ -1,7 +1,7 @@
+use crate::bake::{self, Encoder};
 use crate::munch::{bytes::be_u8, combinators::map_res};
 use crate::prelude::*;
-use bytes::Bytes;
-use cookie_factory as cf;
+use bytes::{Bytes, BytesMut};
 use num_traits::clamp;
 
 const MINUTES_MASK: u8 = 0b1000_0000;
@@ -33,10 +33,10 @@ impl Parsable for DurationSet {
     }
 }
 
-impl Serializable for DurationSet {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
-        be_u8(u8::from(*self))
+impl Encoder for DurationSet {
+    fn write(&self, output: &mut BytesMut) {
+        use bake::bytes::be_u8;
+        be_u8((*self).into()).write(output)
     }
 }
 
@@ -103,10 +103,10 @@ impl Parsable for DurationReport {
     }
 }
 
-impl Serializable for DurationReport {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
-        be_u8(u8::from(*self))
+impl Encoder for DurationReport {
+    fn write(&self, output: &mut BytesMut) {
+        use bake::bytes::be_u8;
+        be_u8((*self).into()).write(output)
     }
 }
 

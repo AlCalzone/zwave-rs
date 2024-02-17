@@ -1,8 +1,8 @@
 use crate::prelude::*;
-use bytes::Bytes;
-use cookie_factory as cf;
+use bytes::{Bytes, BytesMut};
 use typed_builder::TypedBuilder;
 use zwave_cc::prelude::*;
+use zwave_core::bake::{self, Encoder, EncoderWith};
 use zwave_core::munch::{
     bytes::be_u8,
     combinators::{map, map_res},
@@ -79,30 +79,21 @@ impl CommandParsable for SendDataRequest {
     }
 }
 
-impl CommandSerializable for SendDataRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, combinator::slice, sequence::tuple};
-        move |out| {
-            // TODO: Figure out if we should handle serialization errors elsewhere
-            // let error_msg = format!("Serializing command {:?} should not fail", &self.command);
+impl EncoderWith<&CommandEncodingContext> for SendDataRequest {
+    fn write(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
+        use bake::{bytes::be_u8, bytes::slice};
 
-            let command = self.command.clone();
-            let payload = command
-                .try_into_raw()
-                .and_then(|raw| raw.try_to_vec())
-                .expect("Serializing a CC should not fail");
+        // TODO: Figure out if we should handle serialization errors elsewhere
+        // let error_msg = format!("Serializing command {:?} should not fail", &self.command);
 
-            tuple((
-                self.node_id.serialize(ctx.node_id_type),
-                be_u8(payload.len() as u8),
-                slice(payload),
-                self.transmit_options.serialize(),
-                be_u8(self.callback_id.unwrap_or(0)),
-            ))(out)
-        }
+        let command = self.command.clone();
+        let payload = command.as_raw().as_bytes();
+
+        self.node_id.write(output, ctx.node_id_type);
+        be_u8(payload.len() as u8).write(output);
+        slice(&payload).write(output);
+        self.transmit_options.write(output);
+        be_u8(self.callback_id.unwrap_or(0)).write(output);
     }
 }
 
@@ -151,13 +142,10 @@ impl CommandParsable for SendDataResponse {
     }
 }
 
-impl CommandSerializable for SendDataResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
-        be_u8(if self.was_sent { 0x01 } else { 0x00 })
+impl EncoderWith<&CommandEncodingContext> for SendDataResponse {
+    fn write(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        use bake::bytes::be_u8;
+        be_u8(if self.was_sent { 0x01 } else { 0x00 }).write(output);
     }
 }
 
@@ -214,12 +202,9 @@ impl CommandParsable for SendDataCallback {
     }
 }
 
-impl CommandSerializable for SendDataCallback {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |_out| todo!()
+impl EncoderWith<&CommandEncodingContext> for SendDataCallback {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        todo!("ERROR: SendDataCallback::write() not implemented")
     }
 }
 

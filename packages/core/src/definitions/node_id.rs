@@ -1,8 +1,8 @@
 use crate::{
+    bake::{self, Encoder, EncoderWith},
     munch::bytes::{be_u16, be_u8},
     prelude::*,
 };
-use cookie_factory as cf;
 use std::fmt::{Debug, Display};
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -88,15 +88,18 @@ impl NodeId {
             }
         }
     }
+}
 
-    pub fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        node_id_type: NodeIdType,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::bytes::{be_u16, be_u8};
-        move |out| match node_id_type {
-            NodeIdType::NodeId8Bit => be_u8(self.0 as u8)(out),
-            NodeIdType::NodeId16Bit => be_u16(self.0)(out),
+impl EncoderWith<NodeIdType> for NodeId {
+    fn write(&self, output: &mut bytes::BytesMut, node_id_type: NodeIdType) {
+        use bake::bytes::{be_u16, be_u8};
+        match node_id_type {
+            NodeIdType::NodeId8Bit => {
+                be_u8(self.0 as u8).write(output);
+            }
+            NodeIdType::NodeId16Bit => {
+                be_u16(self.0).write(output);
+            }
         }
     }
 }

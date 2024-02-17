@@ -1,13 +1,14 @@
 use crate::prelude::*;
 use crate::values::*;
 use bytes::Bytes;
-use cookie_factory as cf;
+use bytes::BytesMut;
 use proc_macros::{CCValues, TryFromRepr};
 use std::fmt::Display;
 use typed_builder::TypedBuilder;
 use ux::{u3, u5};
+use zwave_core::bake;
+use zwave_core::bake::Encoder;
 use zwave_core::cache::CacheValue;
-use zwave_core::encoding::encoders::{self, empty};
 use zwave_core::munch::{
     bits,
     bytes::{be_u16, complete::take},
@@ -182,9 +183,9 @@ impl CCParsable for ManufacturerSpecificCCGet {
     }
 }
 
-impl CCSerializable for ManufacturerSpecificCCGet {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        empty()
+impl CCEncoder for ManufacturerSpecificCCGet {
+    fn write(&self, _output: &mut BytesMut) {
+        // No payload
     }
 }
 
@@ -224,14 +225,15 @@ impl CCParsable for ManufacturerSpecificCCReport {
     }
 }
 
-impl CCSerializable for ManufacturerSpecificCCReport {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u16, sequence::tuple};
+impl CCEncoder for ManufacturerSpecificCCReport {
+    fn write(&self, output: &mut BytesMut) {
+        use bake::{bytes::be_u16, sequence::tuple};
         tuple((
             be_u16(self.manufacturer_id),
             be_u16(self.product_type),
             be_u16(self.product_id),
         ))
+        .write(output)
     }
 }
 
@@ -280,12 +282,14 @@ impl CCParsable for ManufacturerSpecificCCDeviceSpecificGet {
     }
 }
 
-impl CCSerializable for ManufacturerSpecificCCDeviceSpecificGet {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        encoders::bits(move |bo| {
+impl CCEncoder for ManufacturerSpecificCCDeviceSpecificGet {
+    fn write(&self, output: &mut BytesMut) {
+        use bake::bits::bits;
+        bits(move |bo| {
             u5::new(0).write(bo);
             u3::new(((self.device_id_type) as u8) & 0b0000_0111).write(bo);
         })
+        .write(output)
     }
 }
 
@@ -336,11 +340,8 @@ impl CCParsable for ManufacturerSpecificCCDeviceSpecificReport {
     }
 }
 
-impl CCSerializable for ManufacturerSpecificCCDeviceSpecificReport {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        // use cf::{bytes::be_u8, sequence::tuple};
-        move |_out| {
-            todo!("ERROR: ManufacturerSpecificCCDeviceSpecificReport::serialize() not implemented")
-        }
+impl CCEncoder for ManufacturerSpecificCCDeviceSpecificReport {
+    fn write(&self, _output: &mut BytesMut) {
+        todo!("ERROR: ManufacturerSpecificCCDeviceSpecificReport::write() not implemented")
     }
 }

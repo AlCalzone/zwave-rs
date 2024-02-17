@@ -1,5 +1,6 @@
 use crate::prelude::*;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
+use zwave_core::bake::EncoderWith;
 use custom_debug_derive::Debug;
 use zwave_cc::prelude::*;
 use zwave_core::munch::{
@@ -70,12 +71,9 @@ impl CommandParsable for ApplicationCommandRequest {
     }
 }
 
-impl CommandSerializable for ApplicationCommandRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |_out| todo!("ERROR: ApplicationCommandRequest::serialize() not implemented")
+impl EncoderWith<&CommandEncodingContext> for ApplicationCommandRequest {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        todo!("ERROR: ApplicationCommandRequest::write() not implemented");
     }
 }
 

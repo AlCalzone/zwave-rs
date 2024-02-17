@@ -1,7 +1,8 @@
 use crate::prelude::*;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
 use zwave_cc::prelude::*;
+use zwave_core::bake::EncoderWith;
 use zwave_core::encoding::parsers::variable_length_bitmask_u8;
 use zwave_core::munch::{
     bytes::be_u8,
@@ -76,12 +77,9 @@ impl CommandParsable for BridgeApplicationCommandRequest {
     }
 }
 
-impl CommandSerializable for BridgeApplicationCommandRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |_out| todo!("ERROR: BridgeApplicationCommandRequest::serialize() not implemented")
+impl EncoderWith<&CommandEncodingContext> for BridgeApplicationCommandRequest {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        todo!("ERROR: BridgeApplicationCommandRequest::write() not implemented");
     }
 }
 

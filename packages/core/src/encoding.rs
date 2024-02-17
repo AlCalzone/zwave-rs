@@ -3,7 +3,6 @@
 use crate::munch::{self, Parser};
 use bitvec::prelude::*;
 use bytes::Bytes;
-use cookie_factory::GenError;
 use custom_debug_derive::Debug;
 use std::borrow::Cow;
 use thiserror::Error;
@@ -45,17 +44,6 @@ where
     Self: Sized,
 {
     fn parse(i: &mut (Bytes, usize)) -> crate::munch::ParseResult<Self>;
-}
-
-pub trait Serializable
-where
-    Self: Sized,
-{
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a;
-
-    fn try_to_vec(&self) -> Result<Vec<u8>, EncodingError> {
-        cookie_factory::gen_simple(self.serialize(), Vec::new()).into_encoding_result()
-    }
 }
 
 pub trait BitSerializable {
@@ -112,82 +100,19 @@ impl BitSerializable for bool {
     }
 }
 
-impl<T> Serializable for Option<T>
-where
-    T: Serializable,
-{
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |out| match self {
-            Some(v) => v.serialize()(out),
-            None => crate::encoding::encoders::empty()(out),
-        }
-    }
-}
-
-/// A simple result type concerning conversion from and to binary data
-pub type EncodingResult<T> = std::result::Result<T, EncodingError>;
-
-#[derive(Error, Debug)]
-/// A simple error type concerning conversion from/to binary data
-pub enum EncodingError {
-    #[error("Serialization error: {0:?}")]
-    Serialize(String),
-    #[error("Not implemented: {0:?}")]
-    NotImplemented(&'static str),
-}
-
-/// Provides a way to convert custom results into this library's result type
-/// without breaking the orphan rule
-pub trait IntoEncodingResult {
-    type Output;
-    fn into_encoding_result(self) -> EncodingResult<Self::Output>;
-}
-
-impl From<GenError> for EncodingError {
-    fn from(e: GenError) -> Self {
-        EncodingError::Serialize(format!("{:?}", e))
-    }
-}
-
-impl<T> IntoEncodingResult for std::result::Result<T, GenError> {
-    type Output = T;
-
-    fn into_encoding_result(self) -> EncodingResult<Self::Output> {
-        self.map_err(EncodingError::from)
-    }
-}
-
 pub mod encoders {
-    use super::BitOutput;
+    use crate::bake::{
+        bytes::{be_u8, slice},
+        sequence::tuple,
+        Encoder,
+    };
     use bitvec::prelude::*;
-    use cookie_factory as cf;
-    use std::io;
-
-    pub fn bits<W, F>(f: F) -> impl cf::SerializeFn<W>
-    where
-        W: io::Write,
-        F: Fn(&mut BitOutput),
-    {
-        move |mut out: cf::WriteContext<W>| {
-            let mut bo = BitOutput::new();
-            f(&mut bo);
-
-            io::Write::write(&mut out, bo.as_raw_slice())?;
-            Ok(out)
-        }
-    }
-    /// A SerializeFn that does nothing
-    pub fn empty<W: std::io::Write>() -> impl cookie_factory::SerializeFn<W> {
-        move |out: cookie_factory::WriteContext<W>| Ok(out)
-    }
+    use bytes::BytesMut;
 
     /// Encodes a `Vec<u8>` as bitmask_length + bitmask where the least significant bit is mapped to `bit0_value`.
-    pub fn bitmask_u8<'a, W: std::io::Write + 'a>(
-        values: &'a [u8],
-        bit0_value: u8,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |out| match values.len() {
-            0 => cf::bytes::be_u8(0u8)(out),
+    pub fn bitmask_u8(values: &[u8], bit0_value: u8) -> impl Encoder + '_ {
+        move |output: &mut BytesMut| match values.len() {
+            0 => be_u8(0u8).write(output),
             _ => {
                 let indizes = values
                     .iter()
@@ -198,12 +123,9 @@ pub mod encoders {
 
                 let mut bitvec = BitVec::<_, Lsb0>::new();
                 bitvec.resize_with(bit_len, |idx| indizes.contains(&idx));
-                let raw = bitvec.as_raw_slice().to_owned();
+                let raw = bitvec.as_raw_slice();
 
-                cf::sequence::tuple((
-                    cf::bytes::be_u8(raw.len() as u8),
-                    cf::combinator::slice(raw),
-                ))(out)
+                tuple((be_u8(raw.len() as u8), slice(raw))).write(output);
             }
         }
     }

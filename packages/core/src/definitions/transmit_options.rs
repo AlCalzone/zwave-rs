@@ -1,8 +1,7 @@
-use crate::encoding::encoders;
-use crate::munch::bits::{bits, bool};
+use crate::bake::{self, Encoder};
+use crate::munch::{self, bits::bool};
 use crate::prelude::*;
-use bytes::Bytes;
-use cookie_factory as cf;
+use bytes::{Bytes, BytesMut};
 use std::fmt::Display;
 use ux::{u1, u2};
 
@@ -97,6 +96,7 @@ impl TransmitOptions {
 
 impl Parsable for TransmitOptions {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+        use munch::bits::bits;
         let (_reserved76, explore, no_route, _reserved3, auto_route, _reserved1, ack) =
             bits((u2::parse, bool, bool, u1::parse, bool, u1::parse, bool)).parse(i)?;
 
@@ -108,22 +108,22 @@ impl Parsable for TransmitOptions {
     }
 }
 
-impl Serializable for TransmitOptions {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        move |out| {
-            encoders::bits(move |bo| {
-                let reserved76 = u2::new(0);
-                let reserved3 = u1::new(0);
-                let reserved1 = u1::new(0);
-                reserved76.write(bo);
-                self.explore.write(bo);
-                self.no_route.write(bo);
-                reserved3.write(bo);
-                self.auto_route.write(bo);
-                reserved1.write(bo);
-                self.ack.write(bo);
-            })(out)
-        }
+impl Encoder for TransmitOptions {
+    fn write(&self, output: &mut BytesMut) {
+        use bake::bits::bits;
+        bits(move |bo| {
+            let reserved76 = u2::new(0);
+            let reserved3 = u1::new(0);
+            let reserved1 = u1::new(0);
+            reserved76.write(bo);
+            self.explore.write(bo);
+            self.no_route.write(bo);
+            reserved3.write(bo);
+            self.auto_route.write(bo);
+            reserved1.write(bo);
+            self.ack.write(bo);
+        })
+        .write(output)
     }
 }
 
@@ -142,10 +142,12 @@ fn test_parse() {
 #[test]
 fn test_serialize() {
     let opts = TransmitOptions::default();
-    let raw = cookie_factory::gen_simple(opts.serialize(), Vec::new()).unwrap();
-    assert_eq!(raw, vec![0b0010_0101]);
+    let actual = opts.as_bytes();
+    let expected: &[u8] = &[0b0010_0101];
+    assert_eq!(actual, &expected);
 
     let opts = TransmitOptions::new().ack(true);
-    let raw = cookie_factory::gen_simple(opts.serialize(), Vec::new()).unwrap();
-    assert_eq!(raw, vec![0b0000_0001]);
+    let actual = opts.as_bytes();
+    let expected: &[u8] = &[0b0000_0001];
+    assert_eq!(actual, &expected);
 }

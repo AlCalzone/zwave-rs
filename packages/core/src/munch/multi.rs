@@ -1,7 +1,4 @@
-use super::{
-    combinators::{map, map_parser},
-    ParseError, ParseResult, Parser, ToLength,
-};
+use super::{combinators::map_parser, ParseError, ParseResult, Parser, ToLength};
 use bytes::Bytes;
 
 pub fn many_0<I, O, P>(parser: P) -> impl Parser<I, Vec<O>>

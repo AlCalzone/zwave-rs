@@ -1,7 +1,8 @@
 use crate::prelude::*;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use ux::{u1, u3};
-use zwave_core::encoding::{encoders::empty, BitParsable};
+use zwave_core::bake::EncoderWith;
+use zwave_core::encoding::{BitParsable};
 use zwave_core::munch::bits::{self, bool};
 use zwave_core::prelude::*;
 
@@ -41,13 +42,9 @@ impl CommandParsable for GetControllerCapabilitiesRequest {
     }
 }
 
-impl CommandSerializable for GetControllerCapabilitiesRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl EncoderWith<&CommandEncodingContext> for GetControllerCapabilitiesRequest {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
-        empty()
     }
 }
 
@@ -99,12 +96,9 @@ impl CommandParsable for GetControllerCapabilitiesResponse {
     }
 }
 
-impl CommandSerializable for GetControllerCapabilitiesResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |_out| todo!("ERROR: GetControllerCapabilitiesResponse::serialize() not implemented")
+impl EncoderWith<&CommandEncodingContext> for GetControllerCapabilitiesResponse {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        todo!("ERROR: GetControllerCapabilitiesResponse::write() not implemented")
     }
 }
 

@@ -1,7 +1,8 @@
 use crate::prelude::*;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
 use ux::u7;
+use zwave_core::bake::EncoderWith;
 use zwave_core::encoding::{parsers, BitParsable};
 use zwave_core::munch::{
     bits::{self, bool},
@@ -62,12 +63,9 @@ impl CommandParsable for SerialApiStartedRequest {
     }
 }
 
-impl CommandSerializable for SerialApiStartedRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |_out| todo!("ERROR: SerialApiStartedRequest::serialize() not implemented")
+impl EncoderWith<&CommandEncodingContext> for SerialApiStartedRequest {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        todo!("ERROR: SerialApiStartedRequest::write() not implemented")
     }
 }
 

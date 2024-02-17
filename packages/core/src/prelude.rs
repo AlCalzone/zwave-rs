@@ -1,8 +1,5 @@
 pub use crate::definitions::*;
-pub use crate::encoding::{
-    BitParsable, BitSerializable, Parsable, EncodingError, EncodingResult, IntoEncodingResult,
-    Serializable, TryFromReprError,
-};
+pub use crate::encoding::{BitParsable, BitSerializable, Parsable, TryFromReprError};
 pub use crate::log::{
     LogPayload, LogPayloadDict, LogPayloadDictValue, LogPayloadList, LogPayloadText, ToLogPayload,
 };

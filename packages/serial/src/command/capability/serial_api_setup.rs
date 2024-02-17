@@ -1,10 +1,8 @@
 use crate::prelude::*;
-use bytes::Bytes;
-use cookie_factory as cf;
+use bytes::{Bytes, BytesMut};
 use proc_macros::TryFromRepr;
-use zwave_core::encoding::{
-    encoders::empty, parser_not_implemented, parsers::fixed_length_bitmask_u8,
-};
+use zwave_core::bake::{self, Encoder, EncoderWith};
+use zwave_core::encoding::{parser_not_implemented, parsers::fixed_length_bitmask_u8};
 use zwave_core::munch::{
     bytes::{be_i16, be_i8, be_u8, complete::skip},
     combinators::{map, map_res},
@@ -188,27 +186,27 @@ impl CommandParsable for SerialApiSetupRequest {
     }
 }
 
-impl CommandSerializable for SerialApiSetupRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{
+impl EncoderWith<&CommandEncodingContext> for SerialApiSetupRequest {
+    fn write(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        use bake::{
             bytes::{be_i16, be_i8, be_u8},
             sequence::tuple,
         };
-        let command = self.command as u8;
-        let payload = move |out| match self.payload {
+
+        be_u8(self.command as u8).write(output);
+        match self.payload {
             SerialApiSetupRequestPayload::GetSupportedCommands
             | SerialApiSetupRequestPayload::GetPowerlevel
             | SerialApiSetupRequestPayload::GetMaximumPayloadSize
             | SerialApiSetupRequestPayload::GetRFRegion
             | SerialApiSetupRequestPayload::GetLRMaximumTxPower
             | SerialApiSetupRequestPayload::GetLRMaximumPayloadSize
-            | SerialApiSetupRequestPayload::GetPowerlevel16Bit => empty()(out),
+            | SerialApiSetupRequestPayload::GetPowerlevel16Bit => {
+                // No payload
+            }
 
             SerialApiSetupRequestPayload::SetTxStatusReport { enabled } => {
-                be_u8(if enabled { 0xff } else { 0x00 })(out)
+                be_u8(if enabled { 0xff } else { 0x00 }).write(output)
             }
             SerialApiSetupRequestPayload::SetPowerlevel {
                 powerlevel:
@@ -220,7 +218,8 @@ impl CommandSerializable for SerialApiSetupRequest {
                 // The values are represented as a multiple of 0.1 dBm
                 be_i8((tx_power_dbm * 10f32).round() as i8),
                 be_i8((measured_at_0_dbm * 10f32).round() as i8),
-            ))(out),
+            ))
+            .write(output),
             SerialApiSetupRequestPayload::SetPowerlevel16Bit {
                 powerlevel:
                     Powerlevel {
@@ -231,18 +230,17 @@ impl CommandSerializable for SerialApiSetupRequest {
                 // The values are represented as a multiple of 0.1 dBm
                 be_i16((tx_power_dbm * 10f32).round() as i16),
                 be_i16((measured_at_0_dbm * 10f32).round() as i16),
-            ))(out),
+            ))
+            .write(output),
             SerialApiSetupRequestPayload::SetLRMaximumTxPower { max_power } => {
                 // The values are represented as a multiple of 0.1 dBm
-                be_i16((max_power * 10f32).round() as i16)(out)
+                be_i16((max_power * 10f32).round() as i16).write(output)
             }
-            SerialApiSetupRequestPayload::SetRFRegion { region } => region.serialize()(out),
+            SerialApiSetupRequestPayload::SetRFRegion { region } => region.write(output),
             SerialApiSetupRequestPayload::SetNodeIDType { node_id_type } => {
-                node_id_type.serialize()(out)
+                node_id_type.write(output)
             }
-        };
-
-        tuple((be_u8(command), payload))
+        }
     }
 }
 
@@ -481,12 +479,9 @@ impl CommandParsable for SerialApiSetupResponse {
     }
 }
 
-impl CommandSerializable for SerialApiSetupResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |_out| todo!("ERROR: SerialApiSetupResponse::serialize() not implemented")
+impl EncoderWith<&CommandEncodingContext> for SerialApiSetupResponse {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        todo!("ERROR: SerialApiSetupResponse::write() not implemented");
     }
 }
 

@@ -3,11 +3,10 @@ use crate::munch::{
     bytes::be_u8,
     combinators::{context, map_res},
 };
-use crate::prelude::{Parser, *};
-use bytes::Bytes;
+use crate::prelude::*;
+use bytes::{BytesMut, Bytes};
+use crate::bake::{self, Encoder};
 use proc_macros::TryFromRepr;
-
-use cookie_factory as cf;
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
@@ -30,11 +29,7 @@ impl Display for ProtocolVersion {
 
 impl Parsable for ProtocolVersion {
     fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
-        context(
-            "ProtocolVersion",
-            map_res(be_u8, ProtocolVersion::try_from),
-        )
-        .parse(i)
+        context("ProtocolVersion", map_res(be_u8, ProtocolVersion::try_from)).parse(i)
     }
 }
 
@@ -48,8 +43,9 @@ impl BitParsable for ProtocolVersion {
     }
 }
 
-impl Serializable for ProtocolVersion {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        cf::bytes::be_u8(*self as u8)
+impl Encoder for ProtocolVersion {
+    fn write(&self, output: &mut BytesMut) {
+        use bake::bytes::be_u8;
+        be_u8(*self as u8).write(output)
     }
 }

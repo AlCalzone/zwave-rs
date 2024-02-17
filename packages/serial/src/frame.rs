@@ -117,17 +117,17 @@ impl Encoder for RawSerialFrame {
 }
 
 impl SerialFrame {
-    pub fn try_into_raw(
+    pub fn as_raw(
         self,
         ctx: &CommandEncodingContext,
-    ) -> std::result::Result<RawSerialFrame, EncodingError> {
+    ) -> RawSerialFrame {
         match self {
-            SerialFrame::ControlFlow(byte) => Ok(RawSerialFrame::ControlFlow(byte)),
+            SerialFrame::ControlFlow(byte) => RawSerialFrame::ControlFlow(byte),
             SerialFrame::Command(cmd) => {
-                let data = cmd.try_into_raw(ctx)?.as_bytes();
-                Ok(RawSerialFrame::Data(data))
+                let data = cmd.as_raw(ctx).as_bytes();
+                RawSerialFrame::Data(data)
             }
-            SerialFrame::Raw(data) => Ok(RawSerialFrame::Data(data)),
+            SerialFrame::Raw(data) => RawSerialFrame::Data(data),
         }
     }
 }

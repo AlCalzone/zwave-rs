@@ -1,7 +1,8 @@
-use crate::{command::ApplicationUpdateRequestPayload, prelude::*};
-use bytes::Bytes;
-use cookie_factory as cf;
+use crate::command::ApplicationUpdateRequestPayload;
+use crate::prelude::*;
+use bytes::{Bytes, BytesMut};
 use typed_builder::TypedBuilder;
+use zwave_core::bake::{self, Encoder, EncoderWith};
 use zwave_core::munch::{bytes::be_u8, combinators::map};
 use zwave_core::prelude::*;
 
@@ -64,12 +65,9 @@ impl CommandParsable for RequestNodeInfoRequest {
     }
 }
 
-impl CommandSerializable for RequestNodeInfoRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        self.node_id.serialize(ctx.node_id_type)
+impl EncoderWith<&CommandEncodingContext> for RequestNodeInfoRequest {
+    fn write(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
+        self.node_id.write(output, ctx.node_id_type);
     }
 }
 
@@ -112,13 +110,10 @@ impl CommandParsable for RequestNodeInfoResponse {
     }
 }
 
-impl CommandSerializable for RequestNodeInfoResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
-        be_u8(if self.was_sent { 0x01 } else { 0x00 })
+impl EncoderWith<&CommandEncodingContext> for RequestNodeInfoResponse {
+    fn write(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        use bake::bytes::be_u8;
+        be_u8(if self.was_sent { 0x01 } else { 0x00 }).write(output);
     }
 }
 

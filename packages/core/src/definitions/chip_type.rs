@@ -1,13 +1,11 @@
+use crate::prelude::*;
 use crate::{
-    encoding::Serializable,
+    bake::{self, Encoder},
     munch::{
         bytes::be_u16,
         combinators::{context, map},
     },
-    prelude::*,
 };
-
-use cookie_factory as cf;
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,9 +57,9 @@ impl Parsable for ChipType {
     }
 }
 
-impl Serializable for ChipType {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        cf::bytes::be_u16((*self).into())
+impl Encoder for ChipType {
+    fn write(&self, output: &mut bytes::BytesMut) {
+        bake::bytes::be_u16((*self).into()).write(output);
     }
 }
 

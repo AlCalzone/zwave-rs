@@ -1,7 +1,8 @@
 use crate::prelude::*;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
-use zwave_core::encoding::{encoders::empty, parsers::fixed_length_bitmask_u8};
+use zwave_core::bake::EncoderWith;
+use zwave_core::encoding::parsers::fixed_length_bitmask_u8;
 use zwave_core::log::ToLogPayload;
 use zwave_core::munch::{
     bytes::{be_u16, be_u8},
@@ -50,13 +51,9 @@ impl CommandParsable for GetSerialApiCapabilitiesRequest {
     }
 }
 
-impl CommandSerializable for GetSerialApiCapabilitiesRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl EncoderWith<&CommandEncodingContext> for GetSerialApiCapabilitiesRequest {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
-        empty()
     }
 }
 
@@ -121,12 +118,9 @@ impl CommandParsable for GetSerialApiCapabilitiesResponse {
     }
 }
 
-impl CommandSerializable for GetSerialApiCapabilitiesResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |_out| todo!("ERROR: GetSerialApiCapabilitiesResponse::serialize() not implemented")
+impl EncoderWith<&CommandEncodingContext> for GetSerialApiCapabilitiesResponse {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        todo!("ERROR: GetSerialApiCapabilitiesResponse::write() not implemented");
     }
 }
 

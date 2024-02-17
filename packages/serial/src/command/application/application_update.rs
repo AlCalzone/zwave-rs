@@ -1,10 +1,10 @@
 use crate::prelude::*;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use proc_macros::TryFromRepr;
-use zwave_core::munch::{
+use zwave_core::{bake::EncoderWith, munch::{
     bytes::{be_u32, be_u8},
     combinators::map_res,
-};
+}};
 use zwave_core::prelude::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, TryFromRepr)]
@@ -163,12 +163,9 @@ impl CommandParsable for ApplicationUpdateRequest {
     }
 }
 
-impl CommandSerializable for ApplicationUpdateRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |_out| todo!("ERROR: ApplicationUpdateResponse::serialize() not implemented")
+impl EncoderWith<&CommandEncodingContext> for ApplicationUpdateRequest {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        todo!("ERROR: ApplicationUpdateRequest::write() not implemented")
     }
 }
 

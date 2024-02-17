@@ -1,10 +1,11 @@
 extern crate bytes as bytes_crate;
 use bytes_crate::{BufMut, Bytes, BytesMut};
 
-mod branch;
+pub mod bits;
 pub mod bytes;
+pub mod sequence;
 
-const DEFAULT_CAPACITY: usize = 64;
+pub const DEFAULT_CAPACITY: usize = 64;
 const CAPACITY_INCREMENT: usize = 32;
 
 pub trait Encoder {
@@ -32,17 +33,29 @@ where
     }
 }
 
-pub trait EncoderExt<Context> {
-    /// Write the value into the given buffer
-    fn write(&self, output: &mut BytesMut, ctx: &Context);
+// Convenience implementation of Encoder for Option<Encoder>
+impl<T> Encoder for Option<T>
+where
+    T: Encoder,
+{
+    fn write(&self, output: &mut BytesMut) {
+        if let Some(v) = self {
+            v.write(output);
+        }
+    }
+}
 
-    fn as_bytes_mut(&self, ctx: &Context) -> BytesMut {
+pub trait EncoderWith<Context> {
+    /// Write the value into the given buffer
+    fn write(&self, output: &mut BytesMut, ctx: Context);
+
+    fn as_bytes_mut(&self, ctx: Context) -> BytesMut {
         let mut output = BytesMut::with_capacity(DEFAULT_CAPACITY);
         self.write(&mut output, ctx);
         output
     }
 
-    fn as_bytes(&self, ctx: &Context) -> Bytes {
+    fn as_bytes(&self, ctx: Context) -> Bytes {
         self.as_bytes_mut(ctx).freeze()
     }
 }

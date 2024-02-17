@@ -1,13 +1,10 @@
 use crate::prelude::*;
-use bytes::Bytes;
-use cookie_factory as cf;
+use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
 use ux::u4;
-use zwave_core::encoding::{
-    encoders::{self, empty},
-    parsers::variable_length_bitmask_u8,
-    BitParsable, BitSerializable,
-};
+use zwave_core::bake::{self, Encoder, EncoderWith};
+use zwave_core::encoding::encoders;
+use zwave_core::encoding::{parsers::variable_length_bitmask_u8, BitParsable, BitSerializable};
 use zwave_core::munch::{
     bits::{self, bool},
     combinators::opt,
@@ -50,13 +47,9 @@ impl CommandParsable for GetSerialApiInitDataRequest {
     }
 }
 
-impl CommandSerializable for GetSerialApiInitDataRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl EncoderWith<&CommandEncodingContext> for GetSerialApiInitDataRequest {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
-        empty()
     }
 }
 
@@ -116,38 +109,29 @@ impl CommandParsable for GetSerialApiInitDataResponse {
     }
 }
 
-impl CommandSerializable for GetSerialApiInitDataResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::sequence::tuple;
+impl EncoderWith<&CommandEncodingContext> for GetSerialApiInitDataResponse {
+    fn write(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        use bake::bits::bits;
+        let node_ids: Vec<u8> = self
+            .node_ids
+            .iter()
+            .filter_map(|n| if *n < 256u16 { Some((*n).into()) } else { None })
+            .collect();
 
-        move |out| {
-            let node_ids: Vec<u8> = self
-                .node_ids
-                .iter()
-                .filter_map(|n| if *n < 256u16 { Some((*n).into()) } else { None })
-                .collect();
+        let is_primary = self.role == ControllerRole::Primary;
 
-            let is_primary = self.role == ControllerRole::Primary;
-
-            let ret = tuple((
-                self.api_version.serialize(),
-                encoders::bits(move |bo| {
-                    let reserved = u4::new(0);
-                    reserved.write(bo);
-                    self.is_sis.write(bo);
-                    is_primary.write(bo);
-                    self.supports_timers.write(bo);
-                    self.node_type.write(bo);
-                }),
-                encoders::bitmask_u8(&node_ids, 1),
-                self.chip_type.serialize(),
-            ))(out);
-
-            ret
-        }
+        self.api_version.write(output);
+        bits(move |bo| {
+            let reserved = u4::new(0);
+            reserved.write(bo);
+            self.is_sis.write(bo);
+            is_primary.write(bo);
+            self.supports_timers.write(bo);
+            self.node_type.write(bo);
+        })
+        .write(output);
+        encoders::bitmask_u8(&node_ids, 1).write(output);
+        self.chip_type.write(output);
     }
 }
 
@@ -180,7 +164,7 @@ impl ToLogPayload for GetSerialApiInitDataResponse {
 mod test {
     use crate::{command::GetSerialApiInitDataResponse, prelude::*};
     use bytes::Bytes;
-    use zwave_core::prelude::*;
+    use zwave_core::{bake::EncoderWith, prelude::*};
 
     #[test]
     fn test_serialize() {
@@ -194,9 +178,9 @@ mod test {
             chip_type: Some(ChipType::EFR32xG1x),
         };
         let ctx = CommandEncodingContext::default();
-        let raw: Vec<u8> = Into::<Command>::into(cmd).try_to_vec(&ctx).unwrap();
+        let raw = Into::<Command>::into(cmd).as_bytes(&ctx);
         assert_eq!(
-            raw,
+            &raw,
             vec![
                 10,          // API version
                 0b0000_1110, // Capabilities,
@@ -206,6 +190,7 @@ mod test {
                 0x07,
                 0x00, // chip type
             ]
+            .as_slice()
         )
     }
 

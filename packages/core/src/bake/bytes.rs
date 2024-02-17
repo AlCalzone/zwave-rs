@@ -53,3 +53,7 @@ where
         output.extend_from_slice(data);
     }
 }
+
+pub fn empty(_: &mut BytesMut) {
+    // Do nothing
+}

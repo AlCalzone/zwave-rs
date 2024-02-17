@@ -1,6 +1,6 @@
 use crate::prelude::*;
-use bytes::Bytes;
-use zwave_core::encoding::encoders::empty;
+use bytes::{Bytes, BytesMut};
+use zwave_core::bake::EncoderWith;
 use zwave_core::munch::combinators::opt;
 use zwave_core::prelude::*;
 
@@ -40,13 +40,9 @@ impl CommandParsable for GetBackgroundRssiRequest {
     }
 }
 
-impl CommandSerializable for GetBackgroundRssiRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl EncoderWith<&CommandEncodingContext> for GetBackgroundRssiRequest {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
-        empty()
     }
 }
 
@@ -92,12 +88,9 @@ impl CommandParsable for GetBackgroundRssiResponse {
     }
 }
 
-impl CommandSerializable for GetBackgroundRssiResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |_out| todo!("ERROR: GetBackgroundRssiResponse::serialize() not implemented")
+impl EncoderWith<&CommandEncodingContext> for GetBackgroundRssiResponse {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        todo!("ERROR: GetBackgroundRssiResponse::write() not implemented");
     }
 }
 

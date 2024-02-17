@@ -1,6 +1,6 @@
 use crate::prelude::*;
-use bytes::Bytes;
-use zwave_core::encoding::encoders::empty;
+use bytes::{Bytes, BytesMut};
+use zwave_core::bake::EncoderWith;
 use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -39,13 +39,9 @@ impl CommandParsable for GetSucNodeIdRequest {
     }
 }
 
-impl CommandSerializable for GetSucNodeIdRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl EncoderWith<&CommandEncodingContext> for GetSucNodeIdRequest {
+    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
-        empty()
     }
 }
 
@@ -89,18 +85,14 @@ impl CommandParsable for GetSucNodeIdResponse {
     }
 }
 
-impl CommandSerializable for GetSucNodeIdResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |out| {
-            self.suc_node_id
-                .unwrap_or(NodeId::new(0u8))
-                .serialize(ctx.node_id_type)(out)
-        }
+impl EncoderWith<&CommandEncodingContext> for GetSucNodeIdResponse {
+    fn write(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
+        self.suc_node_id
+            .unwrap_or(NodeId::new(0u8))
+            .write(output, ctx.node_id_type);
     }
 }
+
 
 impl ToLogPayload for GetSucNodeIdResponse {
     fn to_log_payload(&self) -> LogPayload {

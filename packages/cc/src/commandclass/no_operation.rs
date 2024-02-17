@@ -1,8 +1,6 @@
 use crate::prelude::*;
-use bytes::Bytes;
-use cookie_factory as cf;
+use bytes::{Bytes, BytesMut};
 use proc_macros::CCValues;
-use zwave_core::encoding::encoders::empty;
 use zwave_core::prelude::*;
 
 // No Operation CC has no subcommands
@@ -29,8 +27,8 @@ impl CCParsable for NoOperationCC {
     }
 }
 
-impl CCSerializable for NoOperationCC {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        empty()
+impl CCEncoder for NoOperationCC {
+    fn write(&self, _output: &mut BytesMut) {
+        // No payload
     }
 }

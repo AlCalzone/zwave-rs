@@ -44,7 +44,7 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
     let serializable_match_arms = commands.iter().map(|c| {
         let command_name = c.command_name;
         quote! {
-            Self::#command_name(c) => c.serialize(ctx)(out)
+            Self::#command_name(c) => c.write(output, ctx)
         }
     });
 
@@ -89,10 +89,11 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
         }
 
         // Delegate Serialization to the corresponding variant
-        impl CommandSerializable for Command {
-            fn serialize<'a, W: std::io::Write + 'a>(&'a self, ctx: &'a CommandEncodingContext) -> impl cookie_factory::SerializeFn<W> + 'a {
-                move |out| match self {
-                    Self::NotImplemented(c) => cookie_factory::combinator::slice(&c.payload)(out),
+        impl EncoderWith<&CommandEncodingContext> for Command {
+            fn write(&self, output: &mut bytes::BytesMut, ctx: &CommandEncodingContext) {
+                use zwave_core::bake::bytes::slice;
+                match self {
+                    Self::NotImplemented(c) => slice(&c.payload).write(output),
                     #( #serializable_match_arms ),*
                 }
             }
@@ -129,16 +130,13 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
                 ret
             }
 
-            pub fn try_into_raw(self, ctx: &CommandEncodingContext) -> std::result::Result<CommandRaw, EncodingError> {
-                let payload = cookie_factory::gen_simple(self.serialize(&ctx), Vec::new())?;
-                let raw = CommandRaw {
+            pub fn as_raw(self, ctx: &CommandEncodingContext) -> CommandRaw {
+                CommandRaw {
                     command_type: self.command_type(),
                     function_type: self.function_type(),
-                    // FIXME: Use Bytes directly
-                    payload: bytes::BytesMut::from(payload.as_slice()).freeze(),
+                    payload: self.as_bytes(&ctx),
                     checksum: 0, // placeholder
-                };
-                Ok(raw)
+                }
             }
         }
 
@@ -194,7 +192,7 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
     let serializable_match_arms = ccs.iter().map(|c| {
         let cc_name = c.cc_name;
         quote! {
-            Self::#cc_name(c) => c.serialize()(out)
+            Self::#cc_name(c) => c.write(output)
         }
     });
 
@@ -231,10 +229,10 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
         }
 
         // Delegate Serialization to the corresponding variant
-        impl CCSerializable for CC {
-            fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-                move |out| match self {
-                    Self::NotImplemented(c) => cookie_factory::combinator::slice(&c.payload)(out),
+        impl CCEncoder for CC {
+            fn write(&self, output: &mut bytes::BytesMut) {
+                match self {
+                    Self::NotImplemented(c) => bake::bytes::slice(&c.payload).write(output),
                     #( #serializable_match_arms ),*
                 }
             }
@@ -265,15 +263,12 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
                 ret
             }
 
-            pub fn try_into_raw(self) -> std::result::Result<CCRaw, EncodingError> {
-                let payload = cookie_factory::gen_simple(self.serialize(), Vec::new())?;
-                let raw = CCRaw {
+            pub fn as_raw(&self) -> CCRaw {
+                CCRaw {
                     cc_id: self.cc_id(),
                     cc_command: self.cc_command(),
-                    // FIXME: Use Bytes directly
-                    payload: bytes::BytesMut::from(payload.as_slice()).freeze(),
-                };
-                Ok(raw)
+                    payload: self.as_bytes(),
+                }
             }
         }
     };
