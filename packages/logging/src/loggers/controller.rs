@@ -17,6 +17,10 @@ impl ControllerLogger {
 
     // FIXME: Remove duplication with DriverLogger
     pub fn message(&self, message: impl Into<LogPayload>, level: Loglevel) {
+        if self.level() < level {
+            return;
+        }
+
         let log = LogInfo::builder()
             .label("CNTRLR")
             .payload(message.into())
@@ -26,6 +30,11 @@ impl ControllerLogger {
 
     // FIXME: Remove duplication with ControllerLogger
     pub fn command(&self, command: &Command, direction: Direction) {
+        let level = Loglevel::Debug;
+        if self.level() < level {
+            return;
+        }
+
         let type_tag = if command.command_type() == CommandType::Request {
             "REQ"
         } else {
@@ -42,7 +51,7 @@ impl ControllerLogger {
             .direction(direction)
             .payload(payload.into())
             .build();
-        self.inner.log(log, Loglevel::Debug);
+        self.inner.log(log, level);
     }
 
     pub fn error(&self, message: impl Into<LogPayload>) {

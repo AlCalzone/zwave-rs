@@ -28,6 +28,10 @@ impl DriverLogger {
 
     // FIXME: Remove duplication with ControllerLogger
     pub fn message(&self, message: impl Into<Cow<'static, str>>, level: Loglevel) {
+        if self.level() < level {
+            return;
+        }
+
         let log = LogInfo::builder()
             .label("DRIVER")
             .payload(LogPayload::Flat(to_lines(message)))

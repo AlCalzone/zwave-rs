@@ -23,6 +23,10 @@ impl NodeLogger {
 
     // FIXME: Remove duplication with DriverLogger
     pub fn message(&self, message: impl Into<LogPayload>, level: Loglevel) {
+        if self.inner.log_level() < level {
+            return;
+        }
+
         let mut primary_tags = vec![format!("Node {:0>3}", self.node_id).into()];
         if let EndpointIndex::Endpoint(index) = self.endpoint {
             primary_tags.push(format!("EP {}", index).into());
@@ -38,6 +42,11 @@ impl NodeLogger {
 
     // FIXME: Remove duplication with ControllerLogger
     pub fn command(&self, command: &Command, direction: Direction) {
+        let level = Loglevel::Debug;
+        if self.inner.log_level() < level {
+            return;
+        }
+
         let node_id_tag = format!("Node {:0>3}", self.node_id);
         let mut primary_tags: Vec<Cow<_>> = vec![node_id_tag.into()];
 
@@ -63,7 +72,7 @@ impl NodeLogger {
             .direction(direction)
             .payload(payload.into())
             .build();
-        self.inner.log(log, Loglevel::Debug);
+        self.inner.log(log, level);
     }
 
     pub fn error(&self, message: impl Into<LogPayload>) {

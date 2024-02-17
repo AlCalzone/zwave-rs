@@ -7,12 +7,18 @@ pub struct SerialLogger {
     inner: Arc<dyn ImmutableLogger>,
 }
 
+const SERIAL_LOGLEVEL: Loglevel = Loglevel::Debug;
+
 impl SerialLogger {
     pub fn new(inner: Arc<dyn ImmutableLogger>) -> Self {
         Self { inner }
     }
 
     pub fn data(&self, data: &[u8], direction: Direction) {
+        if self.inner.log_level() < SERIAL_LOGLEVEL {
+            return;
+        }
+
         let message_lines: Vec<_> = vec![format!("0x{}", hex::encode(data)).into()];
         let log = LogInfo::builder()
             .label("SERIAL")
@@ -20,10 +26,14 @@ impl SerialLogger {
             .secondary_tag(format!("{} bytes", data.len()).into())
             .payload(LogPayload::Flat(message_lines))
             .build();
-        self.inner.log(log, Loglevel::Debug);
+        self.inner.log(log, SERIAL_LOGLEVEL);
     }
 
     pub fn control_flow(&self, byte: &ControlFlow, direction: Direction) {
+        if self.inner.log_level() < SERIAL_LOGLEVEL {
+            return;
+        }
+
         let tag = format!("{:#04x}", *byte as u8).into();
 
         let log = LogInfo::builder()
@@ -33,10 +43,14 @@ impl SerialLogger {
             .secondary_tag(tag)
             .payload(LogPayload::Flat(Vec::new()))
             .build();
-        self.inner.log(log, Loglevel::Debug);
+        self.inner.log(log, SERIAL_LOGLEVEL);
     }
 
     pub fn discarded(&self, data: &[u8]) {
+        if self.inner.log_level() < SERIAL_LOGLEVEL {
+            return;
+        }
+
         let message_lines: Vec<_> = vec![format!("invalid data: 0x{}", hex::encode(data)).into()];
         let log = LogInfo::builder()
             .label("SERIAL")
@@ -45,6 +59,6 @@ impl SerialLogger {
             .secondary_tag(format!("{} bytes", data.len()).into())
             .payload(LogPayload::Flat(message_lines))
             .build();
-        self.inner.log(log, Loglevel::Debug);
+        self.inner.log(log, SERIAL_LOGLEVEL);
     }
 }
