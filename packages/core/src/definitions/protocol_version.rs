@@ -1,11 +1,11 @@
-use crate::munch::{
+use crate::parse::{
     bits::take as take_bits,
     bytes::be_u8,
     combinators::{context, map_res},
 };
 use crate::prelude::*;
 use bytes::{BytesMut, Bytes};
-use crate::bake::{self, Encoder};
+use crate::serialize::{self, Serializable};
 use proc_macros::TryFromRepr;
 use std::fmt::Display;
 
@@ -28,13 +28,13 @@ impl Display for ProtocolVersion {
 }
 
 impl Parsable for ProtocolVersion {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         context("ProtocolVersion", map_res(be_u8, ProtocolVersion::try_from)).parse(i)
     }
 }
 
 impl BitParsable for ProtocolVersion {
-    fn parse(i: &mut (Bytes, usize)) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut (Bytes, usize)) -> crate::parse::ParseResult<Self> {
         context(
             "ProtocolVersion",
             map_res(take_bits(3usize), |x: u8| ProtocolVersion::try_from(x)),
@@ -43,9 +43,9 @@ impl BitParsable for ProtocolVersion {
     }
 }
 
-impl Encoder for ProtocolVersion {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bytes::be_u8;
-        be_u8(*self as u8).write(output)
+impl Serializable for ProtocolVersion {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output)
     }
 }

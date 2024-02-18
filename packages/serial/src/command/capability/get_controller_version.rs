@@ -1,7 +1,7 @@
 use crate::{command::CommandId, prelude::*};
 use bytes::{Bytes, BytesMut};
-use zwave_core::bake::{self, Encoder, EncoderWith};
-use zwave_core::munch::{
+use zwave_core::serialize::{self, Serializable, SerializableWith};
+use zwave_core::parse::{
     bytes::complete::{literal, take_while1},
     combinators::map,
 };
@@ -37,14 +37,14 @@ impl CommandRequest for GetControllerVersionRequest {
 }
 
 impl CommandParsable for GetControllerVersionRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetControllerVersionRequest {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for GetControllerVersionRequest {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
     }
 }
@@ -78,7 +78,7 @@ impl CommandId for GetControllerVersionResponse {
 impl CommandBase for GetControllerVersionResponse {}
 
 impl CommandParsable for GetControllerVersionResponse {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let version = map(take_while1(|b| b != 0), |b| {
             String::from_utf8_lossy(&b).to_string()
         })
@@ -93,17 +93,17 @@ impl CommandParsable for GetControllerVersionResponse {
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetControllerVersionResponse {
-    fn write(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        use bake::bytes::{be_u8, slice};
-        use bake::sequence::tuple;
+impl SerializableWith<&CommandEncodingContext> for GetControllerVersionResponse {
+    fn serialize(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        use serialize::bytes::{be_u8, slice};
+        use serialize::sequence::tuple;
 
         tuple((
             slice(self.library_version.as_bytes()),
             be_u8(0),
             self.library_type,
         ))
-        .write(output);
+        .serialize(output);
     }
 }
 

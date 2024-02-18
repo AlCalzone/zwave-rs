@@ -1,10 +1,9 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use typed_builder::TypedBuilder;
-use zwave_core::bake::{self, Encoder, EncoderWith};
-use zwave_core::encoding::parser_not_implemented;
-use zwave_core::munch::{bytes::be_u8, combinators::map};
+use zwave_core::parse::{bytes::be_u8, combinators::map, parser_not_implemented};
 use zwave_core::prelude::*;
+use zwave_core::serialize::{self, Serializable, SerializableWith};
 
 #[derive(Default, Debug, Clone, PartialEq, TypedBuilder)]
 pub struct SetSucNodeIdRequest {
@@ -58,24 +57,24 @@ impl CommandRequest for SetSucNodeIdRequest {
 }
 
 impl CommandParsable for SetSucNodeIdRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         parser_not_implemented("ERROR: SetSucNodeIdRequest::parse() not implemented")
         // Ok(Self {})
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for SetSucNodeIdRequest {
-    fn write(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
-        use bake::{bytes::be_u8, sequence::tuple};
+impl SerializableWith<&CommandEncodingContext> for SetSucNodeIdRequest {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
+        use serialize::{bytes::be_u8, sequence::tuple};
 
-        self.suc_node_id.write(output, ctx.node_id_type);
+        self.suc_node_id.serialize(output, ctx.node_id_type);
         tuple((
             be_u8(if self.enable_suc { 0x01 } else { 0x00 }),
             self.transmit_options,
             be_u8(if self.enable_sis { 0x01 } else { 0x00 }),
             be_u8(self.callback_id.unwrap_or(0)),
         ))
-        .write(output)
+        .serialize(output)
     }
 }
 
@@ -115,16 +114,16 @@ impl CommandBase for SetSucNodeIdResponse {
 }
 
 impl CommandParsable for SetSucNodeIdResponse {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let was_executed = map(be_u8, |x| x > 0).parse(i)?;
         Ok(Self { was_executed })
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for SetSucNodeIdResponse {
-    fn write(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        use bake::bytes::be_u8;
-        be_u8(if self.was_executed { 0x01 } else { 0x00 }).write(output)
+impl SerializableWith<&CommandEncodingContext> for SetSucNodeIdResponse {
+    fn serialize(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        use serialize::bytes::be_u8;
+        be_u8(if self.was_executed { 0x01 } else { 0x00 }).serialize(output)
     }
 }
 
@@ -167,7 +166,7 @@ impl CommandBase for SetSucNodeIdCallback {
 }
 
 impl CommandParsable for SetSucNodeIdCallback {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let callback_id = be_u8(i)?;
         let status = be_u8(i)?;
 
@@ -180,8 +179,8 @@ impl CommandParsable for SetSucNodeIdCallback {
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for SetSucNodeIdCallback {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for SetSucNodeIdCallback {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         todo!("ERROR: SetSucNodeIdCallback::write() not implemented")
     }
 }

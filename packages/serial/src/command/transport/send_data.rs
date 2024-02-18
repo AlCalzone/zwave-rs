@@ -2,8 +2,8 @@ use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use typed_builder::TypedBuilder;
 use zwave_cc::prelude::*;
-use zwave_core::bake::{self, Encoder, EncoderWith};
-use zwave_core::munch::{
+use zwave_core::serialize::{self, Serializable, SerializableWith};
+use zwave_core::parse::{
     bytes::be_u8,
     combinators::{map, map_res},
     multi::length_value,
@@ -60,7 +60,7 @@ impl CommandRequest for SendDataRequest {
 }
 
 impl CommandParsable for SendDataRequest {
-    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let node_id = NodeId::parse(i, ctx.node_id_type)?;
         let cc = map_res(length_value(be_u8, CCRaw::parse), |raw| {
             let ctx = CCParsingContext::default();
@@ -79,9 +79,9 @@ impl CommandParsable for SendDataRequest {
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for SendDataRequest {
-    fn write(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
-        use bake::{bytes::be_u8, bytes::slice};
+impl SerializableWith<&CommandEncodingContext> for SendDataRequest {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
+        use serialize::{bytes::be_u8, bytes::slice};
 
         // TODO: Figure out if we should handle serialization errors elsewhere
         // let error_msg = format!("Serializing command {:?} should not fail", &self.command);
@@ -89,11 +89,11 @@ impl EncoderWith<&CommandEncodingContext> for SendDataRequest {
         let command = self.command.clone();
         let payload = command.as_raw().as_bytes();
 
-        self.node_id.write(output, ctx.node_id_type);
-        be_u8(payload.len() as u8).write(output);
-        slice(&payload).write(output);
-        self.transmit_options.write(output);
-        be_u8(self.callback_id.unwrap_or(0)).write(output);
+        self.node_id.serialize(output, ctx.node_id_type);
+        be_u8(payload.len() as u8).serialize(output);
+        slice(&payload).serialize(output);
+        self.transmit_options.serialize(output);
+        be_u8(self.callback_id.unwrap_or(0)).serialize(output);
     }
 }
 
@@ -136,16 +136,16 @@ impl CommandId for SendDataResponse {
 }
 
 impl CommandParsable for SendDataResponse {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let was_sent = map(be_u8, |x| x > 0).parse(i)?;
         Ok(Self { was_sent })
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for SendDataResponse {
-    fn write(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        use bake::bytes::be_u8;
-        be_u8(if self.was_sent { 0x01 } else { 0x00 }).write(output);
+impl SerializableWith<&CommandEncodingContext> for SendDataResponse {
+    fn serialize(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        use serialize::bytes::be_u8;
+        be_u8(if self.was_sent { 0x01 } else { 0x00 }).serialize(output);
     }
 }
 
@@ -189,7 +189,7 @@ impl CommandId for SendDataCallback {
 }
 
 impl CommandParsable for SendDataCallback {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let callback_id = be_u8(i)?;
         let transmit_status = TransmitStatus::parse(i)?;
         let transmit_report = TransmitReport::parse(i, transmit_status != TransmitStatus::NoAck)?;
@@ -202,8 +202,8 @@ impl CommandParsable for SendDataCallback {
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for SendDataCallback {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for SendDataCallback {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         todo!("ERROR: SendDataCallback::write() not implemented")
     }
 }

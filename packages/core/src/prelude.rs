@@ -1,8 +1,7 @@
 pub use crate::definitions::*;
-pub use crate::encoding::{BitParsable, BitSerializable, Parsable, TryFromReprError};
 pub use crate::log::{
     LogPayload, LogPayloadDict, LogPayloadDictValue, LogPayloadList, LogPayloadText, ToLogPayload,
 };
-// FIXME: Get rid of the renames in munch
-pub use crate::munch::{ParseError as MunchError, ParseResult as MunchResult, Parser};
+pub use crate::parse::{BitParsable, Parsable, ParseError, ParseResult, Parser, TryFromReprError};
+pub use crate::serialize::{BitOutput, BitSerializable, Serializable, SerializableWith};
 pub use crate::values::*;

@@ -4,14 +4,14 @@ use bytes::Bytes;
 use bytes::BytesMut;
 use proc_macros::{CCValues, TryFromRepr};
 use typed_builder::TypedBuilder;
-use zwave_core::bake;
-use zwave_core::bake::Encoder;
+use zwave_core::serialize;
+use zwave_core::serialize::Serializable;
 use zwave_core::cache::CacheValue;
-use zwave_core::munch::combinators::{map, opt};
+use zwave_core::parse::combinators::{map, opt};
 use zwave_core::prelude::*;
 use zwave_core::value_id::{ValueId, ValueIdProperties};
 
-use super::CCEncoder;
+use super::CCSerializable;
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)]
@@ -101,7 +101,7 @@ impl CCId for BinarySwitchCCSet {
 }
 
 impl CCParsable for BinarySwitchCCSet {
-    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let target_value = BinarySet::parse(i)?;
         let duration = opt(DurationSet::parse).parse(i)?;
 
@@ -112,10 +112,10 @@ impl CCParsable for BinarySwitchCCSet {
     }
 }
 
-impl CCEncoder for BinarySwitchCCSet {
-    fn write(&self, output: &mut bytes::BytesMut) {
-        use bake::sequence::tuple;
-        tuple((self.target_value, self.duration)).write(output)
+impl CCSerializable for BinarySwitchCCSet {
+    fn serialize(&self, output: &mut bytes::BytesMut) {
+        use serialize::sequence::tuple;
+        tuple((self.target_value, self.duration)).serialize(output)
     }
 }
 
@@ -143,14 +143,14 @@ impl CCId for BinarySwitchCCGet {
 }
 
 impl CCParsable for BinarySwitchCCGet {
-    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
 }
 
-impl CCEncoder for BinarySwitchCCGet {
-    fn write(&self, _output: &mut BytesMut) {
+impl CCSerializable for BinarySwitchCCGet {
+    fn serialize(&self, _output: &mut BytesMut) {
         // No payload
     }
 }
@@ -178,7 +178,7 @@ impl CCId for BinarySwitchCCReport {
 }
 
 impl CCParsable for BinarySwitchCCReport {
-    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let current_value = BinaryReport::parse(i)?;
         let (target_value, duration) =
             map(opt((BinaryReport::parse, DurationReport::parse)), |x| {
@@ -194,13 +194,13 @@ impl CCParsable for BinarySwitchCCReport {
     }
 }
 
-impl CCEncoder for BinarySwitchCCReport {
-    fn write(&self, output: &mut bytes::BytesMut) {
-        self.current_value.write(output);
+impl CCSerializable for BinarySwitchCCReport {
+    fn serialize(&self, output: &mut bytes::BytesMut) {
+        self.current_value.serialize(output);
 
         if let Some(target_value) = self.target_value {
-            target_value.write(output);
-            self.duration.unwrap_or_default().write(output);
+            target_value.serialize(output);
+            self.duration.unwrap_or_default().serialize(output);
         }
     }
 }

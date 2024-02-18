@@ -1,10 +1,10 @@
-use super::{ensure_capacity, Encoder};
+use super::{ensure_capacity, Serializable};
 use bytes::BytesMut;
 
 macro_rules! impl_int {
     ($un:ident, 1) => {
         paste::paste! {
-            pub fn [<be_ $un>](val: $un) -> impl Encoder {
+            pub fn [<be_ $un>](val: $un) -> impl Serializable {
                 use bytes::BufMut;
                 move |output: &mut BytesMut| {
                     ensure_capacity(output, 1);
@@ -15,7 +15,7 @@ macro_rules! impl_int {
     };
     ($un:ident, $bytes:literal) => {
         paste::paste! {
-            pub fn [<be_ $un>](val: $un) -> impl Encoder {
+            pub fn [<be_ $un>](val: $un) -> impl Serializable {
                 use bytes::BufMut;
                 move |output: &mut BytesMut| {
                     ensure_capacity(output, $bytes);
@@ -23,7 +23,7 @@ macro_rules! impl_int {
                 }
             }
 
-            pub fn [<le_ $un>](val: $un) -> impl Encoder {
+            pub fn [<le_ $un>](val: $un) -> impl Serializable {
                 use bytes::BufMut;
                 move |output: &mut BytesMut| {
                     ensure_capacity(output, $bytes);
@@ -43,7 +43,7 @@ impl_int!(i16, 2);
 impl_int!(i32, 4);
 impl_int!(i64, 8);
 
-pub fn slice<S>(data: S) -> impl Encoder
+pub fn slice<S>(data: S) -> impl Serializable
 where
     S: AsRef<[u8]>,
 {

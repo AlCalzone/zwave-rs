@@ -1,5 +1,5 @@
-use crate::bake::{self, Encoder};
-use crate::munch::{bytes::be_u8, combinators::map_res};
+use crate::serialize::{self, Serializable};
+use crate::parse::{bytes::be_u8, combinators::map_res};
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use std::fmt::Display;
@@ -38,19 +38,19 @@ impl Display for LevelReport {
 }
 
 impl Parsable for LevelReport {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         map_res(be_u8, Self::try_from).parse(i)
     }
 }
 
-impl Encoder for LevelReport {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bytes::be_u8;
+impl Serializable for LevelReport {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
         let val = match self {
             Self::Level(level) => *level,
             Self::Unknown => LEVEL_UNKNOWN,
         };
-        be_u8(val).write(output)
+        be_u8(val).serialize(output)
     }
 }
 
@@ -104,20 +104,20 @@ impl Display for LevelSet {
 }
 
 impl Parsable for LevelSet {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         map_res(be_u8, Self::try_from).parse(i)
     }
 }
 
-impl Encoder for LevelSet {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bytes::be_u8;
+impl Serializable for LevelSet {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
         let val = match self.to_canonical() {
             Self::Off => 0,
             Self::Level(level) => level,
             Self::On => LEVEL_ON,
         };
-        be_u8(val).write(output)
+        be_u8(val).serialize(output)
     }
 }
 

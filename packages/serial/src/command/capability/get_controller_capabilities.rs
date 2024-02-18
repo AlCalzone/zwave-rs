@@ -1,9 +1,8 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use ux::{u1, u3};
-use zwave_core::bake::EncoderWith;
-use zwave_core::encoding::{BitParsable};
-use zwave_core::munch::bits::{self, bool};
+use zwave_core::serialize::SerializableWith;
+use zwave_core::parse::bits::{self, bool};
 use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -36,14 +35,14 @@ impl CommandRequest for GetControllerCapabilitiesRequest {
 }
 
 impl CommandParsable for GetControllerCapabilitiesRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetControllerCapabilitiesRequest {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for GetControllerCapabilitiesRequest {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
     }
 }
@@ -80,7 +79,7 @@ impl CommandId for GetControllerCapabilitiesResponse {
 impl CommandBase for GetControllerCapabilitiesResponse {}
 
 impl CommandParsable for GetControllerCapabilitiesResponse {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let (_reserved765, is_suc, _reserved3, sis_present, other_network, secondary) =
             bits::bits((u3::parse, bool, u1::parse, bool, bool, bool)).parse(i)?;
         Ok(Self {
@@ -96,8 +95,8 @@ impl CommandParsable for GetControllerCapabilitiesResponse {
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetControllerCapabilitiesResponse {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for GetControllerCapabilitiesResponse {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         todo!("ERROR: GetControllerCapabilitiesResponse::write() not implemented")
     }
 }

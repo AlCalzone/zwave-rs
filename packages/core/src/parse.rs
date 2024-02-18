@@ -1,4 +1,5 @@
 extern crate bytes as bytes_crate;
+use bytes_crate::Bytes;
 
 pub mod bits;
 pub mod bytes;
@@ -9,6 +10,20 @@ mod branch;
 pub use branch::*;
 mod error;
 pub use error::*;
+
+pub trait Parsable
+where
+    Self: Sized,
+{
+    fn parse(i: &mut Bytes) -> ParseResult<Self>;
+}
+
+pub trait BitParsable
+where
+    Self: Sized,
+{
+    fn parse(i: &mut (Bytes, usize)) -> crate::parse::ParseResult<Self>;
+}
 
 pub trait Parser<I: Clone, O = Self> {
     /// Execute the parser on the input, advancing the input

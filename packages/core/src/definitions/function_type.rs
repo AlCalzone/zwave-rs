@@ -1,5 +1,5 @@
-use crate::bake::{self, Encoder};
-use crate::munch::{
+use crate::serialize::{self, Serializable};
+use crate::parse::{
     self,
     bytes::be_u8,
     combinators::{context, map_res},
@@ -191,14 +191,14 @@ pub enum FunctionType {
 }
 
 impl Parsable for FunctionType {
-    fn parse(i: &mut Bytes) -> munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> parse::ParseResult<Self> {
         context("FunctionType", map_res(be_u8, FunctionType::try_from)).parse(i)
     }
 }
 
-impl Encoder for FunctionType {
-    fn write(&self, output: &mut bytes::BytesMut) {
-        use bake::bytes::be_u8;
-        be_u8(*self as u8).write(output);
+impl Serializable for FunctionType {
+    fn serialize(&self, output: &mut bytes::BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output);
     }
 }

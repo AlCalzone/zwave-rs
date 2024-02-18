@@ -1,5 +1,5 @@
-use crate::bake::{self, Encoder};
-use crate::munch::{self, bits::bool};
+use crate::serialize::{self, Serializable};
+use crate::parse::{self, bits::bool};
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use std::fmt::Display;
@@ -95,8 +95,8 @@ impl TransmitOptions {
 }
 
 impl Parsable for TransmitOptions {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
-        use munch::bits::bits;
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
+        use parse::bits::bits;
         let (_reserved76, explore, no_route, _reserved3, auto_route, _reserved1, ack) =
             bits((u2::parse, bool, bool, u1::parse, bool, u1::parse, bool)).parse(i)?;
 
@@ -108,9 +108,9 @@ impl Parsable for TransmitOptions {
     }
 }
 
-impl Encoder for TransmitOptions {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bits::bits;
+impl Serializable for TransmitOptions {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bits::bits;
         bits(move |bo| {
             let reserved76 = u2::new(0);
             let reserved3 = u1::new(0);
@@ -123,7 +123,7 @@ impl Encoder for TransmitOptions {
             reserved1.write(bo);
             self.ack.write(bo);
         })
-        .write(output)
+        .serialize(output)
     }
 }
 

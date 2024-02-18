@@ -1,8 +1,8 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use hex::ToHex;
-use zwave_core::bake::EncoderWith;
-use zwave_core::munch::{
+use zwave_core::serialize::SerializableWith;
+use zwave_core::parse::{
     bytes::{be_u16, be_u8, complete::take},
     combinators::{cond, map, opt},
 };
@@ -38,14 +38,14 @@ impl CommandRequest for GetProtocolVersionRequest {
 }
 
 impl CommandParsable for GetProtocolVersionRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetProtocolVersionRequest {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for GetProtocolVersionRequest {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
     }
 }
@@ -81,7 +81,7 @@ impl CommandId for GetProtocolVersionResponse {
 impl CommandBase for GetProtocolVersionResponse {}
 
 impl CommandParsable for GetProtocolVersionResponse {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let protocol_type = ProtocolType::parse(i)?;
         let version = map((be_u8, be_u8, be_u8), |(major, minor, patch)| Version {
             major,
@@ -114,8 +114,8 @@ impl CommandParsable for GetProtocolVersionResponse {
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetProtocolVersionResponse {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for GetProtocolVersionResponse {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         todo!("ERROR: GetProtocolVersionResponse::write() not implemented")
     }
 }

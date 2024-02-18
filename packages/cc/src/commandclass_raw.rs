@@ -1,11 +1,11 @@
 use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
-use zwave_core::bake::{self, Encoder};
-use zwave_core::munch::{
+use zwave_core::parse::{
     bytes::{be_u8, rest},
     combinators::map,
 };
 use zwave_core::prelude::*;
+use zwave_core::serialize::{self, Serializable};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CCRaw {
@@ -16,7 +16,7 @@ pub struct CCRaw {
 }
 
 impl Parsable for CCRaw {
-    fn parse(i: &mut Bytes) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> zwave_core::parse::ParseResult<Self> {
         let cc_id = CommandClasses::parse(i)?;
 
         // All CCs except NoOperation have a CC command
@@ -34,20 +34,20 @@ impl Parsable for CCRaw {
     }
 }
 
-impl Encoder for CCRaw {
-    fn write(&self, output: &mut bytes::BytesMut) {
-        use bake::{
+impl Serializable for CCRaw {
+    fn serialize(&self, output: &mut bytes::BytesMut) {
+        use serialize::{
             bytes::{be_u8, empty, slice},
             sequence::tuple,
         };
         tuple((
             self.cc_id,
             move |out: &mut BytesMut| match self.cc_command {
-                Some(cc_command) => be_u8(cc_command).write(out),
+                Some(cc_command) => be_u8(cc_command).serialize(out),
                 None => empty(out),
             },
             slice(&self.payload),
         ))
-        .write(output)
+        .serialize(output)
     }
 }

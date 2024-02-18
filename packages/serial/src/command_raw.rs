@@ -2,8 +2,7 @@ use crate::prelude::*;
 use crate::{frame::SerialControlByte, util::hex_fmt};
 use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
-use zwave_core::bake::{self, Encoder};
-use zwave_core::munch::{
+use zwave_core::parse::{
     bytes::{
         be_u8,
         complete::{literal, skip, take},
@@ -12,6 +11,7 @@ use zwave_core::munch::{
     validate,
 };
 use zwave_core::prelude::*;
+use zwave_core::serialize;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CommandRaw {
@@ -36,7 +36,7 @@ fn test_checksum() {
 }
 
 impl Parsable for CommandRaw {
-    fn parse(i: &mut Bytes) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes) -> ParseResult<Self> {
         // Extract the length, while ensuring that the buffer...
         let (_, len, _) = peek((
             // ...starts with SOF
@@ -78,8 +78,8 @@ impl Parsable for CommandRaw {
 }
 
 impl CommandRaw {
-    fn serialize_no_checksum(&self) -> impl Encoder + '_ {
-        use bake::{
+    fn serialize_no_checksum(&self) -> impl Serializable + '_ {
+        use serialize::{
             bytes::{be_u8, slice},
             sequence::tuple,
         };
@@ -100,9 +100,9 @@ impl CommandRaw {
     }
 }
 
-impl Encoder for CommandRaw {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bytes::slice;
+impl Serializable for CommandRaw {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::slice;
 
         let mut buf = self.serialize_no_checksum().as_bytes_mut();
         let checksum = compute_checksum(&buf);
@@ -110,7 +110,7 @@ impl Encoder for CommandRaw {
         let len = buf.len();
         buf[len - 1] = checksum;
 
-        slice(buf).write(output);
+        slice(buf).serialize(output);
     }
 }
 
@@ -132,7 +132,7 @@ fn test_parse_invalid_checksum() {
     let result = CommandRaw::parse(&mut input);
     match result {
         Ok(_) => panic!("Expected an error"),
-        Err(MunchError::Incomplete(_)) => panic!("Expected a parser error"),
+        Err(ParseError::Incomplete(_)) => panic!("Expected a parser error"),
         Err(_) => (),
     }
 }

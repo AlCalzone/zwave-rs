@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use std::borrow::Cow;
-use zwave_core::bake::EncoderWith;
+use zwave_core::serialize::SerializableWith;
 use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -36,15 +36,15 @@ impl CommandRequest for GetNodeProtocolInfoRequest {
 }
 
 impl CommandParsable for GetNodeProtocolInfoRequest {
-    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let node_id = NodeId::parse(i, ctx.node_id_type)?;
         Ok(Self { node_id })
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetNodeProtocolInfoRequest {
-    fn write(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
-        self.node_id.write(output, ctx.node_id_type)
+impl SerializableWith<&CommandEncodingContext> for GetNodeProtocolInfoRequest {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
+        self.node_id.serialize(output, ctx.node_id_type)
     }
 }
 
@@ -78,14 +78,14 @@ impl CommandId for GetNodeProtocolInfoResponse {
 impl CommandBase for GetNodeProtocolInfoResponse {}
 
 impl CommandParsable for GetNodeProtocolInfoResponse {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let protocol_info = NodeInformationProtocolData::parse(i)?;
         Ok(Self { protocol_info })
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetNodeProtocolInfoResponse {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for GetNodeProtocolInfoResponse {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         todo!("ERROR: GetNodeProtocolInfoResponse::write() not implemented")
     }
 }

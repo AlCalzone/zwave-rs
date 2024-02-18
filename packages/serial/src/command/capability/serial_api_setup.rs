@@ -1,13 +1,14 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use proc_macros::TryFromRepr;
-use zwave_core::bake::{self, Encoder, EncoderWith};
-use zwave_core::encoding::{parser_not_implemented, parsers::fixed_length_bitmask_u8};
-use zwave_core::munch::{
+use zwave_core::parse::multi::fixed_length_bitmask_u8;
+use zwave_core::parse::parser_not_implemented;
+use zwave_core::parse::{
     bytes::{be_i16, be_i8, be_u8, complete::skip},
     combinators::{map, map_res},
 };
 use zwave_core::prelude::*;
+use zwave_core::serialize::{self, Serializable, SerializableWith};
 
 #[derive(Debug, Copy, Clone, PartialEq, TryFromRepr)]
 #[repr(u8)]
@@ -180,20 +181,20 @@ impl CommandRequest for SerialApiSetupRequest {
 }
 
 impl CommandParsable for SerialApiSetupRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         parser_not_implemented("ERROR: SerialApiSetupRequest::parse() not implemented")
         // Ok(Self {})
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for SerialApiSetupRequest {
-    fn write(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        use bake::{
+impl SerializableWith<&CommandEncodingContext> for SerialApiSetupRequest {
+    fn serialize(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        use serialize::{
             bytes::{be_i16, be_i8, be_u8},
             sequence::tuple,
         };
 
-        be_u8(self.command as u8).write(output);
+        be_u8(self.command as u8).serialize(output);
         match self.payload {
             SerialApiSetupRequestPayload::GetSupportedCommands
             | SerialApiSetupRequestPayload::GetPowerlevel
@@ -206,7 +207,7 @@ impl EncoderWith<&CommandEncodingContext> for SerialApiSetupRequest {
             }
 
             SerialApiSetupRequestPayload::SetTxStatusReport { enabled } => {
-                be_u8(if enabled { 0xff } else { 0x00 }).write(output)
+                be_u8(if enabled { 0xff } else { 0x00 }).serialize(output)
             }
             SerialApiSetupRequestPayload::SetPowerlevel {
                 powerlevel:
@@ -219,7 +220,7 @@ impl EncoderWith<&CommandEncodingContext> for SerialApiSetupRequest {
                 be_i8((tx_power_dbm * 10f32).round() as i8),
                 be_i8((measured_at_0_dbm * 10f32).round() as i8),
             ))
-            .write(output),
+            .serialize(output),
             SerialApiSetupRequestPayload::SetPowerlevel16Bit {
                 powerlevel:
                     Powerlevel {
@@ -231,14 +232,14 @@ impl EncoderWith<&CommandEncodingContext> for SerialApiSetupRequest {
                 be_i16((tx_power_dbm * 10f32).round() as i16),
                 be_i16((measured_at_0_dbm * 10f32).round() as i16),
             ))
-            .write(output),
+            .serialize(output),
             SerialApiSetupRequestPayload::SetLRMaximumTxPower { max_power } => {
                 // The values are represented as a multiple of 0.1 dBm
-                be_i16((max_power * 10f32).round() as i16).write(output)
+                be_i16((max_power * 10f32).round() as i16).serialize(output)
             }
-            SerialApiSetupRequestPayload::SetRFRegion { region } => region.write(output),
+            SerialApiSetupRequestPayload::SetRFRegion { region } => region.serialize(output),
             SerialApiSetupRequestPayload::SetNodeIDType { node_id_type } => {
-                node_id_type.write(output)
+                node_id_type.serialize(output)
             }
         }
     }
@@ -348,7 +349,7 @@ impl CommandId for SerialApiSetupResponse {
 impl CommandBase for SerialApiSetupResponse {}
 
 impl CommandParsable for SerialApiSetupResponse {
-    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let command = map_res(be_u8, SerialApiSetupCommand::try_from).parse(i)?;
         let payload = match command {
             SerialApiSetupCommand::Unsupported => {
@@ -479,8 +480,8 @@ impl CommandParsable for SerialApiSetupResponse {
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for SerialApiSetupResponse {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for SerialApiSetupResponse {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         todo!("ERROR: SerialApiSetupResponse::write() not implemented");
     }
 }

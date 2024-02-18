@@ -2,7 +2,7 @@ use crate::prelude::*;
 use bytes::Bytes;
 use typed_builder::TypedBuilder;
 use zwave_core::prelude::*;
-use zwave_core::{bake::Encoder, bake::EncoderWith, submodule};
+use zwave_core::{serialize::Serializable, serialize::SerializableWith, submodule};
 
 use crate::{frame::SerialFrame, util::hex_fmt};
 use custom_debug_derive::Debug;
@@ -26,7 +26,7 @@ pub trait CommandParsable
 where
     Self: Sized + CommandBase,
 {
-    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self>;
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self>;
 }
 
 #[enum_dispatch(Command)]

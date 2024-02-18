@@ -6,10 +6,10 @@ use proc_macros::{CCValues, TryFromRepr};
 use std::fmt::Display;
 use typed_builder::TypedBuilder;
 use ux::{u3, u5};
-use zwave_core::bake;
-use zwave_core::bake::Encoder;
+use zwave_core::serialize;
+use zwave_core::serialize::Serializable;
 use zwave_core::cache::CacheValue;
-use zwave_core::munch::{
+use zwave_core::parse::{
     bits,
     bytes::{be_u16, complete::take},
     combinators::map_res,
@@ -177,14 +177,14 @@ impl CCId for ManufacturerSpecificCCGet {
 }
 
 impl CCParsable for ManufacturerSpecificCCGet {
-    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
 }
 
-impl CCEncoder for ManufacturerSpecificCCGet {
-    fn write(&self, _output: &mut BytesMut) {
+impl CCSerializable for ManufacturerSpecificCCGet {
+    fn serialize(&self, _output: &mut BytesMut) {
         // No payload
     }
 }
@@ -212,7 +212,7 @@ impl CCId for ManufacturerSpecificCCReport {
 }
 
 impl CCParsable for ManufacturerSpecificCCReport {
-    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let manufacturer_id = be_u16(i)?;
         let product_type = be_u16(i)?;
         let product_id = be_u16(i)?;
@@ -225,15 +225,15 @@ impl CCParsable for ManufacturerSpecificCCReport {
     }
 }
 
-impl CCEncoder for ManufacturerSpecificCCReport {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::{bytes::be_u16, sequence::tuple};
+impl CCSerializable for ManufacturerSpecificCCReport {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::{bytes::be_u16, sequence::tuple};
         tuple((
             be_u16(self.manufacturer_id),
             be_u16(self.product_type),
             be_u16(self.product_id),
         ))
-        .write(output)
+        .serialize(output)
     }
 }
 
@@ -271,7 +271,7 @@ impl CCId for ManufacturerSpecificCCDeviceSpecificGet {
 }
 
 impl CCParsable for ManufacturerSpecificCCDeviceSpecificGet {
-    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let (_reserved73, device_id_type) = bits::bits((
             u5::parse,
             map_res(bits::take(3usize), |x: u8| DeviceIdType::try_from(x)),
@@ -282,14 +282,14 @@ impl CCParsable for ManufacturerSpecificCCDeviceSpecificGet {
     }
 }
 
-impl CCEncoder for ManufacturerSpecificCCDeviceSpecificGet {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bits::bits;
+impl CCSerializable for ManufacturerSpecificCCDeviceSpecificGet {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bits::bits;
         bits(move |bo| {
             u5::new(0).write(bo);
             u3::new(((self.device_id_type) as u8) & 0b0000_0111).write(bo);
         })
-        .write(output)
+        .serialize(output)
     }
 }
 
@@ -324,7 +324,7 @@ impl CCId for ManufacturerSpecificCCDeviceSpecificReport {
 }
 
 impl CCParsable for ManufacturerSpecificCCDeviceSpecificReport {
-    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let (_reserved73, device_id_type) = bits::bits((
             u5::parse,
             map_res(bits::take(3usize), |x: u8| DeviceIdType::try_from(x)),
@@ -340,8 +340,8 @@ impl CCParsable for ManufacturerSpecificCCDeviceSpecificReport {
     }
 }
 
-impl CCEncoder for ManufacturerSpecificCCDeviceSpecificReport {
-    fn write(&self, _output: &mut BytesMut) {
+impl CCSerializable for ManufacturerSpecificCCDeviceSpecificReport {
+    fn serialize(&self, _output: &mut BytesMut) {
         todo!("ERROR: ManufacturerSpecificCCDeviceSpecificReport::write() not implemented")
     }
 }

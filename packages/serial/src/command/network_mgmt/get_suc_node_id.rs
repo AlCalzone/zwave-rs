@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
-use zwave_core::bake::EncoderWith;
+use zwave_core::serialize::SerializableWith;
 use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -33,14 +33,14 @@ impl CommandRequest for GetSucNodeIdRequest {
 }
 
 impl CommandParsable for GetSucNodeIdRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetSucNodeIdRequest {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for GetSucNodeIdRequest {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
     }
 }
@@ -73,7 +73,7 @@ impl CommandId for GetSucNodeIdResponse {
 impl CommandBase for GetSucNodeIdResponse {}
 
 impl CommandParsable for GetSucNodeIdResponse {
-    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let suc_node_id = NodeId::parse(i, ctx.node_id_type)?;
         Ok(Self {
             suc_node_id: if suc_node_id == 0u8 {
@@ -85,11 +85,11 @@ impl CommandParsable for GetSucNodeIdResponse {
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetSucNodeIdResponse {
-    fn write(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for GetSucNodeIdResponse {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
         self.suc_node_id
             .unwrap_or(NodeId::new(0u8))
-            .write(output, ctx.node_id_type);
+            .serialize(output, ctx.node_id_type);
     }
 }
 

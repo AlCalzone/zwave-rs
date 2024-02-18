@@ -59,7 +59,7 @@ pub mod streaming {
 
 pub mod complete {
     use super::*;
-    use crate::munch::combinators;
+    use crate::parse::combinators;
 
     fn map_incomplete<O>(res: ParseResult<O>) -> ParseResult<O> {
         match res {

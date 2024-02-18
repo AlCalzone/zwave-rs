@@ -1,4 +1,4 @@
-use crate::munch::{
+use crate::parse::{
     bits,
     combinators::{context, map, map_res},
 };
@@ -24,7 +24,7 @@ impl Display for Beam {
 }
 
 impl BitParsable for Beam {
-    fn parse(i: &mut (Bytes, usize)) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut (Bytes, usize)) -> crate::parse::ParseResult<Self> {
         context(
             "Beam",
             map_res(bits::take(2usize), |x: u8| Beam::try_from(x)),
@@ -34,7 +34,7 @@ impl BitParsable for Beam {
 }
 
 impl Beam {
-    pub fn parse_opt(i: &mut (Bytes, usize)) -> crate::munch::ParseResult<Option<Self>> {
+    pub fn parse_opt(i: &mut (Bytes, usize)) -> crate::parse::ParseResult<Option<Self>> {
         context(
             "Beam",
             map(bits::take(2usize), |x: u8| match Beam::try_from(x) {

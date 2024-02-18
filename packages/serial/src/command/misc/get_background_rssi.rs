@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
-use zwave_core::bake::EncoderWith;
-use zwave_core::munch::combinators::opt;
+use zwave_core::serialize::SerializableWith;
+use zwave_core::parse::combinators::opt;
 use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -34,14 +34,14 @@ impl CommandRequest for GetBackgroundRssiRequest {
 }
 
 impl CommandParsable for GetBackgroundRssiRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetBackgroundRssiRequest {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for GetBackgroundRssiRequest {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
     }
 }
@@ -76,7 +76,7 @@ impl CommandId for GetBackgroundRssiResponse {
 impl CommandBase for GetBackgroundRssiResponse {}
 
 impl CommandParsable for GetBackgroundRssiResponse {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let rssi0 = RSSI::parse(i)?;
         let rssi1 = RSSI::parse(i)?;
         let rssi2 = opt(RSSI::parse).parse(i)?;
@@ -88,8 +88,8 @@ impl CommandParsable for GetBackgroundRssiResponse {
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetBackgroundRssiResponse {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for GetBackgroundRssiResponse {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         todo!("ERROR: GetBackgroundRssiResponse::write() not implemented");
     }
 }

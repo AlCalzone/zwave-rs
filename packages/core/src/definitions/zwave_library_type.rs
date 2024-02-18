@@ -1,10 +1,10 @@
-use crate::munch::{
+use crate::parse::{
     bytes::be_u8,
     combinators::{context, map_res},
 };
 use crate::prelude::*;
 use bytes::{BytesMut, Bytes};
-use crate::bake::{self, Encoder};
+use crate::serialize::{self, Serializable};
 use proc_macros::TryFromRepr;
 use std::fmt::Display;
 
@@ -45,14 +45,14 @@ impl Display for ZWaveLibraryType {
 }
 
 impl Parsable for ZWaveLibraryType {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         context("ZWaveLibraryType", map_res(be_u8, Self::try_from)).parse(i)
     }
 }
 
-impl Encoder for ZWaveLibraryType {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bytes::be_u8;
-        be_u8(*self as u8).write(output)
+impl Serializable for ZWaveLibraryType {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output)
     }
 }

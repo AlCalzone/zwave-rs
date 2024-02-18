@@ -1,5 +1,5 @@
 use crate::{
-    bake::{self, Encoder}, munch::{
+    serialize::{self, Serializable}, parse::{
         bytes::{be_u16, be_u8},
         combinators::{map_res, peek},
     }, prelude::*
@@ -471,7 +471,7 @@ fn test_non_application_ccs() {
 }
 
 impl Parsable for CommandClasses {
-    fn parse(i: &mut bytes::Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut bytes::Bytes) -> crate::parse::ParseResult<Self> {
         let cc_id = peek(be_u8).parse(i)?;
         // FIXME: Support unknown CCs
         let cc = if CommandClasses::is_extended(cc_id) {
@@ -483,13 +483,13 @@ impl Parsable for CommandClasses {
     }
 }
 
-impl Encoder for CommandClasses {
-    fn write(&self, output: &mut bytes::BytesMut) {
-        use bake::bytes::{be_u16, be_u8};
+impl Serializable for CommandClasses {
+    fn serialize(&self, output: &mut bytes::BytesMut) {
+        use serialize::bytes::{be_u16, be_u8};
         if self.is_extended_cc() {
-            be_u16(*self as u16).write(output);
+            be_u16(*self as u16).serialize(output);
         } else {
-            be_u8(*self as u8).write(output);
+            be_u8(*self as u8).serialize(output);
         }
     }
 }

@@ -1,5 +1,5 @@
-use crate::bake::{self, Encoder};
-use crate::munch::{
+use crate::serialize::{self, Serializable};
+use crate::parse::{
     bytes::be_u8,
     combinators::{context, map},
 };
@@ -42,14 +42,14 @@ impl From<ZWaveApiVersion> for u8 {
 }
 
 impl Parsable for ZWaveApiVersion {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         context("ZWaveApiVersion", map(be_u8, Self::from)).parse(i)
     }
 }
 
-impl Encoder for ZWaveApiVersion {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bytes::be_u8;
-        be_u8((*self).into()).write(output)
+impl Serializable for ZWaveApiVersion {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8((*self).into()).serialize(output)
     }
 }

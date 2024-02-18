@@ -1,7 +1,7 @@
-use crate::munch::{bytes::be_u8, combinators::map_res};
+use crate::parse::{bytes::be_u8, combinators::map_res};
 use crate::prelude::*;
 use bytes::{BytesMut, Bytes};
-use crate::bake::{self, Encoder};
+use crate::serialize::{self, Serializable};
 
 // All values from 1 to BINARY_SET_MAX are interpreted as ON in SET commands
 pub const BINARY_SET_MAX: u8 = 99;
@@ -31,15 +31,15 @@ impl TryFrom<u8> for BinaryReport {
 }
 
 impl Parsable for BinaryReport {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         map_res(be_u8, Self::try_from).parse(i)
     }
 }
 
-impl Encoder for BinaryReport {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bytes::be_u8;
-        be_u8(*self as u8).write(output)
+impl Serializable for BinaryReport {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output)
     }
 }
 
@@ -126,15 +126,15 @@ impl TryFrom<u8> for BinarySet {
 }
 
 impl Parsable for BinarySet {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         map_res(be_u8, Self::try_from).parse(i)
     }
 }
 
-impl Encoder for BinarySet {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bytes::be_u8;
-        be_u8(*self as u8).write(output)
+impl Serializable for BinarySet {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output)
     }
 }
 

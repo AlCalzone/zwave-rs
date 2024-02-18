@@ -1,10 +1,10 @@
-use crate::munch::{
+use crate::parse::{
     bytes::be_u8,
     combinators::{context, map_res},
 };
 use crate::prelude::*;
 use bytes::{BytesMut, Bytes};
-use crate::bake::{self, Encoder};
+use crate::serialize::{self, Serializable};
 use proc_macros::TryFromRepr;
 use std::fmt::Display;
 
@@ -37,14 +37,14 @@ impl Display for RoutingScheme {
 }
 
 impl Parsable for RoutingScheme {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         context("RoutingScheme", map_res(be_u8, RoutingScheme::try_from)).parse(i)
     }
 }
 
-impl Encoder for RoutingScheme {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bytes::be_u8;
-        be_u8(*self as u8).write(output)
+impl Serializable for RoutingScheme {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output)
     }
 }

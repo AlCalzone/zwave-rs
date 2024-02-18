@@ -2,14 +2,13 @@ use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
 use ux::u7;
-use zwave_core::bake::EncoderWith;
-use zwave_core::encoding::{parsers, BitParsable};
-use zwave_core::munch::{
+use zwave_core::parse::{
     bits::{self, bool},
     bytes::be_u8,
-    combinators::map,
+    combinators::map, multi::variable_length_cc_list,
 };
 use zwave_core::prelude::*;
+use zwave_core::serialize::SerializableWith;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SerialApiStartedRequest {
@@ -40,14 +39,14 @@ impl CommandId for SerialApiStartedRequest {
 impl CommandBase for SerialApiStartedRequest {}
 
 impl CommandParsable for SerialApiStartedRequest {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let wake_up_reason = SerialApiWakeUpReason::parse(i)?;
         let watchdog_enabled = map(be_u8, |x| x == 0x01).parse(i)?;
         let (is_listening, _reserved) = bits::bits((bool, u7::parse)).parse(i)?;
         let generic_device_class = be_u8(i)?;
         let specific_device_class = be_u8(i)?;
         let (supported_command_classes, controlled_command_classes) =
-            parsers::variable_length_cc_list(i)?;
+            variable_length_cc_list(i)?;
         let (_reserved, supports_long_range) = bits::bits((u7::parse, bool)).parse(i)?;
 
         Ok(Self {
@@ -63,8 +62,8 @@ impl CommandParsable for SerialApiStartedRequest {
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for SerialApiStartedRequest {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for SerialApiStartedRequest {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         todo!("ERROR: SerialApiStartedRequest::write() not implemented")
     }
 }

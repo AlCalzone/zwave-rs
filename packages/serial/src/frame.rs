@@ -2,9 +2,9 @@ use crate::prelude::{Command, CommandEncodingContext};
 use bytes::{Buf, Bytes, BytesMut};
 use proc_macros::TryFromRepr;
 use std::fmt::Display;
-use zwave_core::bake::{self, Encoder};
-use zwave_core::munch;
+use zwave_core::parse;
 use zwave_core::prelude::*;
+use zwave_core::serialize::{self, Serializable};
 
 #[derive(Debug, TryFromRepr)]
 #[repr(u8)]
@@ -56,9 +56,9 @@ pub enum SerialFrame {
 }
 
 impl RawSerialFrame {
-    pub fn parse_mut(i: &mut BytesMut) -> munch::ParseResult<Self> {
+    pub fn parse_mut(i: &mut BytesMut) -> parse::ParseResult<Self> {
         if i.remaining() == 0 {
-            return Err(munch::ParseError::needed(1));
+            return Err(parse::ParseError::needed(1));
         }
 
         // A serial frame is either a control byte, data starting with SOF, or skipped garbage
@@ -78,11 +78,11 @@ impl RawSerialFrame {
             SOF_BYTE => {
                 // Ensure we have at least 5 bytes
                 if i.len() < 5 {
-                    return Err(munch::ParseError::needed(5 - i.len()));
+                    return Err(parse::ParseError::needed(5 - i.len()));
                 }
                 let len = i[1] as usize;
                 if i.len() < len + 2 {
-                    return Err(munch::ParseError::needed(len + 2 - i.len()));
+                    return Err(parse::ParseError::needed(len + 2 - i.len()));
                 }
 
                 let data = i.split_to(len + 2);
@@ -104,23 +104,20 @@ impl RawSerialFrame {
     }
 }
 
-impl Encoder for RawSerialFrame {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bytes::{be_u8, slice};
+impl Serializable for RawSerialFrame {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::{be_u8, slice};
 
         match self {
-            RawSerialFrame::ControlFlow(byte) => be_u8(*byte as u8).write(output),
-            RawSerialFrame::Data(data) => slice(data).write(output),
+            RawSerialFrame::ControlFlow(byte) => be_u8(*byte as u8).serialize(output),
+            RawSerialFrame::Data(data) => slice(data).serialize(output),
             RawSerialFrame::Garbage(_) => unimplemented!("Garbage is not serializable"),
         }
     }
 }
 
 impl SerialFrame {
-    pub fn as_raw(
-        self,
-        ctx: &CommandEncodingContext,
-    ) -> RawSerialFrame {
+    pub fn as_raw(self, ctx: &CommandEncodingContext) -> RawSerialFrame {
         match self {
             SerialFrame::ControlFlow(byte) => RawSerialFrame::ControlFlow(byte),
             SerialFrame::Command(cmd) => {

@@ -1,13 +1,11 @@
-use crate::bake::Encoder;
-use crate::prelude::*;
-use crate::{
-    encoding::BitParsable,
-    munch::{
-        bits::bits,
-        bytes::{be_i8, be_u16, be_u8},
-        combinators::{cond, map, opt, repeat},
-    },
+use crate::parse::{
+    bits::bits,
+    bytes::{be_i8, be_u16, be_u8},
+    combinators::{cond, map, opt, repeat},
+    BitParsable,
 };
+use crate::prelude::*;
+use crate::serialize::Serializable;
 use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
 use std::fmt::Display;
@@ -92,7 +90,7 @@ pub struct TransmitReport {
 
 impl TransmitReport {
     // How to parse this depends on the Transmit status. ACK related fields are not parsed if the node did not ACK the frame.
-    pub fn parse(i: &mut Bytes, with_ack: bool) -> crate::munch::ParseResult<Self> {
+    pub fn parse(i: &mut Bytes, with_ack: bool) -> crate::parse::ParseResult<Self> {
         let tx_ticks = be_u16(i)?;
         let num_repeaters = be_u8(i)?;
         let ack_rssi = RSSI::parse(i)?;
@@ -185,8 +183,8 @@ impl TransmitReport {
     }
 }
 
-impl Encoder for TransmitReport {
-    fn write(&self, _output: &mut BytesMut) {
+impl Serializable for TransmitReport {
+    fn serialize(&self, _output: &mut BytesMut) {
         todo!("ERROR: TransmitReport::write() not implemented")
     }
 }

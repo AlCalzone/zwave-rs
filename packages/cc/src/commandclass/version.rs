@@ -4,18 +4,17 @@ use bytes::Bytes;
 use proc_macros::{CCValues, TryFromRepr};
 use std::borrow::Cow;
 use typed_builder::TypedBuilder;
-use zwave_core::bake::{self, Encoder};
 use zwave_core::cache::CacheValue;
-use zwave_core::encoding::parsers;
-use zwave_core::munch::{
+use zwave_core::parse::{
     bytes::{be_u16, be_u8},
     combinators::{map, map_repeat, opt},
 };
 use zwave_core::prelude::*;
+use zwave_core::serialize::{self, Serializable};
 use zwave_core::util::ToDiscriminant;
 use zwave_core::value_id::{ValueId, ValueIdProperties};
 
-use super::CCEncoder;
+use super::CCSerializable;
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)] // must match the ToDiscriminant impl
@@ -293,14 +292,14 @@ impl CCId for VersionCCGet {
 }
 
 impl CCParsable for VersionCCGet {
-    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
 }
 
-impl CCEncoder for VersionCCGet {
-    fn write(&self, _output: &mut bytes::BytesMut) {
+impl CCSerializable for VersionCCGet {
+    fn serialize(&self, _output: &mut bytes::BytesMut) {
         // No payload
     }
 }
@@ -362,12 +361,12 @@ impl CCId for VersionCCReport {
 }
 
 impl CCParsable for VersionCCReport {
-    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let library_type = ZWaveLibraryType::parse(i)?;
-        let protocol_version = parsers::version_major_minor(i)?;
-        let firmware_0_version = parsers::version_major_minor(i)?;
+        let protocol_version = Version::parse_major_minor(i)?;
+        let firmware_0_version = Version::parse_major_minor(i)?;
         let (hardware_version, additional_firmware_versions) = map(
-            opt((be_u8, map_repeat(be_u8, parsers::version_major_minor))),
+            opt((be_u8, map_repeat(be_u8, Version::parse_major_minor))),
             Option::unzip,
         )
         .parse(i)?;
@@ -386,8 +385,8 @@ impl CCParsable for VersionCCReport {
     }
 }
 
-impl CCEncoder for VersionCCReport {
-    fn write(&self, _output: &mut bytes::BytesMut) {
+impl CCSerializable for VersionCCReport {
+    fn serialize(&self, _output: &mut bytes::BytesMut) {
         todo!("ERROR: VersionCCReport::serialize() not implemented")
     }
 }
@@ -424,16 +423,16 @@ impl CCId for VersionCCCommandClassGet {
 }
 
 impl CCParsable for VersionCCCommandClassGet {
-    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let requested_cc = CommandClasses::parse(i)?;
 
         Ok(Self { requested_cc })
     }
 }
 
-impl CCEncoder for VersionCCCommandClassGet {
-    fn write(&self, output: &mut bytes::BytesMut) {
-        self.requested_cc.write(output);
+impl CCSerializable for VersionCCCommandClassGet {
+    fn serialize(&self, output: &mut bytes::BytesMut) {
+        self.requested_cc.serialize(output);
     }
 }
 
@@ -456,7 +455,7 @@ impl CCId for VersionCCCommandClassReport {
 }
 
 impl CCParsable for VersionCCCommandClassReport {
-    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let requested_cc = CommandClasses::parse(i)?;
         let version = be_u8(i)?;
 
@@ -467,11 +466,11 @@ impl CCParsable for VersionCCCommandClassReport {
     }
 }
 
-impl CCEncoder for VersionCCCommandClassReport {
-    fn write(&self, output: &mut bytes::BytesMut) {
-        use bake::bytes::be_u8;
-        self.requested_cc.write(output);
-        be_u8(self.version).write(output);
+impl CCSerializable for VersionCCCommandClassReport {
+    fn serialize(&self, output: &mut bytes::BytesMut) {
+        use serialize::bytes::be_u8;
+        self.requested_cc.serialize(output);
+        be_u8(self.version).serialize(output);
     }
 }
 
@@ -499,14 +498,14 @@ impl CCId for VersionCCCapabilitiesGet {
 }
 
 impl CCParsable for VersionCCCapabilitiesGet {
-    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
 }
 
-impl CCEncoder for VersionCCCapabilitiesGet {
-    fn write(&self, _output: &mut bytes::BytesMut) {
+impl CCSerializable for VersionCCCapabilitiesGet {
+    fn serialize(&self, _output: &mut bytes::BytesMut) {
         // No payload
     }
 }
@@ -530,7 +529,7 @@ impl CCId for VersionCCCapabilitiesReport {
 }
 
 impl CCParsable for VersionCCCapabilitiesReport {
-    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let capabilities = be_u8(i)?;
         let supports_zwave_software_get = capabilities & 0b100 != 0;
 
@@ -540,15 +539,15 @@ impl CCParsable for VersionCCCapabilitiesReport {
     }
 }
 
-impl CCEncoder for VersionCCCapabilitiesReport {
-    fn write(&self, output: &mut bytes::BytesMut) {
-        use bake::bytes::be_u8;
+impl CCSerializable for VersionCCCapabilitiesReport {
+    fn serialize(&self, output: &mut bytes::BytesMut) {
+        use serialize::bytes::be_u8;
         let capabilities = if self.supports_zwave_software_get {
             0b100
         } else {
             0
         };
-        be_u8(capabilities).write(output);
+        be_u8(capabilities).serialize(output);
     }
 }
 
@@ -576,14 +575,14 @@ impl CCId for VersionCCZWaveSoftwareGet {
 }
 
 impl CCParsable for VersionCCZWaveSoftwareGet {
-    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
 }
 
-impl CCEncoder for VersionCCZWaveSoftwareGet {
-    fn write(&self, _output: &mut bytes::BytesMut) {
+impl CCSerializable for VersionCCZWaveSoftwareGet {
+    fn serialize(&self, _output: &mut bytes::BytesMut) {
         // No payload
     }
 }
@@ -665,12 +664,12 @@ impl CCId for VersionCCZWaveSoftwareReport {
 }
 
 impl CCParsable for VersionCCZWaveSoftwareReport {
-    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         fn parse_opt_version_and_build_number(
             i: &mut Bytes,
-        ) -> zwave_core::munch::ParseResult<Option<(Version, u16)>> {
+        ) -> zwave_core::parse::ParseResult<Option<(Version, u16)>> {
             map(
-                (parsers::version_major_minor_patch, be_u16),
+                (Version::parse_major_minor_patch, be_u16),
                 |(version, build_number)| {
                     if version.major == 0 && version.minor == 0 && version.patch == Some(0) {
                         None
@@ -682,7 +681,7 @@ impl CCParsable for VersionCCZWaveSoftwareReport {
             .parse(i)
         }
 
-        let sdk_version = parsers::version_major_minor_patch(i)?;
+        let sdk_version = Version::parse_major_minor_patch(i)?;
         let application_framework_version = parse_opt_version_and_build_number(i)?;
         let host_interface_version = parse_opt_version_and_build_number(i)?;
         let zwave_protocol_version = parse_opt_version_and_build_number(i)?;
@@ -698,8 +697,8 @@ impl CCParsable for VersionCCZWaveSoftwareReport {
     }
 }
 
-impl CCEncoder for VersionCCZWaveSoftwareReport {
-    fn write(&self, _output: &mut bytes::BytesMut) {
+impl CCSerializable for VersionCCZWaveSoftwareReport {
+    fn serialize(&self, _output: &mut bytes::BytesMut) {
         todo!("ERROR: VersionCCZWaveSoftwareReport::serialize() not implemented")
     }
 }

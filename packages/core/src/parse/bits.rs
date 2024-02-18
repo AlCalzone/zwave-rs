@@ -1,4 +1,5 @@
-use super::{combinators::map, Needed, ParseError, ParseResult, Parser};
+use super::{combinators::map, Needed};
+use crate::prelude::*;
 use bytes::{Buf, Bytes};
 use std::ops::{Add, Shl, Shr};
 
@@ -97,3 +98,20 @@ where
 pub fn bool(input: &mut (Bytes, usize)) -> ParseResult<bool> {
     map(take(1usize), |x: u8| x != 0).parse(input)
 }
+
+macro_rules! impl_bit_parsable_for_ux {
+    ($($width: expr),*) => {
+        $(
+            paste::item! {
+                impl BitParsable for ux::[<u $width>] {
+                    fn parse(i: &mut (Bytes, usize)) -> super::ParseResult<Self> {
+                        use super::{combinators::map, bits::take};
+                        map(take($width as usize), Self::new).parse(i)
+                    }
+                }
+            }
+        )*
+    };
+}
+
+impl_bit_parsable_for_ux!(1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15);

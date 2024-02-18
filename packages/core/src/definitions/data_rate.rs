@@ -1,15 +1,14 @@
-use crate::bake::Encoder;
-use crate::encoding::WriteLastNBits;
-use crate::munch::{
+use crate::parse::{
     bits,
     bytes::be_u8,
     combinators::{context, map_res},
 };
 use crate::prelude::*;
-use crate::{bake, encoding};
+use crate::serialize;
 use bytes::{Bytes, BytesMut};
 use proc_macros::TryFromRepr;
 use std::fmt::Display;
+use ux::u3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProtocolDataRate {
@@ -50,7 +49,7 @@ impl From<ProtocolDataRate> for u8 {
 }
 
 impl BitParsable for ProtocolDataRate {
-    fn parse(i: &mut (Bytes, usize)) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut (Bytes, usize)) -> crate::parse::ParseResult<Self> {
         context(
             "ProtocolDataRate",
             map_res(bits::take(3usize), |x: u8| ProtocolDataRate::try_from(x)),
@@ -60,7 +59,7 @@ impl BitParsable for ProtocolDataRate {
 }
 
 impl Parsable for ProtocolDataRate {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         context(
             "ProtocolDataRate",
             map_res(be_u8, ProtocolDataRate::try_from),
@@ -70,8 +69,8 @@ impl Parsable for ProtocolDataRate {
 }
 
 impl BitSerializable for ProtocolDataRate {
-    fn write(&self, b: &mut encoding::BitOutput) {
-        b.write_last_n_bits(u8::from(*self), 3);
+    fn write(&self, b: &mut BitOutput) {
+        u3::new(u8::from(*self)).write(b);
     }
 }
 
@@ -95,14 +94,14 @@ impl Display for DataRate {
 }
 
 impl Parsable for DataRate {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         context("DataRate", map_res(be_u8, DataRate::try_from)).parse(i)
     }
 }
 
-impl Encoder for DataRate {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bytes::be_u8;
-        be_u8(*self as u8).write(output)
+impl Serializable for DataRate {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output)
     }
 }

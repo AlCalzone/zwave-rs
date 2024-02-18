@@ -1,13 +1,12 @@
 use crate::binding::SerialBinding;
 use crate::error::*;
 use crate::frame::RawSerialFrame;
-use bytes::{Buf, BufMut, BytesMut};
+use bytes::BytesMut;
 use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
 use tokio_serial::{SerialPortBuilderExt, SerialStream};
 use tokio_util::codec::{Decoder, Encoder, Framed};
-
-use zwave_core::munch::{Needed, ParseError};
+use zwave_core::parse::Needed;
 use zwave_core::prelude::*;
 
 pub struct SerialPort {
@@ -77,8 +76,7 @@ impl Encoder<RawSerialFrame> for SerialFrameCodec {
         item: RawSerialFrame,
         dst: &mut BytesMut,
     ) -> std::result::Result<(), Self::Error> {
-        use zwave_core::bake::Encoder;
-        item.write(dst);
+        item.serialize(dst);
         Ok(())
     }
 }

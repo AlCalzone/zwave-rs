@@ -1,4 +1,6 @@
-use crate::munch::ParseError;
+use crate::parse::{bytes::be_u8, combinators::map};
+use crate::prelude::*;
+use bytes::Bytes;
 use std::fmt::{self, Display};
 #[derive(Clone, Copy, Eq, PartialOrd)]
 pub struct Version {
@@ -51,6 +53,26 @@ impl TryFrom<&str> for Version {
             minor: *parts.get(1).unwrap(),
             patch: parts.get(2).copied(),
         })
+    }
+}
+
+impl Version {
+    pub fn parse_major_minor_patch(i: &mut Bytes) -> ParseResult<Self> {
+        map((be_u8, be_u8, be_u8), |(major, minor, patch)| Version {
+            major,
+            minor,
+            patch: Some(patch),
+        })
+        .parse(i)
+    }
+
+    pub fn parse_major_minor(i: &mut Bytes) -> ParseResult<Self> {
+        map((be_u8, be_u8), |(major, minor)| Version {
+            major,
+            minor,
+            patch: None,
+        })
+        .parse(i)
     }
 }
 

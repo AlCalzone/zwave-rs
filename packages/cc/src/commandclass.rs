@@ -1,12 +1,12 @@
+use bytes::{Bytes, BytesMut};
+use enum_dispatch::enum_dispatch;
 use std::{
     marker::Sized,
     ops::{Deref, DerefMut},
 };
-
-use bytes::{Bytes, BytesMut};
-use enum_dispatch::enum_dispatch;
 use typed_builder::TypedBuilder;
-use zwave_core::{bake::{self, Encoder}, cache::CacheValue, prelude::*, value_id::ValueId};
+use zwave_core::prelude::*;
+use zwave_core::{cache::CacheValue, serialize, value_id::ValueId};
 
 use crate::commandclass_raw::CCRaw;
 
@@ -21,21 +21,21 @@ pub trait CCParsable
 where
     Self: Sized + CCBase,
 {
-    fn parse(i: &mut Bytes, ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self>;
+    fn parse(i: &mut Bytes, ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self>;
 }
 
-// FIXME: This trait is a duplicate of Encoder
+// FIXME: This trait is a duplicate of Serializable
 // Figure out if we need it (e.g. to pass a context)
-pub trait CCEncoder
+pub trait CCSerializable
 where
     Self: Sized + CCBase,
 {
     /// Write the value into the given buffer
-    fn write(&self, output: &mut BytesMut);
+    fn serialize(&self, output: &mut BytesMut);
 
     fn as_bytes_mut(&self) -> BytesMut {
-        let mut output = BytesMut::with_capacity(bake::DEFAULT_CAPACITY);
-        self.write(&mut output);
+        let mut output = BytesMut::with_capacity(serialize::DEFAULT_CAPACITY);
+        self.serialize(&mut output);
         output
     }
 

@@ -1,11 +1,10 @@
-pub mod bake;
 pub mod cache;
 pub mod checksum;
 pub mod definitions;
-pub mod encoding;
 pub mod log;
-pub mod munch;
+pub mod parse;
 pub mod prelude;
+pub mod serialize;
 pub mod state_machine;
 pub mod util;
 pub mod value_id;

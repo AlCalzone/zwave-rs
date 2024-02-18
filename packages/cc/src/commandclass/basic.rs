@@ -3,15 +3,15 @@ use crate::values::*;
 use bytes::{Bytes, BytesMut};
 use proc_macros::{CCValues, TryFromRepr};
 use typed_builder::TypedBuilder;
-use zwave_core::bake::Encoder;
-use zwave_core::munch::combinators::{map, opt};
+use zwave_core::serialize::Serializable;
+use zwave_core::parse::combinators::{map, opt};
 use zwave_core::prelude::*;
 use zwave_core::{
     cache::CacheValue,
     value_id::{ValueId, ValueIdProperties},
 };
 
-use super::CCEncoder;
+use super::CCSerializable;
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)]
@@ -105,16 +105,16 @@ impl CCId for BasicCCSet {
 }
 
 impl CCParsable for BasicCCSet {
-    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let target_value = LevelSet::parse(i)?;
 
         Ok(Self { target_value })
     }
 }
 
-impl CCEncoder for BasicCCSet {
-    fn write(&self, output: &mut BytesMut) {
-        self.target_value.write(output)
+impl CCSerializable for BasicCCSet {
+    fn serialize(&self, output: &mut BytesMut) {
+        self.target_value.serialize(output)
     }
 }
 
@@ -142,14 +142,14 @@ impl CCId for BasicCCGet {
 }
 
 impl CCParsable for BasicCCGet {
-    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
 }
 
-impl CCEncoder for BasicCCGet {
-    fn write(&self, _output: &mut BytesMut) {
+impl CCSerializable for BasicCCGet {
+    fn serialize(&self, _output: &mut BytesMut) {
         // No payload
     }
 }
@@ -177,7 +177,7 @@ impl CCId for BasicCCReport {
 }
 
 impl CCParsable for BasicCCReport {
-    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let current_value = LevelReport::parse(i)?;
         let (target_value, duration) = map(opt((LevelReport::parse, DurationReport::parse)), |x| {
             x.unzip()
@@ -192,13 +192,13 @@ impl CCParsable for BasicCCReport {
     }
 }
 
-impl CCEncoder for BasicCCReport {
-    fn write(&self, output: &mut BytesMut) {
-        self.current_value.write(output);
+impl CCSerializable for BasicCCReport {
+    fn serialize(&self, output: &mut BytesMut) {
+        self.current_value.serialize(output);
 
         if let Some(ref target_value) = self.target_value {
-            target_value.write(output);
-            self.duration.unwrap_or_default().write(output);
+            target_value.serialize(output);
+            self.duration.unwrap_or_default().serialize(output);
         }
     }
 }

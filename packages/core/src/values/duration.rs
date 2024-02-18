@@ -1,5 +1,5 @@
-use crate::bake::{self, Encoder};
-use crate::munch::{bytes::be_u8, combinators::map_res};
+use crate::serialize::{self, Serializable};
+use crate::parse::{bytes::be_u8, combinators::map_res};
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use num_traits::clamp;
@@ -28,15 +28,15 @@ impl TryFrom<u8> for DurationSet {
 }
 
 impl Parsable for DurationSet {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         map_res(be_u8, Self::try_from).parse(i)
     }
 }
 
-impl Encoder for DurationSet {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bytes::be_u8;
-        be_u8((*self).into()).write(output)
+impl Serializable for DurationSet {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8((*self).into()).serialize(output)
     }
 }
 
@@ -98,15 +98,15 @@ impl TryFrom<u8> for DurationReport {
 }
 
 impl Parsable for DurationReport {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         map_res(be_u8, Self::try_from).parse(i)
     }
 }
 
-impl Encoder for DurationReport {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bytes::be_u8;
-        be_u8((*self).into()).write(output)
+impl Serializable for DurationReport {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8((*self).into()).serialize(output)
     }
 }
 

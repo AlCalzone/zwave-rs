@@ -1,10 +1,10 @@
-use crate::munch::{
+use crate::parse::{
     bytes::be_u8,
     combinators::{context, map_res},
 };
 use crate::prelude::*;
 use bytes::{BytesMut, Bytes};
-use crate::bake::{self, Encoder};
+use crate::serialize::{self, Serializable};
 use custom_debug_derive::Debug;
 use proc_macros::TryFromRepr;
 use std::fmt::Display;
@@ -55,7 +55,7 @@ impl Display for SerialApiWakeUpReason {
 }
 
 impl Parsable for SerialApiWakeUpReason {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         context(
             "SerialApiWakeUpReason",
             map_res(be_u8, SerialApiWakeUpReason::try_from),
@@ -64,9 +64,9 @@ impl Parsable for SerialApiWakeUpReason {
     }
 }
 
-impl Encoder for SerialApiWakeUpReason {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bytes::be_u8;
-        be_u8(*self as u8).write(output)
+impl Serializable for SerialApiWakeUpReason {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output)
     }
 }

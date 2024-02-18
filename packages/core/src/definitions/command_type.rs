@@ -1,8 +1,8 @@
-use crate::bake::Encoder;
+use crate::serialize::Serializable;
 use crate::prelude::*;
 use crate::{
-    bake,
-    munch::{
+    serialize,
+    parse::{
         self,
         bytes::be_u8,
         combinators::{context, map_res},
@@ -21,14 +21,14 @@ pub enum CommandType {
 }
 
 impl Parsable for CommandType {
-    fn parse(i: &mut Bytes) -> munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> parse::ParseResult<Self> {
         context("CommandType", map_res(be_u8, CommandType::try_from)).parse(i)
     }
 }
 
-impl Encoder for CommandType {
-    fn write(&self, output: &mut bytes::BytesMut) {
-        use bake::bytes::be_u8;
-        be_u8(*self as u8).write(output);
+impl Serializable for CommandType {
+    fn serialize(&self, output: &mut bytes::BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output);
     }
 }

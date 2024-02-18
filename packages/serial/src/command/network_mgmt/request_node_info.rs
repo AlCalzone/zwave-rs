@@ -2,8 +2,8 @@ use crate::command::ApplicationUpdateRequestPayload;
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use typed_builder::TypedBuilder;
-use zwave_core::bake::{self, Encoder, EncoderWith};
-use zwave_core::munch::{bytes::be_u8, combinators::map};
+use zwave_core::serialize::{self, Serializable, SerializableWith};
+use zwave_core::parse::{bytes::be_u8, combinators::map};
 use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq, TypedBuilder)]
@@ -59,15 +59,15 @@ impl CommandRequest for RequestNodeInfoRequest {
 }
 
 impl CommandParsable for RequestNodeInfoRequest {
-    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let node_id = NodeId::parse(i, ctx.node_id_type)?;
         Ok(Self { node_id })
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for RequestNodeInfoRequest {
-    fn write(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
-        self.node_id.write(output, ctx.node_id_type);
+impl SerializableWith<&CommandEncodingContext> for RequestNodeInfoRequest {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
+        self.node_id.serialize(output, ctx.node_id_type);
     }
 }
 
@@ -104,16 +104,16 @@ impl CommandBase for RequestNodeInfoResponse {
 }
 
 impl CommandParsable for RequestNodeInfoResponse {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let was_sent = map(be_u8, |x| x > 0).parse(i)?;
         Ok(Self { was_sent })
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for RequestNodeInfoResponse {
-    fn write(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        use bake::bytes::be_u8;
-        be_u8(if self.was_sent { 0x01 } else { 0x00 }).write(output);
+impl SerializableWith<&CommandEncodingContext> for RequestNodeInfoResponse {
+    fn serialize(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        use serialize::bytes::be_u8;
+        be_u8(if self.was_sent { 0x01 } else { 0x00 }).serialize(output);
     }
 }
 

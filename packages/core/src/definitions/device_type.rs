@@ -1,5 +1,5 @@
-use crate::bake::{self, Encoder};
-use crate::munch::{bytes::be_u8, combinators::map_res};
+use crate::serialize::{self, Serializable};
+use crate::parse::{bytes::be_u8, combinators::map_res};
 use bytes::{Bytes, BytesMut};
 use crate::prelude::*;
 use proc_macros::TryFromRepr;
@@ -26,14 +26,14 @@ impl Display for BasicDeviceType {
 }
 
 impl Parsable for BasicDeviceType {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         map_res(be_u8, Self::try_from).parse(i)
     }
 }
 
-impl Encoder for BasicDeviceType {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bytes::be_u8;
-        be_u8(*self as u8).write(output)
+impl Serializable for BasicDeviceType {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output)
     }
 }

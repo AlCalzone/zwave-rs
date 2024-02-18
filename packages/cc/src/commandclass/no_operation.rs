@@ -21,14 +21,14 @@ impl CCId for NoOperationCC {
 }
 
 impl CCParsable for NoOperationCC {
-    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
 }
 
-impl CCEncoder for NoOperationCC {
-    fn write(&self, _output: &mut BytesMut) {
+impl CCSerializable for NoOperationCC {
+    fn serialize(&self, _output: &mut BytesMut) {
         // No payload
     }
 }

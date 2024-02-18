@@ -1,9 +1,9 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
-use zwave_core::bake::EncoderWith;
+use zwave_core::serialize::SerializableWith;
 use custom_debug_derive::Debug;
 use zwave_cc::prelude::*;
-use zwave_core::munch::{
+use zwave_core::parse::{
     bytes::be_u8,
     combinators::{map_res, opt},
     multi::length_value,
@@ -37,7 +37,7 @@ impl CommandId for ApplicationCommandRequest {
 impl CommandBase for ApplicationCommandRequest {}
 
 impl CommandParsable for ApplicationCommandRequest {
-    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let frame_info = FrameInfo::parse(i)?;
         let source_node_id = NodeId::parse(i, ctx.node_id_type)?;
         let cc = map_res(length_value(be_u8, CCRaw::parse), |raw| {
@@ -71,8 +71,8 @@ impl CommandParsable for ApplicationCommandRequest {
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for ApplicationCommandRequest {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for ApplicationCommandRequest {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         todo!("ERROR: ApplicationCommandRequest::write() not implemented");
     }
 }

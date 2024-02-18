@@ -1,10 +1,10 @@
-use crate::munch::{
+use crate::parse::{
     bytes::be_i8,
     combinators::{context, map},
 };
 use crate::prelude::*;
 use bytes::{BytesMut, Bytes};
-use crate::bake::{self, Encoder};
+use crate::serialize::{self, Serializable};
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,14 +54,14 @@ impl From<RSSI> for i8 {
 }
 
 impl Parsable for RSSI {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         context("RSSI", map(be_i8, RSSI::from)).parse(i)
     }
 }
 
-impl Encoder for RSSI {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::bytes::be_i8;
-        be_i8((*self).into()).write(output)
+impl Serializable for RSSI {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_i8;
+        be_i8((*self).into()).serialize(output)
     }
 }

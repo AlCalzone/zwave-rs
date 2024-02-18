@@ -1,4 +1,13 @@
-use super::{combinators::map_parser, ParseError, ParseResult, Parser, ToLength};
+use super::{
+    bytes::{
+        be_u8,
+        complete::{literal, take},
+    },
+    combinators::map_parser,
+    ToLength,
+};
+use crate::prelude::*;
+use bitvec::prelude::*;
 use bytes::Bytes;
 
 pub fn many_0<I, O, P>(parser: P) -> impl Parser<I, Vec<O>>
@@ -111,4 +120,77 @@ where
         let o2 = second.parse(input)?;
         Ok((o1, o2))
     }
+}
+
+/// Parses a bitmask into a `Vec<u8>`. The least significant bit is mapped to `bit0_value`. The first byte is considerd to be the bitmask length.
+pub fn variable_length_bitmask_u8(i: &mut Bytes, bit0_value: u8) -> ParseResult<Vec<u8>> {
+    let bitmask = length_data(be_u8).parse(i)?;
+
+    let view = bitmask.view_bits::<Lsb0>();
+    let ret = view
+        .iter_ones()
+        .map(|index| (index as u8) + bit0_value)
+        .collect::<Vec<_>>();
+    Ok(ret)
+}
+
+/// Parses a bitmask with the given length into a `Vec<u8>`. The least significant bit is mapped to `bit0_value`.
+pub fn fixed_length_bitmask_u8(
+    i: &mut Bytes,
+    bit0_value: u8,
+    bitmask_len: usize,
+) -> ParseResult<Vec<u8>> {
+    let bitmask = take(bitmask_len).parse(i)?;
+
+    let view = bitmask.view_bits::<Lsb0>();
+    let ret = view
+        .iter_ones()
+        .map(|index| (index as u8) + bit0_value)
+        .collect::<Vec<_>>();
+    Ok(ret)
+}
+
+/// Parses a list of supported and controlled CCs that starts with a length byte
+pub fn variable_length_cc_list(
+    i: &mut Bytes,
+) -> ParseResult<(
+    Vec<CommandClasses>, // supported
+    Vec<CommandClasses>, // controlled
+)> {
+    map_parser(
+        length_data(be_u8),
+        separated_pair(
+            many_0(CommandClasses::parse),
+            literal(COMMAND_CLASS_SUPPORT_CONTROL_MARK),
+            many_0(CommandClasses::parse),
+        ),
+    )
+    .parse(i)
+}
+
+/// Parses a list of supported and controlled CCs with the given length
+pub fn fixed_length_cc_list(
+    i: &mut Bytes,
+    len: usize,
+) -> ParseResult<(
+    Vec<CommandClasses>, // supported
+    Vec<CommandClasses>, // controlled
+)> {
+    map_parser(
+        take(len),
+        separated_pair(
+            many_0(CommandClasses::parse),
+            literal(COMMAND_CLASS_SUPPORT_CONTROL_MARK),
+            many_0(CommandClasses::parse),
+        ),
+    )
+    .parse(i)
+}
+
+/// Parses a list of supported (NOT controlled) CCs with the given length
+pub fn fixed_length_cc_list_only_supported(
+    i: &mut Bytes,
+    len: usize,
+) -> ParseResult<Vec<CommandClasses>> {
+    map_parser(take(len), many_0(CommandClasses::parse)).parse(i)
 }

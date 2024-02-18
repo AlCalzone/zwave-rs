@@ -1,6 +1,4 @@
-use crate::encoding;
-use crate::encoding::WriteLastNBits;
-use crate::munch::{
+use crate::parse::{
     bits::{self, bool},
     combinators::{context, map_res},
 };
@@ -8,7 +6,7 @@ use crate::prelude::*;
 use bytes::Bytes;
 use custom_debug_derive::Debug;
 use proc_macros::TryFromRepr;
-use ux::u1;
+use ux::{u1, u2};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
 #[repr(u8)]
@@ -19,7 +17,7 @@ pub enum FrameAddressing {
 }
 
 impl BitParsable for FrameAddressing {
-    fn parse(i: &mut (Bytes, usize)) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut (Bytes, usize)) -> crate::parse::ParseResult<Self> {
         context(
             "FrameType",
             map_res(bits::take(2usize), |x: u8| FrameAddressing::try_from(x)),
@@ -29,8 +27,8 @@ impl BitParsable for FrameAddressing {
 }
 
 impl BitSerializable for FrameAddressing {
-    fn write(&self, b: &mut encoding::BitOutput) {
-        b.write_last_n_bits((*self) as u8, 2);
+    fn write(&self, b: &mut BitOutput) {
+        u2::new(*self as u8).write(b);
     }
 }
 
@@ -50,7 +48,7 @@ pub struct FrameInfo {
 }
 
 impl Parsable for FrameInfo {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         let (
             foreign_home_id,
             foreign_target_node,

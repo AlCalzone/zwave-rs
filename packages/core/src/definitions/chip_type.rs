@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use crate::{
-    bake::{self, Encoder},
-    munch::{
+    serialize::{self, Serializable},
+    parse::{
         bytes::be_u16,
         combinators::{context, map},
     },
@@ -52,14 +52,14 @@ impl From<u16> for ChipType {
 }
 
 impl Parsable for ChipType {
-    fn parse(i: &mut bytes::Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut bytes::Bytes) -> crate::parse::ParseResult<Self> {
         context("ChipType", map(be_u16, ChipType::from)).parse(i)
     }
 }
 
-impl Encoder for ChipType {
-    fn write(&self, output: &mut bytes::BytesMut) {
-        bake::bytes::be_u16((*self).into()).write(output);
+impl Serializable for ChipType {
+    fn serialize(&self, output: &mut bytes::BytesMut) {
+        serialize::bytes::be_u16((*self).into()).serialize(output);
     }
 }
 

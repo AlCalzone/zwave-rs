@@ -1,10 +1,10 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
-use zwave_core::bake::EncoderWith;
-use zwave_core::encoding::parsers::fixed_length_bitmask_u8;
+use zwave_core::parse::multi::fixed_length_bitmask_u8;
+use zwave_core::serialize::SerializableWith;
 use zwave_core::log::ToLogPayload;
-use zwave_core::munch::{
+use zwave_core::parse::{
     bytes::{be_u16, be_u8},
     combinators::map,
 };
@@ -45,14 +45,14 @@ impl CommandRequest for GetSerialApiCapabilitiesRequest {
 }
 
 impl CommandParsable for GetSerialApiCapabilitiesRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetSerialApiCapabilitiesRequest {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for GetSerialApiCapabilitiesRequest {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
     }
 }
@@ -92,7 +92,7 @@ impl CommandId for GetSerialApiCapabilitiesResponse {
 impl CommandBase for GetSerialApiCapabilitiesResponse {}
 
 impl CommandParsable for GetSerialApiCapabilitiesResponse {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let firmware_version = map((be_u8, be_u8), |(major, minor)| Version {
             major,
             minor,
@@ -118,8 +118,8 @@ impl CommandParsable for GetSerialApiCapabilitiesResponse {
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetSerialApiCapabilitiesResponse {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for GetSerialApiCapabilitiesResponse {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         todo!("ERROR: GetSerialApiCapabilitiesResponse::write() not implemented");
     }
 }

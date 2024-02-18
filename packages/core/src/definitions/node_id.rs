@@ -1,6 +1,6 @@
 use crate::{
-    bake::{self, Encoder, EncoderWith},
-    munch::bytes::{be_u16, be_u8},
+    serialize::{self, Serializable, SerializableWith},
+    parse::bytes::{be_u16, be_u8},
     prelude::*,
 };
 use std::fmt::{Debug, Display};
@@ -76,7 +76,7 @@ impl NodeId {
     pub fn parse(
         i: &mut bytes::Bytes,
         node_id_type: NodeIdType,
-    ) -> crate::munch::ParseResult<Self> {
+    ) -> crate::parse::ParseResult<Self> {
         match node_id_type {
             NodeIdType::NodeId8Bit => {
                 let node_id = be_u8(i)?;
@@ -90,15 +90,15 @@ impl NodeId {
     }
 }
 
-impl EncoderWith<NodeIdType> for NodeId {
-    fn write(&self, output: &mut bytes::BytesMut, node_id_type: NodeIdType) {
-        use bake::bytes::{be_u16, be_u8};
+impl SerializableWith<NodeIdType> for NodeId {
+    fn serialize(&self, output: &mut bytes::BytesMut, node_id_type: NodeIdType) {
+        use serialize::bytes::{be_u16, be_u8};
         match node_id_type {
             NodeIdType::NodeId8Bit => {
-                be_u8(self.0 as u8).write(output);
+                be_u8(self.0 as u8).serialize(output);
             }
             NodeIdType::NodeId16Bit => {
-                be_u16(self.0).write(output);
+                be_u16(self.0).serialize(output);
             }
         }
     }

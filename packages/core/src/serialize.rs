@@ -1,4 +1,5 @@
 extern crate bytes as bytes_crate;
+use bitvec::prelude::*;
 use bytes_crate::{BufMut, Bytes, BytesMut};
 
 pub mod bits;
@@ -8,13 +9,13 @@ pub mod sequence;
 pub const DEFAULT_CAPACITY: usize = 64;
 const CAPACITY_INCREMENT: usize = 32;
 
-pub trait Encoder {
+pub trait Serializable {
     /// Write the value into the given buffer
-    fn write(&self, output: &mut BytesMut);
+    fn serialize(&self, output: &mut BytesMut);
 
     fn as_bytes_mut(&self) -> BytesMut {
         let mut output = BytesMut::with_capacity(DEFAULT_CAPACITY);
-        self.write(&mut output);
+        self.serialize(&mut output);
         output
     }
 
@@ -23,35 +24,41 @@ pub trait Encoder {
     }
 }
 
-// Convenience implementation of Encoder for functions
-impl<F> Encoder for F
+pub type BitOutput = BitVec<u8, Msb0>;
+
+pub trait BitSerializable {
+    fn write(&self, b: &mut BitOutput);
+}
+
+// Convenience implementation of Serializable for functions
+impl<F> Serializable for F
 where
     F: Fn(&mut BytesMut),
 {
-    fn write(&self, output: &mut BytesMut) {
+    fn serialize(&self, output: &mut BytesMut) {
         self(output)
     }
 }
 
-// Convenience implementation of Encoder for Option<Encoder>
-impl<T> Encoder for Option<T>
+// Convenience implementation of Serializable for Option<Serializable>
+impl<T> Serializable for Option<T>
 where
-    T: Encoder,
+    T: Serializable,
 {
-    fn write(&self, output: &mut BytesMut) {
+    fn serialize(&self, output: &mut BytesMut) {
         if let Some(v) = self {
-            v.write(output);
+            v.serialize(output);
         }
     }
 }
 
-pub trait EncoderWith<Context> {
+pub trait SerializableWith<Context> {
     /// Write the value into the given buffer
-    fn write(&self, output: &mut BytesMut, ctx: Context);
+    fn serialize(&self, output: &mut BytesMut, ctx: Context);
 
     fn as_bytes_mut(&self, ctx: Context) -> BytesMut {
         let mut output = BytesMut::with_capacity(DEFAULT_CAPACITY);
-        self.write(&mut output, ctx);
+        self.serialize(&mut output, ctx);
         output
     }
 

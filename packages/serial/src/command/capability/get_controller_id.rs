@@ -1,8 +1,8 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
-use zwave_core::bake::{self, Encoder, EncoderWith};
-use zwave_core::munch::bytes::be_u32;
+use zwave_core::serialize::{self, Serializable, SerializableWith};
+use zwave_core::parse::bytes::be_u32;
 use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -35,14 +35,14 @@ impl CommandRequest for GetControllerIdRequest {
 }
 
 impl CommandParsable for GetControllerIdRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetControllerIdRequest {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for GetControllerIdRequest {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
     }
 }
@@ -77,7 +77,7 @@ impl CommandId for GetControllerIdResponse {
 impl CommandBase for GetControllerIdResponse {}
 
 impl CommandParsable for GetControllerIdResponse {
-    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let home_id = be_u32(i)?;
         let own_node_id = NodeId::parse(i, ctx.node_id_type)?;
 
@@ -88,11 +88,11 @@ impl CommandParsable for GetControllerIdResponse {
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetControllerIdResponse {
-    fn write(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
-        use bake::bytes::be_u32;
-        be_u32(self.home_id).write(output);
-        self.own_node_id.write(output, ctx.node_id_type);
+impl SerializableWith<&CommandEncodingContext> for GetControllerIdResponse {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
+        use serialize::bytes::be_u32;
+        be_u32(self.home_id).serialize(output);
+        self.own_node_id.serialize(output, ctx.node_id_type);
     }
 }
 

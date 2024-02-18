@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
-use zwave_core::bake::EncoderWith;
+use zwave_core::serialize::SerializableWith;
 use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -33,14 +33,14 @@ impl CommandRequest for SoftResetRequest {
 }
 
 impl CommandParsable for SoftResetRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for SoftResetRequest {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for SoftResetRequest {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
     }
 }

@@ -2,14 +2,13 @@ use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
 use ux::u4;
-use zwave_core::bake::{self, Encoder, EncoderWith};
-use zwave_core::encoding::encoders;
-use zwave_core::encoding::{parsers::variable_length_bitmask_u8, BitParsable, BitSerializable};
-use zwave_core::munch::{
+use zwave_core::parse::{
     bits::{self, bool},
     combinators::opt,
+    multi::variable_length_bitmask_u8,
 };
 use zwave_core::prelude::*;
+use zwave_core::serialize::{self, Serializable, SerializableWith};
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetSerialApiInitDataRequest {}
@@ -41,14 +40,14 @@ impl CommandRequest for GetSerialApiInitDataRequest {
 }
 
 impl CommandParsable for GetSerialApiInitDataRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetSerialApiInitDataRequest {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for GetSerialApiInitDataRequest {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
     }
 }
@@ -87,7 +86,7 @@ impl CommandId for GetSerialApiInitDataResponse {
 impl CommandBase for GetSerialApiInitDataResponse {}
 
 impl CommandParsable for GetSerialApiInitDataResponse {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let api_version = ZWaveApiVersion::parse(i)?;
         let (_reserved, is_sis, is_primary, supports_timers, node_type) =
             bits::bits((u4::parse, bool, bool, bool, NodeType::parse)).parse(i)?;
@@ -109,9 +108,10 @@ impl CommandParsable for GetSerialApiInitDataResponse {
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for GetSerialApiInitDataResponse {
-    fn write(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        use bake::bits::bits;
+impl SerializableWith<&CommandEncodingContext> for GetSerialApiInitDataResponse {
+    fn serialize(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        use serialize::{bits::bits, sequence::bitmask_u8};
+
         let node_ids: Vec<u8> = self
             .node_ids
             .iter()
@@ -120,7 +120,7 @@ impl EncoderWith<&CommandEncodingContext> for GetSerialApiInitDataResponse {
 
         let is_primary = self.role == ControllerRole::Primary;
 
-        self.api_version.write(output);
+        self.api_version.serialize(output);
         bits(move |bo| {
             let reserved = u4::new(0);
             reserved.write(bo);
@@ -129,9 +129,9 @@ impl EncoderWith<&CommandEncodingContext> for GetSerialApiInitDataResponse {
             self.supports_timers.write(bo);
             self.node_type.write(bo);
         })
-        .write(output);
-        encoders::bitmask_u8(&node_ids, 1).write(output);
-        self.chip_type.write(output);
+        .serialize(output);
+        bitmask_u8(&node_ids, 1).serialize(output);
+        self.chip_type.serialize(output);
     }
 }
 
@@ -164,7 +164,7 @@ impl ToLogPayload for GetSerialApiInitDataResponse {
 mod test {
     use crate::{command::GetSerialApiInitDataResponse, prelude::*};
     use bytes::Bytes;
-    use zwave_core::{bake::EncoderWith, prelude::*};
+    use zwave_core::{prelude::*, serialize::SerializableWith};
 
     #[test]
     fn test_serialize() {

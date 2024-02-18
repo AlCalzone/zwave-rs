@@ -1,12 +1,9 @@
-use crate::{
-    encoding::{parsers, BitParsable},
-    munch::{
+use crate::parse::{
         bits::{bits, bool},
         bytes::be_u8,
-        combinators::cond,
-    },
-    prelude::*,
-};
+        combinators::cond, multi::fixed_length_cc_list_only_supported,
+    };
+use crate::prelude::*;
 use bytes::Bytes;
 use ux::{u1, u2, u5};
 
@@ -39,7 +36,7 @@ pub struct NodeInformationProtocolData {
 }
 
 impl Parsable for NodeInformationProtocolData {
-    fn parse(i: &mut Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         let (listening, routing, _reserved5, speed_40k, speed_9k6, protocol_version) = bits((
             bool,
             bool,
@@ -111,14 +108,14 @@ pub struct NodeInformationApplicationData {
 }
 
 impl Parsable for NodeInformationApplicationData {
-    fn parse(i: &mut bytes::Bytes) -> crate::munch::ParseResult<Self> {
+    fn parse(i: &mut bytes::Bytes) -> crate::parse::ParseResult<Self> {
         // The specs call this CC list length, but this includes the device class bytes
         let remaining_len = be_u8(i)?;
         let basic_device_type = BasicDeviceType::parse(i)?;
         let generic_device_class = be_u8(i)?;
         let specific_device_class = be_u8(i)?;
         let supported_command_classes =
-            parsers::fixed_length_cc_list_only_supported(i, (remaining_len - 3) as usize)?;
+            fixed_length_cc_list_only_supported(i, (remaining_len - 3) as usize)?;
 
         Ok(Self {
             basic_device_type,

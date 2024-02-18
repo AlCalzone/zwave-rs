@@ -1,4 +1,3 @@
-use crate::encoding::TryFromReprError;
 use std::{
     borrow::Cow,
     fmt::{Debug, Display},
@@ -95,21 +94,34 @@ impl ParseError {
 
 pub type ParseResult<O> = Result<O, ParseError>;
 
+/// Validates that the given condition is satisfied, otherwise results in a
+/// Parse error with the given error message.
+pub fn validate(condition: bool, message: impl Into<Cow<'static, str>>) -> ParseResult<()> {
+    if condition {
+        Ok(())
+    } else {
+        Err(ParseError::validation_failure(message))
+    }
+}
+
+/// Returns a Parse error indicating that this parser is not implemented yet.
+pub fn parser_not_implemented<T>(message: impl Into<Cow<'static, str>>) -> ParseResult<T> {
+    Err(ParseError::not_implemented(message))
+}
+
+#[derive(Error, Debug, PartialEq)]
+pub enum TryFromReprError<T: std::fmt::Debug> {
+    #[error("{0:?} is not a valid value for this enum")]
+    Invalid(T),
+    #[error("{0:?} resolves to a non-primitive enum variant")]
+    NonPrimitive(T),
+}
+
 impl<T> From<TryFromReprError<T>> for ParseError
 where
     T: Debug,
 {
     fn from(_value: TryFromReprError<T>) -> Self {
         Self::recoverable(())
-    }
-}
-
-/// Validates that the given condition is satisfied, otherwise results in a
-/// nom Failure with the given error message.
-pub fn validate(condition: bool, message: impl Into<Cow<'static, str>>) -> ParseResult<()> {
-    if condition {
-        Ok(())
-    } else {
-        Err(ParseError::recoverable(message.into()))
     }
 }

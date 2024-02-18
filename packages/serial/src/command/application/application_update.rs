@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use proc_macros::TryFromRepr;
-use zwave_core::{bake::EncoderWith, munch::{
+use zwave_core::{serialize::SerializableWith, parse::{
     bytes::{be_u32, be_u8},
     combinators::map_res,
 }};
@@ -23,7 +23,7 @@ pub enum ApplicationUpdateType {
 }
 
 impl Parsable for ApplicationUpdateType {
-    fn parse(i: &mut Bytes) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes) -> ParseResult<Self> {
         map_res(be_u8, ApplicationUpdateType::try_from).parse(i)
     }
 }
@@ -95,7 +95,7 @@ impl CommandBase for ApplicationUpdateRequest {
 }
 
 impl CommandParsable for ApplicationUpdateRequest {
-    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> MunchResult<Self> {
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self> {
         let update_type = ApplicationUpdateType::parse(i)?;
         let payload = match update_type {
             ApplicationUpdateType::SucIdChanged => ApplicationUpdateRequestPayload::SucIdChanged,
@@ -163,8 +163,8 @@ impl CommandParsable for ApplicationUpdateRequest {
     }
 }
 
-impl EncoderWith<&CommandEncodingContext> for ApplicationUpdateRequest {
-    fn write(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+impl SerializableWith<&CommandEncodingContext> for ApplicationUpdateRequest {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         todo!("ERROR: ApplicationUpdateRequest::write() not implemented")
     }
 }

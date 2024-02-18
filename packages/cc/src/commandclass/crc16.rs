@@ -1,10 +1,10 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use proc_macros::{CCValues, TryFromRepr};
-use zwave_core::bake::{self, Encoder};
+use zwave_core::serialize::{self, Serializable};
 use zwave_core::checksum::crc16_incremental;
-use zwave_core::encoding::validate;
-use zwave_core::munch::{
+use zwave_core::parse::{
+    validate,
     bytes::{be_u16, complete::take},
     combinators::map_res,
 };
@@ -57,7 +57,7 @@ impl CCId for Crc16CCCommandEncapsulation {
 }
 
 impl CCParsable for Crc16CCCommandEncapsulation {
-    fn parse(i: &mut Bytes, ctx: &CCParsingContext) -> zwave_core::munch::ParseResult<Self> {
+    fn parse(i: &mut Bytes, ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let mut payload = take(i.len() - 2usize).parse(i)?;
         let checksum = be_u16(i)?;
 
@@ -87,9 +87,9 @@ impl CCParsable for Crc16CCCommandEncapsulation {
     }
 }
 
-impl CCEncoder for Crc16CCCommandEncapsulation {
-    fn write(&self, output: &mut BytesMut) {
-        use bake::{bytes::be_u16, bytes::slice, sequence::tuple};
+impl CCSerializable for Crc16CCCommandEncapsulation {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::{bytes::be_u16, bytes::slice, sequence::tuple};
 
         let command = self.encapsulated.clone();
         let payload = command.as_raw().as_bytes();
@@ -100,6 +100,6 @@ impl CCEncoder for Crc16CCCommandEncapsulation {
             .update(&payload)
             .get();
 
-        tuple((slice(payload), be_u16(checksum))).write(output);
+        tuple((slice(payload), be_u16(checksum))).serialize(output);
     }
 }
