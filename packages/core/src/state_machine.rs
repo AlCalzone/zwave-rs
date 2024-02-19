@@ -9,6 +9,7 @@ pub use interpreter::*;
 
 #[cfg(test)]
 mod test {
+    #![allow(clippy::upper_case_acronyms, unused_variables, unused_imports)]
     use super::{Delay, StateMachine};
     use std::time::Duration;
 

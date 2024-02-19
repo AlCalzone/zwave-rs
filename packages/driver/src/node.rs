@@ -85,7 +85,6 @@ pub struct Node<'a> {
     driver: &'a Driver<Ready>,
 }
 
-// FIXME: We probably want a struct with this name, so this needs a rename
 pub trait EndpointLike<'a> {
     fn node_id(&self) -> NodeId;
     fn get_node(&'a self) -> &Node<'a>;

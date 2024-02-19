@@ -233,6 +233,7 @@ async fn send_machine_input<I>(input_sender: &StateMachineInputSender<I>, input:
 
 #[cfg(test)]
 pub(crate) mod test {
+    #![allow(clippy::upper_case_acronyms, unused_variables, unused_imports)]
     use tokio::sync::broadcast::error::RecvError;
 
     use crate::state_machine::StateMachine;
