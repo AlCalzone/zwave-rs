@@ -2,7 +2,6 @@ use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
 use zwave_core::parse::multi::fixed_length_bitmask_u8;
-use zwave_core::serialize::SerializableWith;
 use zwave_core::log::ToLogPayload;
 use zwave_core::parse::{
     bytes::{be_u16, be_u8},
@@ -120,7 +119,7 @@ impl CommandParsable for GetSerialApiCapabilitiesResponse {
 
 impl SerializableWith<&CommandEncodingContext> for GetSerialApiCapabilitiesResponse {
     fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        todo!("ERROR: GetSerialApiCapabilitiesResponse::write() not implemented");
+        todo!("ERROR: GetSerialApiCapabilitiesResponse::serialize() not implemented");
     }
 }
 

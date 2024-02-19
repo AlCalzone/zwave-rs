@@ -1,4 +1,3 @@
-use crate::serialize::Serializable;
 use crate::prelude::*;
 use crate::{
     serialize,

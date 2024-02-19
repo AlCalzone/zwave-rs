@@ -8,7 +8,7 @@ use zwave_core::parse::{
     combinators::{map, map_res},
 };
 use zwave_core::prelude::*;
-use zwave_core::serialize::{self, Serializable, SerializableWith};
+use zwave_core::serialize;
 
 #[derive(Debug, Copy, Clone, PartialEq, TryFromRepr)]
 #[repr(u8)]
@@ -482,7 +482,7 @@ impl CommandParsable for SerialApiSetupResponse {
 
 impl SerializableWith<&CommandEncodingContext> for SerialApiSetupResponse {
     fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        todo!("ERROR: SerialApiSetupResponse::write() not implemented");
+        todo!("ERROR: SerialApiSetupResponse::serialize() not implemented");
     }
 }
 

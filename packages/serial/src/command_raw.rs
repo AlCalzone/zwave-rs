@@ -1,4 +1,3 @@
-use crate::prelude::*;
 use crate::{frame::SerialControlByte, util::hex_fmt};
 use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;

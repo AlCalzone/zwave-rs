@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
-use zwave_core::serialize::{self, Serializable, SerializableWith};
+use zwave_core::serialize;
 use zwave_core::parse::bytes::be_u32;
 use zwave_core::prelude::*;
 

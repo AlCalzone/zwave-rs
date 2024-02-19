@@ -1,6 +1,5 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
-use zwave_core::serialize::SerializableWith;
 use zwave_core::parse::combinators::opt;
 use zwave_core::prelude::*;
 
@@ -90,7 +89,7 @@ impl CommandParsable for GetBackgroundRssiResponse {
 
 impl SerializableWith<&CommandEncodingContext> for GetBackgroundRssiResponse {
     fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        todo!("ERROR: GetBackgroundRssiResponse::write() not implemented");
+        todo!("ERROR: GetBackgroundRssiResponse::serialize() not implemented");
     }
 }
 

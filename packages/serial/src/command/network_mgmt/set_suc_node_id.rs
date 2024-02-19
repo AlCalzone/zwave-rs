@@ -3,7 +3,7 @@ use bytes::{Bytes, BytesMut};
 use typed_builder::TypedBuilder;
 use zwave_core::parse::{bytes::be_u8, combinators::map, parser_not_implemented};
 use zwave_core::prelude::*;
-use zwave_core::serialize::{self, Serializable, SerializableWith};
+use zwave_core::serialize;
 
 #[derive(Default, Debug, Clone, PartialEq, TypedBuilder)]
 pub struct SetSucNodeIdRequest {
@@ -181,7 +181,7 @@ impl CommandParsable for SetSucNodeIdCallback {
 
 impl SerializableWith<&CommandEncodingContext> for SetSucNodeIdCallback {
     fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        todo!("ERROR: SetSucNodeIdCallback::write() not implemented")
+        todo!("ERROR: SetSucNodeIdCallback::serialize() not implemented")
     }
 }
 

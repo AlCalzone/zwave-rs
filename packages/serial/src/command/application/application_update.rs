@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use proc_macros::TryFromRepr;
-use zwave_core::{serialize::SerializableWith, parse::{
+use zwave_core::{parse::{
     bytes::{be_u32, be_u8},
     combinators::map_res,
 }};
@@ -165,7 +165,7 @@ impl CommandParsable for ApplicationUpdateRequest {
 
 impl SerializableWith<&CommandEncodingContext> for ApplicationUpdateRequest {
     fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        todo!("ERROR: ApplicationUpdateRequest::write() not implemented")
+        todo!("ERROR: ApplicationUpdateRequest::serialize() not implemented")
     }
 }
 

@@ -1,6 +1,5 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
-use zwave_core::serialize::SerializableWith;
 use custom_debug_derive::Debug;
 use zwave_cc::prelude::*;
 use zwave_core::parse::{
@@ -73,7 +72,7 @@ impl CommandParsable for ApplicationCommandRequest {
 
 impl SerializableWith<&CommandEncodingContext> for ApplicationCommandRequest {
     fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        todo!("ERROR: ApplicationCommandRequest::write() not implemented");
+        todo!("ERROR: ApplicationCommandRequest::serialize() not implemented");
     }
 }
 

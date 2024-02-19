@@ -3,7 +3,6 @@ use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
 use zwave_cc::prelude::*;
 use zwave_core::parse::multi::variable_length_bitmask_u8;
-use zwave_core::serialize::SerializableWith;
 use zwave_core::parse::{
     bytes::be_u8,
     combinators::{map_res, opt},
@@ -79,7 +78,7 @@ impl CommandParsable for BridgeApplicationCommandRequest {
 
 impl SerializableWith<&CommandEncodingContext> for BridgeApplicationCommandRequest {
     fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        todo!("ERROR: BridgeApplicationCommandRequest::write() not implemented");
+        todo!("ERROR: BridgeApplicationCommandRequest::serialize() not implemented");
     }
 }
 

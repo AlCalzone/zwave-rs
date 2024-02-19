@@ -3,7 +3,6 @@ use crate::values::*;
 use bytes::{Bytes, BytesMut};
 use proc_macros::{CCValues, TryFromRepr};
 use typed_builder::TypedBuilder;
-use zwave_core::serialize::Serializable;
 use zwave_core::parse::combinators::{map, opt};
 use zwave_core::prelude::*;
 use zwave_core::{

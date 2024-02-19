@@ -7,7 +7,6 @@ use std::fmt::Display;
 use typed_builder::TypedBuilder;
 use ux::{u3, u5};
 use zwave_core::serialize;
-use zwave_core::serialize::Serializable;
 use zwave_core::cache::CacheValue;
 use zwave_core::parse::{
     bits,
@@ -342,6 +341,6 @@ impl CCParsable for ManufacturerSpecificCCDeviceSpecificReport {
 
 impl CCSerializable for ManufacturerSpecificCCDeviceSpecificReport {
     fn serialize(&self, _output: &mut BytesMut) {
-        todo!("ERROR: ManufacturerSpecificCCDeviceSpecificReport::write() not implemented")
+        todo!("ERROR: ManufacturerSpecificCCDeviceSpecificReport::serialize() not implemented")
     }
 }

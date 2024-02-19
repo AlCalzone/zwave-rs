@@ -8,7 +8,7 @@ use zwave_core::parse::{
     multi::variable_length_bitmask_u8,
 };
 use zwave_core::prelude::*;
-use zwave_core::serialize::{self, Serializable, SerializableWith};
+use zwave_core::serialize;
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetSerialApiInitDataRequest {}
@@ -164,7 +164,7 @@ impl ToLogPayload for GetSerialApiInitDataResponse {
 mod test {
     use crate::{command::GetSerialApiInitDataResponse, prelude::*};
     use bytes::Bytes;
-    use zwave_core::{prelude::*, serialize::SerializableWith};
+    use zwave_core::{prelude::*, };
 
     #[test]
     fn test_serialize() {

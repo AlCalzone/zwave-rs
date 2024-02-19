@@ -2,7 +2,7 @@ use crate::prelude::*;
 use bytes::Bytes;
 use typed_builder::TypedBuilder;
 use zwave_core::prelude::*;
-use zwave_core::{serialize::Serializable, serialize::SerializableWith, submodule};
+use zwave_core::submodule;
 
 use crate::{frame::SerialFrame, util::hex_fmt};
 use custom_debug_derive::Debug;

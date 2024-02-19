@@ -1,7 +1,6 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use hex::ToHex;
-use zwave_core::serialize::SerializableWith;
 use zwave_core::parse::{
     bytes::{be_u16, be_u8, complete::take},
     combinators::{cond, map, opt},
@@ -116,7 +115,7 @@ impl CommandParsable for GetProtocolVersionResponse {
 
 impl SerializableWith<&CommandEncodingContext> for GetProtocolVersionResponse {
     fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        todo!("ERROR: GetProtocolVersionResponse::write() not implemented")
+        todo!("ERROR: GetProtocolVersionResponse::serialize() not implemented")
     }
 }
 

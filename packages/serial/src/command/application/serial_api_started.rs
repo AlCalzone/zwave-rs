@@ -8,7 +8,6 @@ use zwave_core::parse::{
     combinators::map, multi::variable_length_cc_list,
 };
 use zwave_core::prelude::*;
-use zwave_core::serialize::SerializableWith;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SerialApiStartedRequest {
@@ -64,7 +63,7 @@ impl CommandParsable for SerialApiStartedRequest {
 
 impl SerializableWith<&CommandEncodingContext> for SerialApiStartedRequest {
     fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        todo!("ERROR: SerialApiStartedRequest::write() not implemented")
+        todo!("ERROR: SerialApiStartedRequest::serialize() not implemented")
     }
 }
 

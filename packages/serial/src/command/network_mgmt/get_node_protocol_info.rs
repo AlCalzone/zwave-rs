@@ -1,7 +1,6 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use std::borrow::Cow;
-use zwave_core::serialize::SerializableWith;
 use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -86,7 +85,7 @@ impl CommandParsable for GetNodeProtocolInfoResponse {
 
 impl SerializableWith<&CommandEncodingContext> for GetNodeProtocolInfoResponse {
     fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        todo!("ERROR: GetNodeProtocolInfoResponse::write() not implemented")
+        todo!("ERROR: GetNodeProtocolInfoResponse::serialize() not implemented")
     }
 }
 

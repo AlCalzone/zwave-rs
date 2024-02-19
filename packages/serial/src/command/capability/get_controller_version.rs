@@ -1,6 +1,6 @@
 use crate::{command::CommandId, prelude::*};
 use bytes::{Bytes, BytesMut};
-use zwave_core::serialize::{self, Serializable, SerializableWith};
+use zwave_core::serialize;
 use zwave_core::parse::{
     bytes::complete::{literal, take_while1},
     combinators::map,

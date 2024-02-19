@@ -1,7 +1,6 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use ux::{u1, u3};
-use zwave_core::serialize::SerializableWith;
 use zwave_core::parse::bits::{self, bool};
 use zwave_core::prelude::*;
 
@@ -97,7 +96,7 @@ impl CommandParsable for GetControllerCapabilitiesResponse {
 
 impl SerializableWith<&CommandEncodingContext> for GetControllerCapabilitiesResponse {
     fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        todo!("ERROR: GetControllerCapabilitiesResponse::write() not implemented")
+        todo!("ERROR: GetControllerCapabilitiesResponse::serialize() not implemented")
     }
 }
 

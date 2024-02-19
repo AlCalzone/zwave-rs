@@ -5,7 +5,6 @@ use crate::parse::{
     BitParsable,
 };
 use crate::prelude::*;
-use crate::serialize::Serializable;
 use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
 use std::fmt::Display;
@@ -185,7 +184,7 @@ impl TransmitReport {
 
 impl Serializable for TransmitReport {
     fn serialize(&self, _output: &mut BytesMut) {
-        todo!("ERROR: TransmitReport::write() not implemented")
+        todo!("ERROR: TransmitReport::serialize() not implemented")
     }
 }
 

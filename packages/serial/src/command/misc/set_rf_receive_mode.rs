@@ -1,9 +1,9 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use typed_builder::TypedBuilder;
-use zwave_core::serialize::{self, Serializable, SerializableWith};
 use zwave_core::parse::{bytes::be_u8, combinators::map};
 use zwave_core::prelude::*;
+use zwave_core::serialize;
 
 #[derive(Default, Debug, Clone, PartialEq, TypedBuilder)]
 pub struct SetRfReceiveModeRequest {
@@ -93,7 +93,7 @@ impl CommandParsable for SetRfReceiveModeResponse {
 
 impl SerializableWith<&CommandEncodingContext> for SetRfReceiveModeResponse {
     fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        todo!("ERROR: SetRfReceiveModeResponse::write() not implemented");
+        todo!("ERROR: SetRfReceiveModeResponse::serialize() not implemented");
     }
 }
 

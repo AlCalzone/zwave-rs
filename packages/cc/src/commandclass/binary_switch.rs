@@ -5,7 +5,6 @@ use bytes::BytesMut;
 use proc_macros::{CCValues, TryFromRepr};
 use typed_builder::TypedBuilder;
 use zwave_core::serialize;
-use zwave_core::serialize::Serializable;
 use zwave_core::cache::CacheValue;
 use zwave_core::parse::combinators::{map, opt};
 use zwave_core::prelude::*;

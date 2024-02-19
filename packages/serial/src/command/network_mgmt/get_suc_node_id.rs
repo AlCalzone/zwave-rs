@@ -1,6 +1,5 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
-use zwave_core::serialize::SerializableWith;
 use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]

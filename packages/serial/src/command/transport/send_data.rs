@@ -2,7 +2,7 @@ use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use typed_builder::TypedBuilder;
 use zwave_cc::prelude::*;
-use zwave_core::serialize::{self, Serializable, SerializableWith};
+use zwave_core::serialize;
 use zwave_core::parse::{
     bytes::be_u8,
     combinators::{map, map_res},
@@ -204,7 +204,7 @@ impl CommandParsable for SendDataCallback {
 
 impl SerializableWith<&CommandEncodingContext> for SendDataCallback {
     fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
-        todo!("ERROR: SendDataCallback::write() not implemented")
+        todo!("ERROR: SendDataCallback::serialize() not implemented")
     }
 }
 
