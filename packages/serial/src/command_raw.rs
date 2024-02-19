@@ -1,16 +1,19 @@
 use crate::{frame::SerialControlByte, util::hex_fmt};
 use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
-use zwave_core::parse::{
-    bytes::{
-        be_u8,
-        complete::{literal, skip, take},
-    },
-    combinators::peek,
-    validate,
-};
 use zwave_core::prelude::*;
 use zwave_core::serialize;
+use zwave_core::{
+    checksum::xor_sum,
+    parse::{
+        bytes::{
+            be_u8,
+            complete::{literal, skip, take},
+        },
+        combinators::peek,
+        validate,
+    },
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CommandRaw {
@@ -22,16 +25,8 @@ pub struct CommandRaw {
     pub checksum: u8,
 }
 
-fn compute_checksum(data: &[u8]) -> u8 {
-    data[1..data.len() - 1].iter().fold(0xff, |acc, x| acc ^ x)
-}
-
-#[test]
-fn test_checksum() {
-    // This is an actual message with a correct checksum
-    let input = hex::decode("01030002fe").unwrap();
-    let expected = 0xfe;
-    assert_eq!(compute_checksum(&input), expected);
+fn command_checksum(cmd_buffer: &[u8]) -> u8 {
+    xor_sum(&cmd_buffer[1..cmd_buffer.len() - 1])
 }
 
 impl Parsable for CommandRaw {
@@ -58,7 +53,7 @@ impl Parsable for CommandRaw {
         let payload = take(len - 3).parse(i)?;
         let checksum = be_u8(i)?;
 
-        let expected_checksum = compute_checksum(&raw_data);
+        let expected_checksum = command_checksum(&raw_data);
         validate(
             checksum == expected_checksum,
             format!(
@@ -104,7 +99,7 @@ impl Serializable for CommandRaw {
         use serialize::bytes::slice;
 
         let mut buf = self.serialize_no_checksum().as_bytes_mut();
-        let checksum = compute_checksum(&buf);
+        let checksum = command_checksum(&buf);
         // Then update the checksum in the buffer
         let len = buf.len();
         buf[len - 1] = checksum;

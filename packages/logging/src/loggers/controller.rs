@@ -28,7 +28,7 @@ impl ControllerLogger {
         self.inner.log(log, level);
     }
 
-    // FIXME: Remove duplication with ControllerLogger
+    // FIXME: Remove duplication with DriverLogger
     pub fn command(&self, command: &Command, direction: Direction) {
         let level = Loglevel::Debug;
         if self.level() < level {
