@@ -81,3 +81,17 @@ pub fn to_lines(text: impl Into<Cow<'static, str>>) -> Vec<Cow<'static, str>> {
 
     text.lines().map(|line| line.to_owned().into()).collect()
 }
+
+#[macro_export]
+macro_rules! hex_bytes {
+    ($hex:expr) => {
+        bytes::BytesMut::from(hex::decode($hex).unwrap().as_slice()).freeze()
+    };
+}
+
+#[macro_export]
+macro_rules! hex_bytes_mut {
+    ($hex:expr) => {
+        bytes::BytesMut::from(hex::decode($hex).unwrap().as_slice())
+    };
+}

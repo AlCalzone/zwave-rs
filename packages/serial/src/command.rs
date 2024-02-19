@@ -1,6 +1,8 @@
 use crate::prelude::*;
+use bytes::Bytes;
 use typed_builder::TypedBuilder;
-use zwave_core::{encoding::Input, prelude::*, submodule};
+use zwave_core::prelude::*;
+use zwave_core::submodule;
 
 use crate::{frame::SerialFrame, util::hex_fmt};
 use custom_debug_derive::Debug;
@@ -24,25 +26,7 @@ pub trait CommandParsable
 where
     Self: Sized + CommandBase,
 {
-    fn parse<'a>(i: Input<'a>, ctx: &CommandEncodingContext) -> ParseResult<'a, Self>;
-
-    fn try_from_slice(data: &[u8], ctx: &CommandEncodingContext) -> Result<Self, EncodingError> {
-        Self::parse(data, ctx).into_encoding_result()
-    }
-}
-
-pub trait CommandSerializable
-where
-    Self: Sized,
-{
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a;
-
-    fn try_to_vec<'a>(&'a self, ctx: &'a CommandEncodingContext) -> Result<Vec<u8>, EncodingError> {
-        cookie_factory::gen_simple(self.serialize(ctx), Vec::new()).into_encoding_result()
-    }
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self>;
 }
 
 #[enum_dispatch(Command)]
@@ -119,7 +103,7 @@ pub struct NotImplemented {
     pub command_type: CommandType,
     pub function_type: FunctionType,
     #[debug(with = "hex_fmt")]
-    pub payload: Vec<u8>,
+    pub payload: Bytes,
 }
 
 impl CommandBase for NotImplemented {}

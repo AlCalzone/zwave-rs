@@ -1,10 +1,9 @@
 use crate::prelude::*;
-use zwave_core::prelude::*;
-
-use cookie_factory as cf;
-use nom::{combinator::map, number::complete::be_u8};
+use bytes::{Bytes, BytesMut};
 use typed_builder::TypedBuilder;
-use zwave_core::encoding::{self, parser_not_implemented};
+use zwave_core::parse::{bytes::be_u8, combinators::map, parser_not_implemented};
+use zwave_core::prelude::*;
+use zwave_core::serialize;
 
 #[derive(Default, Debug, Clone, PartialEq, TypedBuilder)]
 pub struct SetSucNodeIdRequest {
@@ -58,28 +57,24 @@ impl CommandRequest for SetSucNodeIdRequest {
 }
 
 impl CommandParsable for SetSucNodeIdRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        return parser_not_implemented(i, "ERROR: SetSucNodeIdRequest::parse() not implemented");
-        // Ok((i, Self {}))
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+        parser_not_implemented("ERROR: SetSucNodeIdRequest::parse() not implemented")
+        // Ok(Self {})
     }
 }
 
-impl CommandSerializable for SetSucNodeIdRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, sequence::tuple};
+impl SerializableWith<&CommandEncodingContext> for SetSucNodeIdRequest {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
+        use serialize::{bytes::be_u8, sequence::tuple};
+
+        self.suc_node_id.serialize(output, ctx.node_id_type);
         tuple((
-            self.suc_node_id.serialize(ctx.node_id_type),
             be_u8(if self.enable_suc { 0x01 } else { 0x00 }),
-            self.transmit_options.serialize(),
+            self.transmit_options,
             be_u8(if self.enable_sis { 0x01 } else { 0x00 }),
             be_u8(self.callback_id.unwrap_or(0)),
         ))
+        .serialize(output)
     }
 }
 
@@ -119,22 +114,16 @@ impl CommandBase for SetSucNodeIdResponse {
 }
 
 impl CommandParsable for SetSucNodeIdResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, was_executed) = map(be_u8, |x| x > 0)(i)?;
-        Ok((i, Self { was_executed }))
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+        let was_executed = map(be_u8, |x| x > 0).parse(i)?;
+        Ok(Self { was_executed })
     }
 }
 
-impl CommandSerializable for SetSucNodeIdResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
-        be_u8(if self.was_executed { 0x01 } else { 0x00 })
+impl SerializableWith<&CommandEncodingContext> for SetSucNodeIdResponse {
+    fn serialize(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        use serialize::bytes::be_u8;
+        be_u8(if self.was_executed { 0x01 } else { 0x00 }).serialize(output)
     }
 }
 
@@ -177,31 +166,22 @@ impl CommandBase for SetSucNodeIdCallback {
 }
 
 impl CommandParsable for SetSucNodeIdCallback {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, callback_id) = be_u8(i)?;
-        let (i, status) = be_u8(i)?;
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+        let callback_id = be_u8(i)?;
+        let status = be_u8(i)?;
 
         // Status is either 0x05 (success) or 0x06 (failure)
 
-        Ok((
-            i,
-            Self {
-                callback_id: Some(callback_id),
-                success: status == 0x05,
-            },
-        ))
+        Ok(Self {
+            callback_id: Some(callback_id),
+            success: status == 0x05,
+        })
     }
 }
 
-impl CommandSerializable for SetSucNodeIdCallback {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |_out| todo!("ERROR: SetSucNodeIdCallback::serialize() not implemented")
+impl SerializableWith<&CommandEncodingContext> for SetSucNodeIdCallback {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        todo!("ERROR: SetSucNodeIdCallback::serialize() not implemented")
     }
 }
 

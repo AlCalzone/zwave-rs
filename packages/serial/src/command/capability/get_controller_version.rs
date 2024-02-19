@@ -1,9 +1,11 @@
 use crate::{command::CommandId, prelude::*};
+use bytes::{Bytes, BytesMut};
+use zwave_core::serialize;
+use zwave_core::parse::{
+    bytes::complete::{literal, take_while1},
+    combinators::map,
+};
 use zwave_core::prelude::*;
-
-use cookie_factory as cf;
-use nom::{bytes::complete::tag, character::complete::none_of, combinator::map, multi::many1};
-use zwave_core::encoding::{self, encoders::empty};
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetControllerVersionRequest {}
@@ -35,22 +37,15 @@ impl CommandRequest for GetControllerVersionRequest {
 }
 
 impl CommandParsable for GetControllerVersionRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
-impl CommandSerializable for GetControllerVersionRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl SerializableWith<&CommandEncodingContext> for GetControllerVersionRequest {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
-        empty()
     }
 }
 
@@ -83,35 +78,32 @@ impl CommandId for GetControllerVersionResponse {
 impl CommandBase for GetControllerVersionResponse {}
 
 impl CommandParsable for GetControllerVersionResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, version) = map(many1(none_of("\0")), |v| v.into_iter().collect::<String>())(i)?;
-        let (i, _) = tag("\0")(i)?;
-        let (i, library_type) = ZWaveLibraryType::parse(i)?;
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+        let version = map(take_while1(|b| b != 0), |b| {
+            String::from_utf8_lossy(&b).to_string()
+        })
+        .parse(i)?;
+        let _ = literal(0).parse(i)?;
+        let library_type = ZWaveLibraryType::parse(i)?;
 
-        Ok((
-            i,
-            Self {
-                library_type,
-                library_version: version,
-            },
-        ))
+        Ok(Self {
+            library_type,
+            library_version: version,
+        })
     }
 }
 
-impl CommandSerializable for GetControllerVersionResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, combinator::string, sequence::tuple};
+impl SerializableWith<&CommandEncodingContext> for GetControllerVersionResponse {
+    fn serialize(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        use serialize::bytes::{be_u8, slice};
+        use serialize::sequence::tuple;
+
         tuple((
-            string(&self.library_version),
+            slice(self.library_version.as_bytes()),
             be_u8(0),
-            self.library_type.serialize(),
+            self.library_type,
         ))
+        .serialize(output);
     }
 }
 

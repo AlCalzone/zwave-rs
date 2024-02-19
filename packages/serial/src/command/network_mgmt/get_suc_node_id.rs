@@ -1,8 +1,6 @@
 use crate::prelude::*;
-use zwave_core::{
-    encoding::{self, encoders::empty},
-    prelude::*,
-};
+use bytes::{Bytes, BytesMut};
+use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetSucNodeIdRequest {}
@@ -34,22 +32,15 @@ impl CommandRequest for GetSucNodeIdRequest {
 }
 
 impl CommandParsable for GetSucNodeIdRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
-impl CommandSerializable for GetSucNodeIdRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl SerializableWith<&CommandEncodingContext> for GetSucNodeIdRequest {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
-        empty()
     }
 }
 
@@ -81,36 +72,26 @@ impl CommandId for GetSucNodeIdResponse {
 impl CommandBase for GetSucNodeIdResponse {}
 
 impl CommandParsable for GetSucNodeIdResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, suc_node_id) = NodeId::parse(i, ctx.node_id_type)?;
-        Ok((
-            i,
-            Self {
-                suc_node_id: if suc_node_id == 0u8 {
-                    None
-                } else {
-                    Some(suc_node_id)
-                },
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self> {
+        let suc_node_id = NodeId::parse(i, ctx.node_id_type)?;
+        Ok(Self {
+            suc_node_id: if suc_node_id == 0u8 {
+                None
+            } else {
+                Some(suc_node_id)
             },
-        ))
+        })
     }
 }
 
-impl CommandSerializable for GetSucNodeIdResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |out| {
-            self.suc_node_id
-                .unwrap_or(NodeId::new(0u8))
-                .serialize(ctx.node_id_type)(out)
-        }
+impl SerializableWith<&CommandEncodingContext> for GetSucNodeIdResponse {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
+        self.suc_node_id
+            .unwrap_or(NodeId::new(0u8))
+            .serialize(output, ctx.node_id_type);
     }
 }
+
 
 impl ToLogPayload for GetSucNodeIdResponse {
     fn to_log_payload(&self) -> LogPayload {

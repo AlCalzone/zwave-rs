@@ -815,14 +815,9 @@ async fn serial_loop_handle_command(
                 .node_id_type(storage.node_id_type)
                 .build();
 
-            // Try encoding the frame // TODO: Expose encoding errors
-            let result = frame.try_into_raw(&ctx).map_err(|_| Error::Internal);
-
-            let result = if let Ok(raw) = result {
-                write_serial(port, raw, &storage.logger).await
-            } else {
-                result.map(|_| ())
-            };
+            // Try encoding the frame
+            let raw = frame.as_raw(&ctx);
+            let result = write_serial(port, raw, &storage.logger).await;
 
             callback
                 .send(result)
@@ -850,8 +845,9 @@ async fn serial_loop_handle_frame(
         RawSerialFrame::Data(data) => {
             storage.logger.data(data, Direction::Inbound);
             // Try to parse the frame
-            match zwave_serial::command_raw::CommandRaw::parse(data) {
-                Ok((_, raw)) => {
+            // TODO: Do we need to clone the BytesMut here?
+            match zwave_serial::command_raw::CommandRaw::parse(&mut data.clone()) {
+                Ok(raw) => {
                     // The first step of parsing was successful, ACK the frame
                     write_serial(
                         port,

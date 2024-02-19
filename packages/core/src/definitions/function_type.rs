@@ -1,10 +1,13 @@
-use crate::encoding;
+use crate::serialize::{self, Serializable};
+use crate::parse::{
+    self,
+    bytes::be_u8,
+    combinators::{context, map_res},
+};
 use crate::prelude::*;
-use proc_macros::TryFromRepr;
-
-use cookie_factory as cf;
+use bytes::Bytes;
 use custom_debug_derive::Debug;
-use nom::{combinator::map_res, error::context, number::complete::be_u8};
+use proc_macros::TryFromRepr;
 
 /// Complete list of function IDs for data messages.
 /// IDs starting with FUNC_ID are straight from OZW and not implemented here yet.
@@ -187,27 +190,15 @@ pub enum FunctionType {
     UNKNOWN_FUNC_ZMESerialApiOptions = 0xf8,
 }
 
-impl NomTryFromPrimitive for FunctionType {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown FunctionType: {:#04x}", repr)
+impl Parsable for FunctionType {
+    fn parse(i: &mut Bytes) -> parse::ParseResult<Self> {
+        context("FunctionType", map_res(be_u8, FunctionType::try_from)).parse(i)
     }
 }
 
-impl FunctionType {
-    pub fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context(
-            "FunctionType",
-            map_res(be_u8, FunctionType::try_from_primitive),
-        )(i)
-    }
-
-    pub fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
-
-        be_u8(*self as u8)
+impl Serializable for FunctionType {
+    fn serialize(&self, output: &mut bytes::BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output);
     }
 }

@@ -1,56 +1,53 @@
-use zwave_core::prelude::*;
-
-use cookie_factory as cf;
+use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
-use nom::{
-    combinator::{map, rest},
-    number::complete::be_u8,
+use zwave_core::parse::{
+    bytes::{be_u8, rest},
+    combinators::map,
 };
-use zwave_core::{
-    definitions::CommandClasses,
-    encoding::{encoders::empty, Parsable, Serializable},
-};
+use zwave_core::prelude::*;
+use zwave_core::serialize::{self, Serializable};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CCRaw {
     pub cc_id: CommandClasses,
     pub cc_command: Option<u8>,
     // #[debug(with = "hex_fmt")]
-    pub payload: Vec<u8>,
+    pub payload: Bytes,
 }
 
 impl Parsable for CCRaw {
-    fn parse(i: zwave_core::encoding::Input) -> ParseResult<Self> {
-        let (i, cc_id) = CommandClasses::parse(i)?;
+    fn parse(i: &mut Bytes) -> zwave_core::parse::ParseResult<Self> {
+        let cc_id = CommandClasses::parse(i)?;
 
         // All CCs except NoOperation have a CC command
-        let (i, cc_command) = match cc_id {
-            CommandClasses::NoOperation => (i, None),
-            _ => map(be_u8, Some)(i)?,
+        let cc_command = match cc_id {
+            CommandClasses::NoOperation => None,
+            _ => map(be_u8, Some).parse(i)?,
         };
-        let (i, payload) = rest(i)?;
+        let payload = rest(i)?;
 
-        Ok((
-            i,
-            Self {
-                cc_id,
-                cc_command,
-                payload: payload.to_vec(),
-            },
-        ))
+        Ok(Self {
+            cc_id,
+            cc_command,
+            payload,
+        })
     }
 }
 
 impl Serializable for CCRaw {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, combinator::slice, sequence::tuple};
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::{
+            bytes::{be_u8, empty, slice},
+            sequence::tuple,
+        };
         tuple((
-            self.cc_id.serialize(),
-            move |out| match self.cc_command {
-                Some(cc_command) => be_u8(cc_command)(out),
-                None => empty()(out),
+            self.cc_id,
+            move |out: &mut BytesMut| match self.cc_command {
+                Some(cc_command) => be_u8(cc_command).serialize(out),
+                None => empty(out),
             },
-            slice(self.payload.as_slice()),
+            slice(&self.payload),
         ))
+        .serialize(output)
     }
 }

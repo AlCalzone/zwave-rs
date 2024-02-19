@@ -1,9 +1,7 @@
-use std::borrow::Cow;
-
 use crate::prelude::*;
+use bytes::{Bytes, BytesMut};
+use std::borrow::Cow;
 use zwave_core::prelude::*;
-
-use zwave_core::encoding::{self};
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetNodeProtocolInfoRequest {
@@ -37,21 +35,15 @@ impl CommandRequest for GetNodeProtocolInfoRequest {
 }
 
 impl CommandParsable for GetNodeProtocolInfoRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, node_id) = NodeId::parse(i, ctx.node_id_type)?;
-        Ok((i, Self { node_id }))
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self> {
+        let node_id = NodeId::parse(i, ctx.node_id_type)?;
+        Ok(Self { node_id })
     }
 }
 
-impl CommandSerializable for GetNodeProtocolInfoRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        self.node_id.serialize(ctx.node_id_type)
+impl SerializableWith<&CommandEncodingContext> for GetNodeProtocolInfoRequest {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
+        self.node_id.serialize(output, ctx.node_id_type)
     }
 }
 
@@ -85,21 +77,15 @@ impl CommandId for GetNodeProtocolInfoResponse {
 impl CommandBase for GetNodeProtocolInfoResponse {}
 
 impl CommandParsable for GetNodeProtocolInfoResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, protocol_info) = NodeInformationProtocolData::parse(i)?;
-        Ok((i, Self { protocol_info }))
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+        let protocol_info = NodeInformationProtocolData::parse(i)?;
+        Ok(Self { protocol_info })
     }
 }
 
-impl CommandSerializable for GetNodeProtocolInfoResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |_out| todo!("ERROR: GetNodeProtocolInfoResponse::serialize() not implemented")
+impl SerializableWith<&CommandEncodingContext> for GetNodeProtocolInfoResponse {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        todo!("ERROR: GetNodeProtocolInfoResponse::serialize() not implemented")
     }
 }
 

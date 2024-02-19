@@ -1,9 +1,11 @@
+use crate::parse::{
+    bytes::be_u8,
+    combinators::{context, map_res},
+};
 use crate::prelude::*;
-use crate::encoding;
+use bytes::{BytesMut, Bytes};
+use crate::serialize::{self, Serializable};
 use proc_macros::TryFromRepr;
-
-use cookie_factory as cf;
-use nom::{combinator::map_res, error::context, number::complete::be_u8};
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
@@ -24,25 +26,15 @@ impl Display for ProtocolType {
     }
 }
 
-impl NomTryFromPrimitive for ProtocolType {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown protocol type: {:#04x}", repr)
-    }
-}
-
 impl Parsable for ProtocolType {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context(
-            "ProtocolType",
-            map_res(be_u8, ProtocolType::try_from_primitive),
-        )(i)
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
+        context("ProtocolType", map_res(be_u8, ProtocolType::try_from)).parse(i)
     }
 }
 
 impl Serializable for ProtocolType {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        cf::bytes::be_u8(*self as u8)
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output)
     }
 }

@@ -1,7 +1,8 @@
-use super::NodeIdType;
-use crate::encoding;
-use cookie_factory as cf;
-use nom::number::complete::{be_u16, be_u8};
+use crate::{
+    serialize::{self, Serializable, SerializableWith},
+    parse::bytes::{be_u16, be_u8},
+    prelude::*,
+};
 use std::fmt::{Debug, Display};
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -72,27 +73,33 @@ impl_conversions_for!(u16);
 impl_conversions_for!(i32);
 
 impl NodeId {
-    pub fn parse(i: encoding::Input, node_id_type: NodeIdType) -> encoding::ParseResult<Self> {
+    pub fn parse(
+        i: &mut bytes::Bytes,
+        node_id_type: NodeIdType,
+    ) -> crate::parse::ParseResult<Self> {
         match node_id_type {
             NodeIdType::NodeId8Bit => {
-                let (i, node_id) = be_u8(i)?;
-                Ok((i, Self(node_id as u16)))
+                let node_id = be_u8(i)?;
+                Ok(Self(node_id as u16))
             }
             NodeIdType::NodeId16Bit => {
-                let (i, node_id) = be_u16(i)?;
-                Ok((i, Self(node_id)))
+                let node_id = be_u16(i)?;
+                Ok(Self(node_id))
             }
         }
     }
+}
 
-    pub fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        node_id_type: NodeIdType,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::bytes::{be_u16, be_u8};
-        move |out| match node_id_type {
-            NodeIdType::NodeId8Bit => be_u8(self.0 as u8)(out),
-            NodeIdType::NodeId16Bit => be_u16(self.0)(out),
+impl SerializableWith<NodeIdType> for NodeId {
+    fn serialize(&self, output: &mut bytes::BytesMut, node_id_type: NodeIdType) {
+        use serialize::bytes::{be_u16, be_u8};
+        match node_id_type {
+            NodeIdType::NodeId8Bit => {
+                be_u8(self.0 as u8).serialize(output);
+            }
+            NodeIdType::NodeId16Bit => {
+                be_u16(self.0).serialize(output);
+            }
         }
     }
 }

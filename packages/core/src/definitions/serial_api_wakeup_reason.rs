@@ -1,8 +1,11 @@
-use crate::encoding;
+use crate::parse::{
+    bytes::be_u8,
+    combinators::{context, map_res},
+};
 use crate::prelude::*;
-use cookie_factory as cf;
+use bytes::{BytesMut, Bytes};
+use crate::serialize::{self, Serializable};
 use custom_debug_derive::Debug;
-use nom::{combinator::map_res, error::context, number::complete::be_u8};
 use proc_macros::TryFromRepr;
 use std::fmt::Display;
 
@@ -51,25 +54,19 @@ impl Display for SerialApiWakeUpReason {
     }
 }
 
-impl NomTryFromPrimitive for SerialApiWakeUpReason {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown wakeup reason: {:#04x}", repr)
-    }
-}
-
 impl Parsable for SerialApiWakeUpReason {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         context(
             "SerialApiWakeUpReason",
-            map_res(be_u8, SerialApiWakeUpReason::try_from_primitive),
-        )(i)
+            map_res(be_u8, SerialApiWakeUpReason::try_from),
+        )
+        .parse(i)
     }
 }
 
 impl Serializable for SerialApiWakeUpReason {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        cf::bytes::be_u8(*self as u8)
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output)
     }
 }

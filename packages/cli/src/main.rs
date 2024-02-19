@@ -1,7 +1,6 @@
-use std::{process::exit, time::Duration};
+use std::time::Duration;
 
-use zwave_cc::commandclass::{BasicCCGet, BasicCCSet, CCAddressable, Crc16CCCommandEncapsulation};
-use zwave_core::{definitions::NodeId, log::Loglevel, values::LevelSet};
+use zwave_core::log::Loglevel;
 use zwave_driver::DriverOptions;
 
 #[cfg(target_os = "linux")]

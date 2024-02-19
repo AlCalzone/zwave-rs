@@ -8,18 +8,17 @@ edition.workspace = true
 
 [dependencies]
 bitvec.workspace = true
-cookie-factory.workspace = true
+bytes.workspace = true
+crc16.workspace = true
 custom_debug_derive.workspace = true
 enum-iterator.workspace = true
-nom.workspace = true
 num-traits.workspace = true
 paste.workspace = true
 pin-project.workspace = true
+proc-macros.workspace = true
 thiserror.workspace = true
 time.workspace = true
 tokio.workspace = true
-ux.workspace = true
 typed-builder.workspace = true
-proc-macros.workspace = true
 unicode-segmentation.workspace = true
-crc16.workspace = true
+ux.workspace = true

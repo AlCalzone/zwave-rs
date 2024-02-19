@@ -1,8 +1,7 @@
 use crate::prelude::*;
+use bytes::{Bytes, BytesMut};
+use zwave_core::parse::combinators::opt;
 use zwave_core::prelude::*;
-
-use nom::combinator::opt;
-use zwave_core::encoding::{self, encoders::empty};
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct GetBackgroundRssiRequest {}
@@ -34,22 +33,15 @@ impl CommandRequest for GetBackgroundRssiRequest {
 }
 
 impl CommandParsable for GetBackgroundRssiRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         // No payload
-        Ok((i, Self {}))
+        Ok(Self {})
     }
 }
 
-impl CommandSerializable for GetBackgroundRssiRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
+impl SerializableWith<&CommandEncodingContext> for GetBackgroundRssiRequest {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
         // No payload
-        empty()
     }
 }
 
@@ -83,30 +75,21 @@ impl CommandId for GetBackgroundRssiResponse {
 impl CommandBase for GetBackgroundRssiResponse {}
 
 impl CommandParsable for GetBackgroundRssiResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, rssi0) = RSSI::parse(i)?;
-        let (i, rssi1) = RSSI::parse(i)?;
-        let (i, rssi2) = opt(RSSI::parse)(i)?;
-        Ok((
-            i,
-            Self {
-                rssi_channel_0: rssi0,
-                rssi_channel_1: rssi1,
-                rssi_channel_2: rssi2,
-            },
-        ))
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+        let rssi0 = RSSI::parse(i)?;
+        let rssi1 = RSSI::parse(i)?;
+        let rssi2 = opt(RSSI::parse).parse(i)?;
+        Ok(Self {
+            rssi_channel_0: rssi0,
+            rssi_channel_1: rssi1,
+            rssi_channel_2: rssi2,
+        })
     }
 }
 
-impl CommandSerializable for GetBackgroundRssiResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |_out| todo!("ERROR: GetBackgroundRssiResponse::serialize() not implemented")
+impl SerializableWith<&CommandEncodingContext> for GetBackgroundRssiResponse {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        todo!("ERROR: GetBackgroundRssiResponse::serialize() not implemented");
     }
 }
 

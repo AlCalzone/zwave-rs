@@ -1,14 +1,14 @@
-use crate::encoding::WriteLastNBits;
-use crate::prelude::*;
-use crate::encoding;
-use proc_macros::TryFromRepr;
-
-use cookie_factory as cf;
-use encoding::{EncodingError, EncodingResult};
-use nom::{
-    bits::complete::take as take_bits, combinator::map_res, error::context, number::complete::be_u8,
+use crate::parse::{
+    bits,
+    bytes::be_u8,
+    combinators::{context, map_res},
 };
+use crate::prelude::*;
+use crate::serialize;
+use bytes::{Bytes, BytesMut};
+use proc_macros::TryFromRepr;
 use std::fmt::Display;
+use ux::u3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProtocolDataRate {
@@ -26,27 +26,16 @@ impl Display for ProtocolDataRate {
 }
 
 impl TryFrom<u8> for ProtocolDataRate {
-    type Error = EncodingError;
+    type Error = TryFromReprError<u8>;
 
-    fn try_from(rate: u8) -> EncodingResult<Self> {
+    fn try_from(rate: u8) -> Result<Self, Self::Error> {
         match rate {
             0x01 => Ok(Self::ZWave(DataRate::DataRate_9k6)),
             0x02 => Ok(Self::ZWave(DataRate::DataRate_40k)),
             0x03 => Ok(Self::ZWave(DataRate::DataRate_100k)),
             0x04 => Ok(Self::ZWaveLongRange),
-            _ => Err(EncodingError::Parse(Some(format!(
-                "Invalid ProtocolDataRate: {:?}",
-                rate
-            )))),
+            _ => Err(TryFromReprError::Invalid(rate)),
         }
-    }
-}
-
-impl NomTryFromPrimitive for ProtocolDataRate {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown ProtocolDataRate: {:#04x}", repr)
     }
 }
 
@@ -60,28 +49,28 @@ impl From<ProtocolDataRate> for u8 {
 }
 
 impl BitParsable for ProtocolDataRate {
-    fn parse(i: encoding::BitInput) -> encoding::BitParseResult<Self> {
+    fn parse(i: &mut (Bytes, usize)) -> crate::parse::ParseResult<Self> {
         context(
             "ProtocolDataRate",
-            map_res(take_bits(3usize), |x: u8| {
-                ProtocolDataRate::try_from_primitive(x)
-            }),
-        )(i)
+            map_res(bits::take(3usize), |x: u8| ProtocolDataRate::try_from(x)),
+        )
+        .parse(i)
     }
 }
 
 impl Parsable for ProtocolDataRate {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
         context(
             "ProtocolDataRate",
-            map_res(be_u8, ProtocolDataRate::try_from_primitive),
-        )(i)
+            map_res(be_u8, ProtocolDataRate::try_from),
+        )
+        .parse(i)
     }
 }
 
 impl BitSerializable for ProtocolDataRate {
-    fn write(&self, b: &mut encoding::BitOutput) {
-        b.write_last_n_bits(u8::from(*self), 3);
+    fn write(&self, b: &mut BitOutput) {
+        u3::new(u8::from(*self)).write(b);
     }
 }
 
@@ -104,22 +93,15 @@ impl Display for DataRate {
     }
 }
 
-impl NomTryFromPrimitive for DataRate {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown data rate: {:#04x}", repr)
-    }
-}
-
 impl Parsable for DataRate {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context("DataRate", map_res(be_u8, DataRate::try_from_primitive))(i)
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
+        context("DataRate", map_res(be_u8, DataRate::try_from)).parse(i)
     }
 }
 
 impl Serializable for DataRate {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        cf::bytes::be_u8(*self as u8)
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output)
     }
 }

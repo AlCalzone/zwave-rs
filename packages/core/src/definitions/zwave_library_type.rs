@@ -1,7 +1,10 @@
-use crate::encoding;
+use crate::parse::{
+    bytes::be_u8,
+    combinators::{context, map_res},
+};
 use crate::prelude::*;
-use cookie_factory as cf;
-use nom::{combinator::map_res, error::context, number::complete::be_u8};
+use bytes::{BytesMut, Bytes};
+use crate::serialize::{self, Serializable};
 use proc_macros::TryFromRepr;
 use std::fmt::Display;
 
@@ -41,25 +44,15 @@ impl Display for ZWaveLibraryType {
     }
 }
 
-impl NomTryFromPrimitive for ZWaveLibraryType {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown Z-Wave library type: {:#04x}", repr)
-    }
-}
-
 impl Parsable for ZWaveLibraryType {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context(
-            "ZWaveLibraryType",
-            map_res(be_u8, ZWaveLibraryType::try_from_primitive),
-        )(i)
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
+        context("ZWaveLibraryType", map_res(be_u8, Self::try_from)).parse(i)
     }
 }
 
 impl Serializable for ZWaveLibraryType {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        cf::bytes::be_u8(*self as u8)
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output)
     }
 }

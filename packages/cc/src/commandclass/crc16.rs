@@ -1,12 +1,13 @@
 use crate::prelude::*;
-use cookie_factory as cf;
-use nom::bytes::complete::take;
-use nom::combinator::map_res;
-use nom::number::complete::be_u16;
+use bytes::{Bytes, BytesMut};
 use proc_macros::{CCValues, TryFromRepr};
+use zwave_core::serialize::{self, Serializable};
 use zwave_core::checksum::crc16_incremental;
-use zwave_core::encoding::validate;
-use zwave_core::encoding::{self};
+use zwave_core::parse::{
+    validate,
+    bytes::{be_u16, complete::take},
+    combinators::map_res,
+};
 use zwave_core::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
@@ -56,9 +57,9 @@ impl CCId for Crc16CCCommandEncapsulation {
 }
 
 impl CCParsable for Crc16CCCommandEncapsulation {
-    fn parse<'a>(i: encoding::Input<'a>, ctx: &CCParsingContext) -> ParseResult<'a, Self> {
-        let (i, payload) = take(i.len() - 2usize)(i)?;
-        let (i, checksum) = be_u16(i)?;
+    fn parse(i: &mut Bytes, ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+        let mut payload = take(i.len() - 2usize).parse(i)?;
+        let checksum = be_u16(i)?;
 
         // The checksum includes the entire CRC16 CC
         let expected_checksum = crc16_incremental()
@@ -66,11 +67,10 @@ impl CCParsable for Crc16CCCommandEncapsulation {
                 CommandClasses::CRC16Encapsulation as u8,
                 Crc16CCCommand::CommandEncapsulation as u8,
             ])
-            .update(payload)
+            .update(&payload)
             .get();
 
         validate(
-            i,
             checksum == expected_checksum,
             format!(
                 "checksum mismatch: expected {:#06x}, got {:#06x}",
@@ -78,34 +78,28 @@ impl CCParsable for Crc16CCCommandEncapsulation {
             ),
         )?;
 
-        let (_, encapsulated) = map_res(CCRaw::parse, |raw| CC::try_from_raw(raw, ctx))(payload)?;
+        let encapsulated =
+            map_res(CCRaw::parse, |raw| CC::try_from_raw(raw, ctx)).parse(&mut payload)?;
 
-        Ok((
-            i,
-            Self {
-                encapsulated: Box::new(encapsulated),
-            },
-        ))
+        Ok(Self {
+            encapsulated: Box::new(encapsulated),
+        })
     }
 }
 
 impl CCSerializable for Crc16CCCommandEncapsulation {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u16, combinator::slice, sequence::tuple};
-        move |out| {
-            let command = self.encapsulated.clone();
-            let payload = command
-                .try_into_raw()
-                .and_then(|raw| raw.try_to_vec())
-                .expect("Serializing a CC should not fail");
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::{bytes::be_u16, bytes::slice, sequence::tuple};
 
-            // The checksum includes the entire CRC16 CC
-            let checksum = crc16_incremental()
-                .update(&[self.cc_id() as u8, self.cc_command().unwrap()])
-                .update(&payload)
-                .get();
+        let command = self.encapsulated.clone();
+        let payload = command.as_raw().as_bytes();
 
-            tuple((slice(payload), be_u16(checksum)))(out)
-        }
+        // The checksum includes the entire CRC16 CC
+        let checksum = crc16_incremental()
+            .update(&[self.cc_id() as u8, self.cc_command().unwrap()])
+            .update(&payload)
+            .get();
+
+        tuple((slice(payload), be_u16(checksum))).serialize(output);
     }
 }

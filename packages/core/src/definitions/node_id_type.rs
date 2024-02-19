@@ -1,9 +1,8 @@
+use bytes::BytesMut;
+use crate::serialize::{self, Serializable};
+use crate::parse::{bytes::be_u8, combinators::map_res};
 use crate::prelude::*;
-use crate::encoding;
 use proc_macros::TryFromRepr;
-
-use cookie_factory as cf;
-use nom::{combinator::map_res, number::complete::be_u8};
 use std::fmt::Display;
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
@@ -12,14 +11,6 @@ pub enum NodeIdType {
     #[default]
     NodeId8Bit = 0x01,
     NodeId16Bit = 0x02,
-}
-
-impl NomTryFromPrimitive for NodeIdType {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown node ID type: {:#04x}", repr)
-    }
 }
 
 impl Display for NodeIdType {
@@ -32,14 +23,14 @@ impl Display for NodeIdType {
 }
 
 impl Parsable for NodeIdType {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        map_res(be_u8, NodeIdType::try_from_primitive)(i)
+    fn parse(i: &mut bytes::Bytes) -> crate::parse::ParseResult<Self> {
+        map_res(be_u8, NodeIdType::try_from).parse(i)
     }
 }
 
 impl Serializable for NodeIdType {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
-        be_u8((*self) as u8)
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output)
     }
 }

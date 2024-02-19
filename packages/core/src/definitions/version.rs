@@ -1,7 +1,7 @@
+use crate::parse::{bytes::be_u8, combinators::map};
+use crate::prelude::*;
+use bytes::Bytes;
 use std::fmt::{self, Display};
-
-use crate::encoding::SimpleParseError;
-
 #[derive(Clone, Copy, Eq, PartialOrd)]
 pub struct Version {
     pub major: u8,
@@ -34,14 +34,17 @@ impl Display for Version {
 }
 
 impl TryFrom<&str> for Version {
-    type Error = SimpleParseError;
+    type Error = ParseError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let parts: Result<Vec<_>, _> = value.split('.').take(3).map(|s| s.parse::<u8>()).collect();
-        let parts =
-            parts.map_err(|_| SimpleParseError(Some(format!("Invalid version {}", value))))?;
+        let parts = parts
+            .map_err(|_| ParseError::validation_failure(format!("Invalid version {}", value)))?;
         if parts.len() < 2 {
-            return Err(SimpleParseError(Some(format!("Invalid version {}", value))));
+            return Err(ParseError::validation_failure(format!(
+                "Invalid version {}",
+                value
+            )));
         }
 
         Ok(Version {
@@ -50,6 +53,26 @@ impl TryFrom<&str> for Version {
             minor: *parts.get(1).unwrap(),
             patch: parts.get(2).copied(),
         })
+    }
+}
+
+impl Version {
+    pub fn parse_major_minor_patch(i: &mut Bytes) -> ParseResult<Self> {
+        map((be_u8, be_u8, be_u8), |(major, minor, patch)| Version {
+            major,
+            minor,
+            patch: Some(patch),
+        })
+        .parse(i)
+    }
+
+    pub fn parse_major_minor(i: &mut Bytes) -> ParseResult<Self> {
+        map((be_u8, be_u8), |(major, minor)| Version {
+            major,
+            minor,
+            patch: None,
+        })
+        .parse(i)
     }
 }
 

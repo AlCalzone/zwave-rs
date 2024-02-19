@@ -1,19 +1,12 @@
-use super::{Beam, ProtocolDataRate, RoutingScheme, RSSI};
-use crate::{
-    encoding::{self, BitParsable, Parsable, Serializable},
-    prelude::LogPayloadDict,
+use crate::parse::{
+    bits::bits,
+    bytes::{be_i8, be_u16, be_u8},
+    combinators::{cond, map, opt, repeat},
+    BitParsable,
 };
-
-use cookie_factory as cf;
+use crate::prelude::*;
+use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
-use nom::{
-    bits,
-    combinator::{cond, map, opt},
-    multi::count,
-    number::complete::be_u16,
-    number::complete::{be_i8, be_u8},
-    sequence::tuple,
-};
 use std::fmt::Display;
 use ux::{u1, u2};
 
@@ -96,50 +89,56 @@ pub struct TransmitReport {
 
 impl TransmitReport {
     // How to parse this depends on the Transmit status. ACK related fields are not parsed if the node did not ACK the frame.
-    pub fn parse(i: encoding::Input, with_ack: bool) -> encoding::ParseResult<Self> {
-        let (i, tx_ticks) = be_u16(i)?;
-        let (i, num_repeaters) = be_u8(i)?;
-        let (i, ack_rssi) = RSSI::parse(i)?;
-        let (i, repeater_rssi) = count(RSSI::parse, 4usize)(i)?;
-        let (i, ack_channel_no) = be_u8(i)?;
-        let (i, tx_channel_no) = be_u8(i)?;
-        let (i, routing_scheme) = RoutingScheme::parse(i)?;
-        let (i, repeater_node_ids) = count(be_u8, 4usize)(i)?;
-        let (i, (_reserved7, beam, _reserved43, route_speed)) = bits(tuple((
+    pub fn parse(i: &mut Bytes, with_ack: bool) -> crate::parse::ParseResult<Self> {
+        let tx_ticks = be_u16(i)?;
+        let num_repeaters = be_u8(i)?;
+        let ack_rssi = RSSI::parse(i)?;
+        let repeater_rssi = repeat(RSSI::parse, 4usize).parse(i)?;
+        let ack_channel_no = be_u8(i)?;
+        let tx_channel_no = be_u8(i)?;
+        let routing_scheme = RoutingScheme::parse(i)?;
+        let repeater_node_ids = repeat(be_u8, 4usize).parse(i)?;
+        let (_reserved7, beam, _reserved43, route_speed) = bits((
             u1::parse,
             Beam::parse_opt,
             u2::parse,
             <ProtocolDataRate as BitParsable>::parse,
-        )))(i)?;
-        let (i, routing_attempts) = be_u8(i)?;
+        ))
+        .parse(i)?;
+        let routing_attempts = be_u8(i)?;
 
         // Some of the following data is not always present, depending on the controller firmware version.
         // Since new fields are added at the end, we only parse them if the previous fields were present.
-        let (i, route_fail_location) = opt(map(
-            tuple((be_u8, be_u8)),
+        let route_fail_location = opt(map(
+            (be_u8, be_u8),
             |(last_functional_node_id, first_non_functional_node_id)| RouteFailLocation {
                 last_functional_node_id,
                 first_non_functional_node_id,
             },
-        ))(i)?;
-        let (i, tx_power) = map(
+        ))
+        .parse(i)?;
+        let tx_power = map(
             cond(route_fail_location.is_some(), opt(be_i8)),
             Option::flatten,
-        )(i)?;
-        let (i, measured_noise_floor) =
-            map(cond(tx_power.is_some(), opt(RSSI::parse)), Option::flatten)(i)?;
-        let (i, destination_ack_tx_power) = map(
+        )
+        .parse(i)?;
+        let measured_noise_floor =
+            map(cond(tx_power.is_some(), opt(RSSI::parse)), Option::flatten).parse(i)?;
+        let destination_ack_tx_power = map(
             cond(measured_noise_floor.is_some(), opt(be_i8)),
             Option::flatten,
-        )(i)?;
-        let (i, destination_ack_measured_rssi) = map(
+        )
+        .parse(i)?;
+        let destination_ack_measured_rssi = map(
             cond(destination_ack_tx_power.is_some(), opt(RSSI::parse)),
             Option::flatten,
-        )(i)?;
-        let (i, destination_ack_measured_noise_floor) = map(
+        )
+        .parse(i)?;
+        let destination_ack_measured_noise_floor = map(
             cond(destination_ack_measured_rssi.is_some(), opt(RSSI::parse)),
             Option::flatten,
-        )(i)?;
+        )
+        .parse(i)?;
 
         let repeaters = repeater_node_ids
             .iter()
@@ -151,45 +150,41 @@ impl TransmitReport {
             .take(num_repeaters as usize)
             .collect();
 
-        Ok((
-            i,
-            Self {
-                tx_ticks,
-                tx_power: validate_tx_power(tx_power),
-                tx_channel_no,
-                repeaters,
-                routing_scheme,
-                route_speed,
-                beam,
-                routing_attempts,
-                route_fail_location: validate_route_fail_location(route_fail_location),
-                measured_noise_floor,
-                ack_rssi: if with_ack { Some(ack_rssi) } else { None },
-                ack_channel_no: if with_ack { Some(ack_channel_no) } else { None },
-                destination_ack_tx_power: if with_ack {
-                    validate_tx_power(destination_ack_tx_power)
-                } else {
-                    None
-                },
-                destination_ack_measured_rssi: if with_ack {
-                    destination_ack_measured_rssi
-                } else {
-                    None
-                },
-                destination_ack_measured_noise_floor: if with_ack {
-                    destination_ack_measured_noise_floor
-                } else {
-                    None
-                },
+        Ok(Self {
+            tx_ticks,
+            tx_power: validate_tx_power(tx_power),
+            tx_channel_no,
+            repeaters,
+            routing_scheme,
+            route_speed,
+            beam,
+            routing_attempts,
+            route_fail_location: validate_route_fail_location(route_fail_location),
+            measured_noise_floor,
+            ack_rssi: if with_ack { Some(ack_rssi) } else { None },
+            ack_channel_no: if with_ack { Some(ack_channel_no) } else { None },
+            destination_ack_tx_power: if with_ack {
+                validate_tx_power(destination_ack_tx_power)
+            } else {
+                None
             },
-        ))
+            destination_ack_measured_rssi: if with_ack {
+                destination_ack_measured_rssi
+            } else {
+                None
+            },
+            destination_ack_measured_noise_floor: if with_ack {
+                destination_ack_measured_noise_floor
+            } else {
+                None
+            },
+        })
     }
 }
 
 impl Serializable for TransmitReport {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        // use cf::{bytes::be_u8, sequence::tuple};
-        move |_out| todo!("ERROR: TransmitReport::serialize() not implemented")
+    fn serialize(&self, _output: &mut BytesMut) {
+        todo!("ERROR: TransmitReport::serialize() not implemented")
     }
 }
 

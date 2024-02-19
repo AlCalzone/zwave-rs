@@ -1,13 +1,13 @@
 use crate::prelude::*;
-use cookie_factory as cf;
-use nom::{
-    combinator::{map, map_res},
-    multi::length_value,
-    number::complete::be_u8,
-};
+use bytes::{Bytes, BytesMut};
 use typed_builder::TypedBuilder;
 use zwave_cc::prelude::*;
-use zwave_core::encoding;
+use zwave_core::serialize;
+use zwave_core::parse::{
+    bytes::be_u8,
+    combinators::{map, map_res},
+    multi::length_value,
+};
 use zwave_core::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, TypedBuilder)]
@@ -60,54 +60,40 @@ impl CommandRequest for SendDataRequest {
 }
 
 impl CommandParsable for SendDataRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, node_id) = NodeId::parse(i, ctx.node_id_type)?;
-        let (i, cc) = map_res(length_value(be_u8, CCRaw::parse), |raw| {
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self> {
+        let node_id = NodeId::parse(i, ctx.node_id_type)?;
+        let cc = map_res(length_value(be_u8, CCRaw::parse), |raw| {
             let ctx = CCParsingContext::default();
             CC::try_from_raw(raw, &ctx)
-        })(i)?;
-        let (i, transmit_options) = TransmitOptions::parse(i)?;
-        let (i, callback_id) = be_u8(i)?;
+        })
+        .parse(i)?;
+        let transmit_options = TransmitOptions::parse(i)?;
+        let callback_id = be_u8(i)?;
 
-        Ok((
-            i,
-            Self {
-                node_id,
-                callback_id: Some(callback_id),
-                transmit_options,
-                command: cc,
-            },
-        ))
+        Ok(Self {
+            node_id,
+            callback_id: Some(callback_id),
+            transmit_options,
+            command: cc,
+        })
     }
 }
 
-impl CommandSerializable for SendDataRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, combinator::slice, sequence::tuple};
-        move |out| {
-            // TODO: Figure out if we should handle serialization errors elsewhere
-            // let error_msg = format!("Serializing command {:?} should not fail", &self.command);
+impl SerializableWith<&CommandEncodingContext> for SendDataRequest {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
+        use serialize::{bytes::be_u8, bytes::slice};
 
-            let command = self.command.clone();
-            let payload = command
-                .try_into_raw()
-                .and_then(|raw| raw.try_to_vec())
-                .expect("Serializing a CC should not fail");
+        // TODO: Figure out if we should handle serialization errors elsewhere
+        // let error_msg = format!("Serializing command {:?} should not fail", &self.command);
 
-            tuple((
-                self.node_id.serialize(ctx.node_id_type),
-                be_u8(payload.len() as u8),
-                slice(payload),
-                self.transmit_options.serialize(),
-                be_u8(self.callback_id.unwrap_or(0)),
-            ))(out)
-        }
+        let command = self.command.clone();
+        let payload = command.as_raw().as_bytes();
+
+        self.node_id.serialize(output, ctx.node_id_type);
+        be_u8(payload.len() as u8).serialize(output);
+        slice(&payload).serialize(output);
+        self.transmit_options.serialize(output);
+        be_u8(self.callback_id.unwrap_or(0)).serialize(output);
     }
 }
 
@@ -150,22 +136,16 @@ impl CommandId for SendDataResponse {
 }
 
 impl CommandParsable for SendDataResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, was_sent) = map(be_u8, |x| x > 0)(i)?;
-        Ok((i, Self { was_sent }))
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+        let was_sent = map(be_u8, |x| x > 0).parse(i)?;
+        Ok(Self { was_sent })
     }
 }
 
-impl CommandSerializable for SendDataResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
-        be_u8(if self.was_sent { 0x01 } else { 0x00 })
+impl SerializableWith<&CommandEncodingContext> for SendDataResponse {
+    fn serialize(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        use serialize::bytes::be_u8;
+        be_u8(if self.was_sent { 0x01 } else { 0x00 }).serialize(output);
     }
 }
 
@@ -209,32 +189,22 @@ impl CommandId for SendDataCallback {
 }
 
 impl CommandParsable for SendDataCallback {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, callback_id) = be_u8(i)?;
-        let (i, transmit_status) = TransmitStatus::parse(i)?;
-        let (i, transmit_report) =
-            TransmitReport::parse(i, transmit_status != TransmitStatus::NoAck)?;
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+        let callback_id = be_u8(i)?;
+        let transmit_status = TransmitStatus::parse(i)?;
+        let transmit_report = TransmitReport::parse(i, transmit_status != TransmitStatus::NoAck)?;
 
-        Ok((
-            i,
-            Self {
-                callback_id: Some(callback_id),
-                transmit_status,
-                transmit_report,
-            },
-        ))
+        Ok(Self {
+            callback_id: Some(callback_id),
+            transmit_status,
+            transmit_report,
+        })
     }
 }
 
-impl CommandSerializable for SendDataCallback {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |_out| todo!()
+impl SerializableWith<&CommandEncodingContext> for SendDataCallback {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        todo!("ERROR: SendDataCallback::serialize() not implemented")
     }
 }
 

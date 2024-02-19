@@ -1,12 +1,12 @@
-use crate::prelude::*;
-use crate::encoding;
-use proc_macros::TryFromRepr;
-
-use cookie_factory as cf;
-use nom::{
-    bits::complete::take as take_bits, combinator::map_res, error::context,
-    number::complete::be_u8,
+use crate::parse::{
+    bits::take as take_bits,
+    bytes::be_u8,
+    combinators::{context, map_res},
 };
+use crate::prelude::*;
+use bytes::{BytesMut, Bytes};
+use crate::serialize::{self, Serializable};
+use proc_macros::TryFromRepr;
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
@@ -27,36 +27,25 @@ impl Display for ProtocolVersion {
     }
 }
 
-impl NomTryFromPrimitive for ProtocolVersion {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown protocol version: {:#04x}", repr)
-    }
-}
-
 impl Parsable for ProtocolVersion {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context(
-            "ProtocolVersion",
-            map_res(be_u8, ProtocolVersion::try_from_primitive),
-        )(i)
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
+        context("ProtocolVersion", map_res(be_u8, ProtocolVersion::try_from)).parse(i)
     }
 }
 
 impl BitParsable for ProtocolVersion {
-    fn parse(i: encoding::BitInput) -> encoding::BitParseResult<Self> {
+    fn parse(i: &mut (Bytes, usize)) -> crate::parse::ParseResult<Self> {
         context(
             "ProtocolVersion",
-            map_res(take_bits(3usize), |x: u8| {
-                ProtocolVersion::try_from_primitive(x)
-            }),
-        )(i)
+            map_res(take_bits(3usize), |x: u8| ProtocolVersion::try_from(x)),
+        )
+        .parse(i)
     }
 }
 
 impl Serializable for ProtocolVersion {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        cf::bytes::be_u8(*self as u8)
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output)
     }
 }

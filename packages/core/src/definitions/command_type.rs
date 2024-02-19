@@ -1,10 +1,16 @@
 use crate::prelude::*;
-use crate::encoding;
+use crate::{
+    serialize,
+    parse::{
+        self,
+        bytes::be_u8,
+        combinators::{context, map_res},
+    },
+};
+use bytes::Bytes;
 use proc_macros::TryFromRepr;
 
-use cookie_factory as cf;
 use custom_debug_derive::Debug;
-use nom::{combinator::map_res, error::context, number::complete::be_u8};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
 #[repr(u8)]
@@ -13,26 +19,15 @@ pub enum CommandType {
     Response = 0x01,
 }
 
-impl NomTryFromPrimitive for CommandType {
-    type Repr = u8;
-
-    fn format_error(repr: Self::Repr) -> String {
-        format!("Unknown CommandType: {:#04x}", repr)
+impl Parsable for CommandType {
+    fn parse(i: &mut Bytes) -> parse::ParseResult<Self> {
+        context("CommandType", map_res(be_u8, CommandType::try_from)).parse(i)
     }
 }
 
-impl CommandType {
-    pub fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context(
-            "CommandType",
-            map_res(be_u8, CommandType::try_from_primitive),
-        )(i)
-    }
-
-    pub fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
-        be_u8(*self as u8)
+impl Serializable for CommandType {
+    fn serialize(&self, output: &mut bytes::BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8(*self as u8).serialize(output);
     }
 }

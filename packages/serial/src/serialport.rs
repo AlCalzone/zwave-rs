@@ -1,12 +1,12 @@
 use crate::binding::SerialBinding;
 use crate::error::*;
 use crate::frame::RawSerialFrame;
-use bytes::{Buf, BytesMut};
+use bytes::BytesMut;
 use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
 use tokio_serial::{SerialPortBuilderExt, SerialStream};
 use tokio_util::codec::{Decoder, Encoder, Framed};
-use zwave_core::encoding;
+use zwave_core::parse::Needed;
 use zwave_core::prelude::*;
 
 pub struct SerialPort {
@@ -28,20 +28,8 @@ impl SerialBinding for SerialPort {
     }
 
     async fn write(&mut self, frame: RawSerialFrame) -> Result<()> {
-        // Not sure why, but doing this exects EncodingError to implement From<io::Error>,
-        // although we'd actually want our local error type to be used.
-        // TODO: Fix this at some point
-        self.writer.send(frame).await.map_err(|e| match e {
-            EncodingError::Parse(_) => {
-                todo!("A parse error should not occur when sending data to the serial port")
-            }
-            EncodingError::NotImplemented(_) => {
-                todo!(
-                    "A not implemented error should not occur when sending data to the serial port"
-                )
-            }
-            EncodingError::Serialize(reason) => std::io::Error::other(reason).into(),
-        })
+        self.writer.send(frame).await?;
+        Ok(())
     }
 
     async fn read(&mut self) -> Option<RawSerialFrame> {
@@ -57,34 +45,38 @@ struct SerialFrameCodec;
 
 impl Decoder for SerialFrameCodec {
     type Item = RawSerialFrame;
-    type Error = encoding::EncodingError;
+    type Error = std::io::Error;
 
     fn decode(
         &mut self,
         src: &mut BytesMut,
     ) -> std::result::Result<Option<Self::Item>, Self::Error> {
-        match RawSerialFrame::parse(src) {
-            Ok((remaining, frame)) => {
-                let bytes_read = src.len() - remaining.len();
-                src.advance(bytes_read);
-                Ok(Some(frame))
+        match RawSerialFrame::parse_mut(src) {
+            Ok(frame) => Ok(Some(frame)),
+            Err(ParseError::Incomplete(n)) => {
+                // When expecting more bytes, reserve space for them
+                if let Needed::Size(n) = n {
+                    src.reserve(n);
+                }
+                Ok(None)
             }
-            Err(nom::Err::Incomplete(_)) => Ok(None),
-            e => e.into_encoding_result().map(|_| None),
+            Err(_) => {
+                // There was a problem parsing the frame, but the serial port doesn't care about that
+                Ok(None)
+            }
         }
     }
 }
 
 impl Encoder<RawSerialFrame> for SerialFrameCodec {
-    type Error = encoding::EncodingError;
+    type Error = std::io::Error;
 
     fn encode(
         &mut self,
         item: RawSerialFrame,
         dst: &mut BytesMut,
     ) -> std::result::Result<(), Self::Error> {
-        let data: Vec<u8> = item.try_to_vec()?;
-        dst.extend_from_slice(&data);
+        item.serialize(dst);
         Ok(())
     }
 }

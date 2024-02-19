@@ -1,8 +1,10 @@
-use crate::encoding::{self, Parsable, Serializable};
-
-use cookie_factory as cf;
-
-use nom::{combinator::map, error::context, number::complete::be_u8};
+use crate::serialize::{self, Serializable};
+use crate::parse::{
+    bytes::be_u8,
+    combinators::{context, map},
+};
+use crate::prelude::*;
+use bytes::{Bytes, BytesMut};
 use std::fmt::{self, Display};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,13 +42,14 @@ impl From<ZWaveApiVersion> for u8 {
 }
 
 impl Parsable for ZWaveApiVersion {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context("ZWaveApiVersion", map(be_u8, ZWaveApiVersion::from))(i)
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
+        context("ZWaveApiVersion", map(be_u8, Self::from)).parse(i)
     }
 }
 
 impl Serializable for ZWaveApiVersion {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        cf::bytes::be_u8((*self).into())
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_u8;
+        be_u8((*self).into()).serialize(output)
     }
 }

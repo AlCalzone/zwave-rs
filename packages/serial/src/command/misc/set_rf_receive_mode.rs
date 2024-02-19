@@ -1,10 +1,9 @@
 use crate::prelude::*;
-use zwave_core::prelude::*;
-
-use cookie_factory as cf;
-use nom::{combinator::map, number::complete::be_u8};
+use bytes::{Bytes, BytesMut};
 use typed_builder::TypedBuilder;
-use zwave_core::encoding::{self};
+use zwave_core::parse::{bytes::be_u8, combinators::map};
+use zwave_core::prelude::*;
+use zwave_core::serialize;
 
 #[derive(Default, Debug, Clone, PartialEq, TypedBuilder)]
 pub struct SetRfReceiveModeRequest {
@@ -39,22 +38,16 @@ impl CommandRequest for SetRfReceiveModeRequest {
 }
 
 impl CommandParsable for SetRfReceiveModeRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
         eprintln!("ERROR: SetRfReceiveModeRequest::parse() not implemented");
-        Ok((i, Self::default()))
+        Ok(Self::default())
     }
 }
 
-impl CommandSerializable for SetRfReceiveModeRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
-        be_u8(if self.enabled { 1 } else { 0 })
+impl SerializableWith<&CommandEncodingContext> for SetRfReceiveModeRequest {
+    fn serialize(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        use serialize::bytes::be_u8;
+        be_u8(if self.enabled { 1 } else { 0 }).serialize(output);
     }
 }
 
@@ -92,21 +85,15 @@ impl CommandBase for SetRfReceiveModeResponse {
 }
 
 impl CommandParsable for SetRfReceiveModeResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, success) = map(be_u8, |x| x > 0)(i)?;
-        Ok((i, Self { success }))
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+        let success = map(be_u8, |x| x > 0).parse(i)?;
+        Ok(Self { success })
     }
 }
 
-impl CommandSerializable for SetRfReceiveModeResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        move |_out| todo!("ERROR: SetRfReceiveModeResponse::serialize() not implemented")
+impl SerializableWith<&CommandEncodingContext> for SetRfReceiveModeResponse {
+    fn serialize(&self, _output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        todo!("ERROR: SetRfReceiveModeResponse::serialize() not implemented");
     }
 }
 

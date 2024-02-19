@@ -1,10 +1,10 @@
-use crate::{command::ApplicationUpdateRequestPayload, prelude::*};
-use zwave_core::prelude::*;
-
-use cookie_factory as cf;
-use nom::{combinator::map, number::complete::be_u8};
+use crate::command::ApplicationUpdateRequestPayload;
+use crate::prelude::*;
+use bytes::{Bytes, BytesMut};
 use typed_builder::TypedBuilder;
-use zwave_core::encoding::{self};
+use zwave_core::serialize;
+use zwave_core::parse::{bytes::be_u8, combinators::map};
+use zwave_core::prelude::*;
 
 #[derive(Default, Debug, Clone, PartialEq, TypedBuilder)]
 pub struct RequestNodeInfoRequest {
@@ -59,21 +59,15 @@ impl CommandRequest for RequestNodeInfoRequest {
 }
 
 impl CommandParsable for RequestNodeInfoRequest {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, node_id) = NodeId::parse(i, ctx.node_id_type)?;
-        Ok((i, Self { node_id }))
+    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self> {
+        let node_id = NodeId::parse(i, ctx.node_id_type)?;
+        Ok(Self { node_id })
     }
 }
 
-impl CommandSerializable for RequestNodeInfoRequest {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        self.node_id.serialize(ctx.node_id_type)
+impl SerializableWith<&CommandEncodingContext> for RequestNodeInfoRequest {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
+        self.node_id.serialize(output, ctx.node_id_type);
     }
 }
 
@@ -110,22 +104,16 @@ impl CommandBase for RequestNodeInfoResponse {
 }
 
 impl CommandParsable for RequestNodeInfoResponse {
-    fn parse<'a>(
-        i: encoding::Input<'a>,
-        _ctx: &CommandEncodingContext,
-    ) -> encoding::ParseResult<'a, Self> {
-        let (i, was_sent) = map(be_u8, |x| x > 0)(i)?;
-        Ok((i, Self { was_sent }))
+    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+        let was_sent = map(be_u8, |x| x > 0).parse(i)?;
+        Ok(Self { was_sent })
     }
 }
 
-impl CommandSerializable for RequestNodeInfoResponse {
-    fn serialize<'a, W: std::io::Write + 'a>(
-        &'a self,
-        _ctx: &'a CommandEncodingContext,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::bytes::be_u8;
-        be_u8(if self.was_sent { 0x01 } else { 0x00 })
+impl SerializableWith<&CommandEncodingContext> for RequestNodeInfoResponse {
+    fn serialize(&self, output: &mut BytesMut, _ctx: &CommandEncodingContext) {
+        use serialize::bytes::be_u8;
+        be_u8(if self.was_sent { 0x01 } else { 0x00 }).serialize(output);
     }
 }
 

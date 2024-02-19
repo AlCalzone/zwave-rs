@@ -1,24 +1,23 @@
-use crate::prelude::*;
-use zwave_core::prelude::*;
-
-use zwave_core::encoding::{self, validate};
-
 use crate::{frame::SerialControlByte, util::hex_fmt};
-use cookie_factory as cf;
+use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
-use nom::{
-    bytes::complete::{tag, take},
-    combinator::peek,
-    number::complete::be_u8,
-    sequence::tuple,
+use zwave_core::parse::{
+    bytes::{
+        be_u8,
+        complete::{literal, skip, take},
+    },
+    combinators::peek,
+    validate,
 };
+use zwave_core::prelude::*;
+use zwave_core::serialize;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CommandRaw {
     pub command_type: CommandType,
     pub function_type: FunctionType,
     #[debug(with = "hex_fmt")]
-    pub payload: Vec<u8>,
+    pub payload: Bytes,
     #[debug(format = "{:#04x}")]
     pub checksum: u8,
 }
@@ -35,43 +34,32 @@ fn test_checksum() {
     assert_eq!(compute_checksum(&input), expected);
 }
 
-impl CommandRaw {
-    fn serialize_no_checksum<'a, W: std::io::Write + 'a>(
-        &'a self,
-    ) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, combinator::slice, sequence::tuple};
-
-        let sof = be_u8(SerialControlByte::SOF as u8);
-        let len = be_u8(self.payload.len() as u8 + 3);
-        let command_type = self.command_type.serialize();
-        let function_type = self.function_type.serialize();
-        let payload = slice(&self.payload);
-        let checksum = be_u8(0); // placeholder
-
-        tuple((sof, len, command_type, function_type, payload, checksum))
-    }
-}
-
 impl Parsable for CommandRaw {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        // Ensure that the buffer contains at least 5 bytes
-        peek(take(5usize))(i)?;
+    fn parse(i: &mut Bytes) -> ParseResult<Self> {
+        // Extract the length, while ensuring that the buffer...
+        let (_, len, _) = peek((
+            // ...starts with SOF
+            literal(SerialControlByte::SOF as u8),
+            // (read length)
+            be_u8,
+            // ...and contains at least 5 bytes
+            take(3usize),
+        ))
+        .parse(i)?;
 
-        // Ensure that it starts with a SOF byte and extract the length of the rest of the command
-        let (_, (_, len)) = peek(tuple((tag([SerialControlByte::SOF as u8]), be_u8)))(i)?;
-        let (rem, raw_data) = peek(take(len + 2))(i)?;
+        // Remember a copy of the command buffer for the checksum later
+        let raw_data: Bytes = i.clone().split_to(len as usize + 2);
 
         // Skip the SOF and length bytes
-        let (i, _) = take(2usize)(i)?;
+        skip(2usize).parse(i)?;
 
-        let (i, command_type) = CommandType::parse(i)?;
-        let (i, function_type) = FunctionType::parse(i)?;
-        let (i, payload) = take(len - 3)(i)?;
-        let (i, checksum) = be_u8(i)?;
+        let command_type = CommandType::parse(i)?;
+        let function_type = FunctionType::parse(i)?;
+        let payload = take(len - 3).parse(i)?;
+        let checksum = be_u8(i)?;
 
-        let expected_checksum = compute_checksum(raw_data);
+        let expected_checksum = compute_checksum(&raw_data);
         validate(
-            rem,
             checksum == expected_checksum,
             format!(
                 "checksum mismatch: expected {:#04x}, got {:#04x}",
@@ -79,47 +67,91 @@ impl Parsable for CommandRaw {
             ),
         )?;
 
-        Ok((
-            i,
-            Self {
-                command_type,
-                function_type,
-                payload: payload.to_vec(),
-                checksum,
-            },
+        Ok(Self {
+            command_type,
+            function_type,
+            payload,
+            checksum,
+        })
+    }
+}
+
+impl CommandRaw {
+    fn serialize_no_checksum(&self) -> impl Serializable + '_ {
+        use serialize::{
+            bytes::{be_u8, slice},
+            sequence::tuple,
+        };
+
+        let sof = be_u8(SerialControlByte::SOF as u8);
+        let len = be_u8(self.payload.len() as u8 + 3);
+        let payload = slice(&self.payload);
+        let checksum = be_u8(0); // placeholder
+
+        tuple((
+            sof,
+            len,
+            self.command_type,
+            self.function_type,
+            payload,
+            checksum,
         ))
     }
 }
 
 impl Serializable for CommandRaw {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cookie_factory::SerializeFn<W> + 'a {
-        use cf::{bytes::be_u8, combinator::slice};
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::slice;
 
-        // First serialize the command without checksum,
-        move |out| {
-            let mut buf = cf::gen_simple(self.serialize_no_checksum(), Vec::new())?;
-            let checksum = compute_checksum(&buf);
-            // then write the checksum into the last byte
-            let len = buf.len();
-            cf::gen_simple(be_u8(checksum), &mut buf[len - 1..])?;
-            slice(buf)(out)
-        }
+        let mut buf = self.serialize_no_checksum().as_bytes_mut();
+        let checksum = compute_checksum(&buf);
+        // Then update the checksum in the buffer
+        let len = buf.len();
+        buf[len - 1] = checksum;
+
+        slice(buf).serialize(output);
     }
 }
 
 #[test]
 fn test_parse_invalid_checksum() {
+    macro_rules! hex_bytes {
+        ($hex:expr) => {
+            bytes::BytesMut::from(hex::decode($hex).unwrap().as_slice()).freeze()
+        };
+    }
+
     // This is an actual message with a correct checksum
-    let input = hex::decode("01030002fe").unwrap();
-    let result = CommandRaw::try_from_slice(&input);
+    let mut input = hex_bytes!("01030002fe");
+    let result = CommandRaw::parse(&mut input);
     assert!(result.is_ok());
 
     // Now it is wrong
-    let input = hex::decode("01030002ff").unwrap();
-    let result = CommandRaw::try_from_slice(&input);
+    let mut input = hex_bytes!("01030002ff");
+    let result = CommandRaw::parse(&mut input);
     match result {
         Ok(_) => panic!("Expected an error"),
-        Err(EncodingError::Parse(_)) => (),
-        Err(_) => panic!("Expected a parser error"),
+        Err(ParseError::Incomplete(_)) => panic!("Expected a parser error"),
+        Err(_) => (),
     }
+}
+
+#[test]
+fn test_serialize() {
+    let cmd = CommandRaw {
+        command_type: CommandType::Request,
+        function_type: FunctionType::GetSerialApiInitData,
+        payload: Bytes::new(),
+        checksum: 0u8,
+    };
+
+    macro_rules! hex_bytes {
+        ($hex:expr) => {
+            bytes::BytesMut::from(hex::decode($hex).unwrap().as_slice()).freeze()
+        };
+    }
+
+    let expected = hex_bytes!("01030002fe");
+    let actual = cmd.as_bytes_mut();
+    assert_eq!(actual, expected);
 }

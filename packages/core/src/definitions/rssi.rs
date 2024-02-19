@@ -1,7 +1,10 @@
-use crate::encoding::{self, Parsable, Serializable};
-
-use cookie_factory as cf;
-use nom::{combinator::map, error::context, number::complete::be_i8};
+use crate::parse::{
+    bytes::be_i8,
+    combinators::{context, map},
+};
+use crate::prelude::*;
+use bytes::{BytesMut, Bytes};
+use crate::serialize::{self, Serializable};
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,13 +54,14 @@ impl From<RSSI> for i8 {
 }
 
 impl Parsable for RSSI {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        context("RSSI", map(be_i8, RSSI::from))(i)
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
+        context("RSSI", map(be_i8, RSSI::from)).parse(i)
     }
 }
 
 impl Serializable for RSSI {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        cf::bytes::be_i8((*self).into())
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::be_i8;
+        be_i8((*self).into()).serialize(output)
     }
 }

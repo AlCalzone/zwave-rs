@@ -1,14 +1,8 @@
-
+use crate::serialize::{self, Serializable};
+use crate::parse::{self, bits::bool};
+use crate::prelude::*;
+use bytes::{Bytes, BytesMut};
 use std::fmt::Display;
-
-use crate::encoding::{
-    self, encoders, BitParsable, BitSerializable, Parsable, Serializable,
-};
-
-use cookie_factory as cf;
-use nom::{
-    bits, bits::complete::bool, sequence::tuple,
-};
 use ux::{u1, u2};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -101,47 +95,42 @@ impl TransmitOptions {
 }
 
 impl Parsable for TransmitOptions {
-    fn parse(i: encoding::Input) -> encoding::ParseResult<Self> {
-        let (i, (_reserved76, explore, no_route, _reserved3, auto_route, _reserved1, ack)) = bits(
-            tuple((u2::parse, bool, bool, u1::parse, bool, u1::parse, bool)),
-        )(
-            i
-        )?;
+    fn parse(i: &mut Bytes) -> crate::parse::ParseResult<Self> {
+        use parse::bits::bits;
+        let (_reserved76, explore, no_route, _reserved3, auto_route, _reserved1, ack) =
+            bits((u2::parse, bool, bool, u1::parse, bool, u1::parse, bool)).parse(i)?;
 
-        Ok((
-            i,
-            Self::new()
-                .ack(ack)
-                .auto_route(auto_route)
-                .no_route(no_route)
-                .explore(explore),
-        ))
+        Ok(Self::new()
+            .ack(ack)
+            .auto_route(auto_route)
+            .no_route(no_route)
+            .explore(explore))
     }
 }
 
 impl Serializable for TransmitOptions {
-    fn serialize<'a, W: std::io::Write + 'a>(&'a self) -> impl cf::SerializeFn<W> + 'a {
-        move |out| {
-            encoders::bits(move |bo| {
-                let reserved76 = u2::new(0);
-                let reserved3 = u1::new(0);
-                let reserved1 = u1::new(0);
-                reserved76.write(bo);
-                self.explore.write(bo);
-                self.no_route.write(bo);
-                reserved3.write(bo);
-                self.auto_route.write(bo);
-                reserved1.write(bo);
-                self.ack.write(bo);
-            })(out)
-        }
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bits::bits;
+        bits(move |bo| {
+            let reserved76 = u2::new(0);
+            let reserved3 = u1::new(0);
+            let reserved1 = u1::new(0);
+            reserved76.write(bo);
+            self.explore.write(bo);
+            self.no_route.write(bo);
+            reserved3.write(bo);
+            self.auto_route.write(bo);
+            reserved1.write(bo);
+            self.ack.write(bo);
+        })
+        .serialize(output)
     }
 }
 
 #[test]
 fn test_parse() {
-    let raw = vec![0b1111_1111];
-    let (_, opts) = TransmitOptions::parse(&raw).unwrap();
+    let mut raw = Bytes::copy_from_slice(&[0b1111_1111]);
+    let opts = TransmitOptions::parse(&mut raw).unwrap();
     let expected = TransmitOptions::new()
         .ack(true)
         .auto_route(true)
@@ -153,10 +142,12 @@ fn test_parse() {
 #[test]
 fn test_serialize() {
     let opts = TransmitOptions::default();
-    let raw = cookie_factory::gen_simple(opts.serialize(), Vec::new()).unwrap();
-    assert_eq!(raw, vec![0b0010_0101]);
+    let actual = opts.as_bytes();
+    let expected: &[u8] = &[0b0010_0101];
+    assert_eq!(actual, &expected);
 
     let opts = TransmitOptions::new().ack(true);
-    let raw = cookie_factory::gen_simple(opts.serialize(), Vec::new()).unwrap();
-    assert_eq!(raw, vec![0b0000_0001]);
+    let actual = opts.as_bytes();
+    let expected: &[u8] = &[0b0000_0001];
+    assert_eq!(actual, &expected);
 }
