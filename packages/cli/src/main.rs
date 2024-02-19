@@ -14,7 +14,7 @@ const PORT: &str = "COM6";
 async fn main() {
     let options = DriverOptions::builder()
         .path(PORT)
-        .loglevel(Loglevel::Error)
+        // .loglevel(Loglevel::)
         .build();
     let driver = zwave_driver::Driver::new(options).unwrap();
 

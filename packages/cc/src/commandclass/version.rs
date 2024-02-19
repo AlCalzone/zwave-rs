@@ -302,6 +302,12 @@ impl CCSerializable for VersionCCGet {
     }
 }
 
+impl ToLogPayload for VersionCCGet {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayload::empty()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, TypedBuilder)]
 pub struct VersionCCReport {
     pub library_type: ZWaveLibraryType,
@@ -389,6 +395,27 @@ impl CCSerializable for VersionCCReport {
     }
 }
 
+impl ToLogPayload for VersionCCReport {
+    fn to_log_payload(&self) -> LogPayload {
+        let mut ret = LogPayloadDict::new()
+            .with_entry("library type", self.library_type.to_string())
+            .with_entry("protocol version", self.protocol_version.to_string())
+            .with_entry(
+                "firmware versions",
+                self.firmware_versions
+                    .iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            );
+        if let Some(hardware_version) = self.hardware_version {
+            ret = ret.with_entry("hardware version", hardware_version);
+        }
+
+        ret.into()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]
 pub struct VersionCCCommandClassGet {
     requested_cc: CommandClasses,
@@ -434,6 +461,14 @@ impl CCSerializable for VersionCCCommandClassGet {
     }
 }
 
+impl ToLogPayload for VersionCCCommandClassGet {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("requested CC", self.requested_cc.to_string())
+            .into()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]
 pub struct VersionCCCommandClassReport {
     pub requested_cc: CommandClasses,
@@ -472,6 +507,15 @@ impl CCSerializable for VersionCCCommandClassReport {
     }
 }
 
+impl ToLogPayload for VersionCCCommandClassReport {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("requested CC", self.requested_cc.to_string())
+            .with_entry("version", self.version)
+            .into()
+    }
+}
+
 #[derive(Default, Debug, Clone, PartialEq, CCValues)]
 pub struct VersionCCCapabilitiesGet {}
 
@@ -505,6 +549,12 @@ impl CCParsable for VersionCCCapabilitiesGet {
 impl CCSerializable for VersionCCCapabilitiesGet {
     fn serialize(&self, _output: &mut BytesMut) {
         // No payload
+    }
+}
+
+impl ToLogPayload for VersionCCCapabilitiesGet {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayload::empty()
     }
 }
 
@@ -549,6 +599,17 @@ impl CCSerializable for VersionCCCapabilitiesReport {
     }
 }
 
+impl ToLogPayload for VersionCCCapabilitiesReport {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry(
+                "supports Z-Wave Software Get",
+                self.supports_zwave_software_get,
+            )
+            .into()
+    }
+}
+
 #[derive(Default, Debug, Clone, PartialEq, CCValues)]
 pub struct VersionCCZWaveSoftwareGet {}
 
@@ -582,6 +643,12 @@ impl CCParsable for VersionCCZWaveSoftwareGet {
 impl CCSerializable for VersionCCZWaveSoftwareGet {
     fn serialize(&self, _output: &mut BytesMut) {
         // No payload
+    }
+}
+
+impl ToLogPayload for VersionCCZWaveSoftwareGet {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayload::empty()
     }
 }
 
@@ -698,5 +765,33 @@ impl CCParsable for VersionCCZWaveSoftwareReport {
 impl CCSerializable for VersionCCZWaveSoftwareReport {
     fn serialize(&self, _output: &mut BytesMut) {
         todo!("ERROR: VersionCCZWaveSoftwareReport::serialize() not implemented")
+    }
+}
+
+impl ToLogPayload for VersionCCZWaveSoftwareReport {
+    fn to_log_payload(&self) -> LogPayload {
+        let mut ret = LogPayloadDict::new().with_entry("SDK version", self.sdk_version.to_string());
+        if let Some((v, b)) = self.application_framework_version {
+            ret = ret
+                .with_entry("application framework version", v.to_string())
+                .with_entry("application framework build number", b);
+        }
+        if let Some((v, b)) = self.host_interface_version {
+            ret = ret
+                .with_entry("host interface version", v.to_string())
+                .with_entry("host interface build number", b);
+        }
+        if let Some((v, b)) = self.zwave_protocol_version {
+            ret = ret
+                .with_entry("Z-Wave protocol version", v.to_string())
+                .with_entry("Z-Wave protocol build number", b);
+        }
+        if let Some((v, b)) = self.application_version {
+            ret = ret
+                .with_entry("application version", v.to_string())
+                .with_entry("application build number", b);
+        }
+
+        ret.into()
     }
 }

@@ -148,6 +148,7 @@ impl LogFormatter for DefaultFormatter {
         let mut last_line_remaining_width =
             available_width - primary_tags_width - secondary_tag_width;
 
+        // FIXME: Nested "objects" like CCs should be tagified
         let lines = log.payload.flatten_log();
         if !lines.is_empty() {
             let num_lines = lines.len();

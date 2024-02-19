@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::parse::{bytes::be_u8, combinators::map_res};
 use crate::prelude::*;
 use bytes::{BytesMut, Bytes};
@@ -26,6 +28,16 @@ impl TryFrom<u8> for BinaryReport {
             BINARY_UNKNOWN => Ok(Self::Unknown),
             BINARY_ON => Ok(Self::On),
             _ => Err(TryFromReprError::Invalid(value)),
+        }
+    }
+}
+
+impl Display for BinaryReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Off => write!(f, "off"),
+            Self::Unknown => write!(f, "unknown"),
+            Self::On => write!(f, "on"),
         }
     }
 }
@@ -121,6 +133,15 @@ impl TryFrom<u8> for BinarySet {
             0 => Ok(Self::Off),
             1..=BINARY_SET_MAX | BINARY_ON => Ok(Self::On),
             _ => Err(TryFromReprError::Invalid(value)),
+        }
+    }
+}
+
+impl Display for BinarySet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Off => write!(f, "off"),
+            Self::On => write!(f, "on"),
         }
     }
 }

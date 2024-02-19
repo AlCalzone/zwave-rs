@@ -73,7 +73,9 @@ pub trait CCValues {
 
 #[enum_dispatch(CC)]
 /// Command-specific functionality that may need to be implemented for each command
-pub trait CCBase: CCValues + std::fmt::Debug + Sync + Send + Clone + PartialEq {
+pub trait CCBase:
+    CCValues + ToLogPayload + std::fmt::Debug + Sync + Send + Clone + PartialEq
+{
     /// Whether this CC expects a response
     fn expects_response(&self) -> bool {
         // Unless specified otherwise, assume that the CC doesn't
@@ -160,6 +162,15 @@ where
 {
     fn from(val: WithAddress<F>) -> Self {
         Self::from(val.command)
+    }
+}
+
+impl<T> ToLogPayload for WithAddress<T>
+where
+    T: CCBase,
+{
+    fn to_log_payload(&self) -> LogPayload {
+        self.command.to_log_payload()
     }
 }
 
@@ -283,6 +294,14 @@ impl CCId for NotImplemented {
 
     fn cc_command(&self) -> Option<u8> {
         self.cc_command
+    }
+}
+
+impl ToLogPayload for NotImplemented {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("payload", format!("0x{}", hex::encode(&self.payload)))
+            .into()
     }
 }
 

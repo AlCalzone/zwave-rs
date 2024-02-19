@@ -1,14 +1,14 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use proc_macros::{CCValues, TryFromRepr};
-use zwave_core::serialize::{self, Serializable};
 use zwave_core::checksum::crc16_incremental;
 use zwave_core::parse::{
-    validate,
     bytes::{be_u16, complete::take},
     combinators::map_res,
+    validate,
 };
 use zwave_core::prelude::*;
+use zwave_core::serialize::{self, Serializable};
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)]
@@ -101,5 +101,13 @@ impl CCSerializable for Crc16CCCommandEncapsulation {
             .get();
 
         tuple((slice(payload), be_u16(checksum))).serialize(output);
+    }
+}
+
+impl ToLogPayload for Crc16CCCommandEncapsulation {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_nested(self.encapsulated.to_log_payload())
+            .into()
     }
 }

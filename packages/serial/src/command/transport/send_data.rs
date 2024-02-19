@@ -2,13 +2,13 @@ use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use typed_builder::TypedBuilder;
 use zwave_cc::prelude::*;
-use zwave_core::serialize;
 use zwave_core::parse::{
     bytes::be_u8,
     combinators::{map, map_res},
     multi::length_value,
 };
 use zwave_core::prelude::*;
+use zwave_core::serialize;
 
 #[derive(Debug, Clone, PartialEq, TypedBuilder)]
 pub struct SendDataRequest {
@@ -99,12 +99,13 @@ impl SerializableWith<&CommandEncodingContext> for SendDataRequest {
 
 impl ToLogPayload for SendDataRequest {
     fn to_log_payload(&self) -> LogPayload {
-        let mut ret = LogPayloadDict::new()
-            .with_entry("command", "TODO: Log CC")
-            .with_entry("transmit options", self.transmit_options.to_string());
+        let mut ret =
+            LogPayloadDict::new().with_entry("transmit options", self.transmit_options.to_string());
         if let Some(callback_id) = self.callback_id {
             ret = ret.with_entry("callback ID", callback_id);
         }
+
+        ret = ret.with_nested(self.command.to_log_payload());
 
         ret.into()
     }

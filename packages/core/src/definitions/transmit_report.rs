@@ -190,6 +190,74 @@ impl Serializable for TransmitReport {
 
 impl TransmitReport {
     pub fn to_log_dict(&self) -> LogPayloadDict {
-        LogPayloadDict::new().with_entry("transmit report", "TODO: implement to_log_dict")
+        // TX ticks is used in the calling code, so we don't log it here again
+        let mut ret = LogPayloadDict::new()
+            .with_entry("TX channel no.", self.tx_channel_no)
+            .with_entry("routing attempts", self.routing_attempts);
+        if let Some(tx_power) = self.tx_power {
+            ret = ret.with_entry("TX power", format!("{} dBm", tx_power));
+        }
+        if let Some(measured_noise_floor) = self.measured_noise_floor
+            && measured_noise_floor != RSSI::NotAvailable
+        {
+            ret = ret.with_entry("Noise floor", measured_noise_floor.to_string());
+        }
+        if let Some(beam) = &self.beam {
+            ret = ret.with_entry("beam", beam.to_string());
+        }
+        ret = ret
+            .with_entry("protocol & route speed", self.route_speed.to_string())
+            .with_entry("routing scheme", self.routing_scheme.to_string());
+        if !self.repeaters.is_empty() {
+            ret = ret.with_entry(
+                "repeaters (ACK RSSI)",
+                LogPayloadList::new(self.repeaters.iter().map(|r| {
+                    let item = r.node_id.to_string();
+                    if let Some(ack_rssi) = r.ack_rssi {
+                        format!("{} ({})", item, ack_rssi)
+                    } else {
+                        item
+                    }
+                    .into()
+                })),
+            )
+        }
+        if let Some(location) = &self.route_fail_location {
+            ret = ret.with_entry(
+                "route failed between",
+                format!(
+                    "{} -> {}",
+                    location.last_functional_node_id, location.first_non_functional_node_id
+                ),
+            );
+        }
+
+        if let Some(destination_rssi) = self.destination_ack_measured_rssi
+            && destination_rssi != RSSI::NotAvailable
+        {
+            ret = ret.with_entry("RSSI at destination", destination_rssi.to_string());
+        }
+
+        if let Some(ack_rssi) = self.ack_rssi
+            && ack_rssi != RSSI::NotAvailable
+        {
+            ret = ret.with_entry("ACK RSSI", ack_rssi.to_string());
+        }
+        if let Some(ack_channel_no) = self.ack_channel_no {
+            ret = ret.with_entry("ACK channel no.", ack_channel_no);
+        }
+        if let Some(ack_tx_power) = self.destination_ack_tx_power {
+            ret = ret.with_entry("ACK TX power", format!("{} dBm", ack_tx_power));
+        }
+        if let Some(destination_noise_floor) = self.destination_ack_measured_noise_floor
+            && destination_noise_floor != RSSI::NotAvailable
+        {
+            ret = ret.with_entry(
+                "Noise floor at destination",
+                destination_noise_floor.to_string(),
+            );
+        }
+
+        ret
     }
 }

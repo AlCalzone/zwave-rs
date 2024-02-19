@@ -196,6 +196,18 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
         }
     });
 
+    let impl_tologpayload_match_arms = ccs.iter().map(|c| {
+        let cc_name = c.cc_name;
+        quote! {
+            Self::#cc_name(c) => {
+                LogPayloadText::new("")
+                    .with_tag(stringify!(#cc_name))
+                    .with_nested(c.to_log_payload())
+                    .into()
+            }
+        }
+    });
+
     let impl_try_from_cc_raw_match_arms = ccs.iter().map(|c| {
         let cc_name = c.cc_name;
         let cc_id = c.cc_id;
@@ -268,6 +280,22 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
                     cc_id: self.cc_id(),
                     cc_command: self.cc_command(),
                     payload: self.as_bytes(),
+                }
+            }
+        }
+
+        // We cannot use #[enum_dispatch] for ToLogPayload, since it is in another crate,
+        // so we have to implement it here "manually"
+        impl ToLogPayload for CC {
+            fn to_log_payload(&self) -> LogPayload {
+                match self {
+                    Self::NotImplemented(c) => {
+                        LogPayloadText::new("")
+                            .with_tag("NotImplemented")
+                            .with_nested(c.to_log_payload())
+                            .into()
+                    },
+                    #( #impl_tologpayload_match_arms )*
                 }
             }
         }

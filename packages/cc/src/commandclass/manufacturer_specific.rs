@@ -5,7 +5,6 @@ use proc_macros::{CCValues, TryFromRepr};
 use std::fmt::Display;
 use typed_builder::TypedBuilder;
 use ux::{u3, u5};
-use zwave_core::serialize;
 use zwave_core::cache::CacheValue;
 use zwave_core::parse::{
     bits,
@@ -13,6 +12,7 @@ use zwave_core::parse::{
     combinators::map_res,
 };
 use zwave_core::prelude::*;
+use zwave_core::serialize;
 use zwave_core::util::ToDiscriminant;
 use zwave_core::value_id::{ValueId, ValueIdProperties};
 
@@ -187,6 +187,12 @@ impl CCSerializable for ManufacturerSpecificCCGet {
     }
 }
 
+impl ToLogPayload for ManufacturerSpecificCCGet {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayload::empty()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]
 pub struct ManufacturerSpecificCCReport {
     #[cc_value(ManufacturerSpecificCCValues::manufacturer_id)]
@@ -232,6 +238,17 @@ impl CCSerializable for ManufacturerSpecificCCReport {
             be_u16(self.product_id),
         ))
         .serialize(output)
+    }
+}
+
+impl ToLogPayload for ManufacturerSpecificCCReport {
+    fn to_log_payload(&self) -> LogPayload {
+        let ret = LogPayloadDict::new()
+            .with_entry("manufacturer ID", format!("0x{:04x}", self.manufacturer_id))
+            .with_entry("product type", format!("0x{:04x}", self.product_type))
+            .with_entry("product ID", format!("0x{:04x}", self.product_id));
+
+        ret.into()
     }
 }
 
@@ -291,6 +308,14 @@ impl CCSerializable for ManufacturerSpecificCCDeviceSpecificGet {
     }
 }
 
+impl ToLogPayload for ManufacturerSpecificCCDeviceSpecificGet {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("device ID type", self.device_id_type.to_string())
+            .into()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, TypedBuilder)]
 pub struct ManufacturerSpecificCCDeviceSpecificReport {
     // FIXME: Extend the CCValues derive macro to support dynamic values with cross-references
@@ -341,5 +366,14 @@ impl CCParsable for ManufacturerSpecificCCDeviceSpecificReport {
 impl CCSerializable for ManufacturerSpecificCCDeviceSpecificReport {
     fn serialize(&self, _output: &mut BytesMut) {
         todo!("ERROR: ManufacturerSpecificCCDeviceSpecificReport::serialize() not implemented")
+    }
+}
+
+impl ToLogPayload for ManufacturerSpecificCCDeviceSpecificReport {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("device ID type", self.device_id_type.to_string())
+            .with_entry("device ID", format!("0x{}", hex::encode(&self.device_id)))
+            .into()
     }
 }

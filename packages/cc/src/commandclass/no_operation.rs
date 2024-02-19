@@ -32,3 +32,9 @@ impl CCSerializable for NoOperationCC {
         // No payload
     }
 }
+
+impl ToLogPayload for NoOperationCC {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayload::empty()
+    }
+}

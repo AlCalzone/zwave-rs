@@ -1,5 +1,5 @@
 use crate::util::{str_width, to_lines};
-use std::{borrow::Cow, convert::From, sync::OnceLock};
+use std::{borrow::Cow, convert::From, fmt::Write, sync::OnceLock};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Loglevel {
@@ -33,6 +33,8 @@ impl ToLogPayload for &'static str {
     }
 }
 
+// FIXME: FlattenLog should convert into LogPayloadText with nested LogPayloadTexts instead
+
 pub trait FlattenLog {
     fn flatten_log(&self) -> Vec<Cow<'static, str>>;
 }
@@ -42,6 +44,7 @@ pub enum LogPayload {
     Text(LogPayloadText),
     Dict(LogPayloadDict),
     List(LogPayloadList),
+    // FIXME: Flat is used in some locations where Text should be used instead
     Flat(Vec<Cow<'static, str>>),
 }
 
@@ -97,6 +100,7 @@ impl FlattenLog for LogPayload {
 
 #[derive(Clone)]
 pub struct LogPayloadText {
+    pub tags: Vec<Cow<'static, str>>,
     pub lines: Vec<Cow<'static, str>>,
     pub nested: Option<Box<LogPayload>>,
 }
@@ -113,9 +117,15 @@ where
 impl LogPayloadText {
     pub fn new(text: impl Into<Cow<'static, str>>) -> Self {
         Self {
+            tags: Vec::new(),
             lines: to_lines(text),
             nested: None,
         }
+    }
+
+    pub fn with_tag(mut self, tag: impl Into<Cow<'static, str>>) -> Self {
+        self.tags.push(tag.into());
+        self
     }
 
     pub fn with_nested(mut self, nested: impl Into<LogPayload>) -> Self {
@@ -127,6 +137,27 @@ impl LogPayloadText {
 impl FlattenLog for LogPayloadText {
     fn flatten_log(&self) -> Vec<Cow<'static, str>> {
         let mut ret = self.lines.clone();
+        if !self.tags.is_empty() {
+            let tags = self
+                .tags
+                .iter()
+                .enumerate()
+                .fold(String::new(), |mut out, (i, tag)| {
+                    if i > 0 {
+                        let _ = write!(out, " ");
+                    }
+                    let _ = write!(out, "[{}]", tag);
+                    out
+                });
+
+            if ret.is_empty() {
+                ret.push(tags.into());
+            } else if ret[0].is_empty() {
+                ret[0] = tags.into()
+            } else {
+                ret[0] = format!("{} {}", tags, ret[0]).into();
+            }
+        }
         if let Some(nested) = &self.nested {
             ret.extend(
                 nested
@@ -226,15 +257,10 @@ impl FlattenLog for LogPayloadDict {
                 }
             }
         }
-        // Then append the nested payload, indented
+        // Then append the nested payload, but not indented.
+        // The dict is usually indented, and this would add unnecessary indentation
         if let Some(nested) = &self.nested {
-            ret.extend(
-                nested
-                    .as_ref()
-                    .flatten_log()
-                    .iter()
-                    .map(|item| format!("{}{}", nested_indent_str(), item).into()),
-            );
+            ret.extend(nested.as_ref().flatten_log());
         }
         ret
     }

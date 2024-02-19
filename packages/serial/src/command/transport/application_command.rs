@@ -99,9 +99,7 @@ impl ToLogPayload for ApplicationCommandRequest {
             ret = ret.with_entry("frame info", infos.join(", "))
         }
 
-        ret = ret
-            // FIXME: log the included CC too
-            .with_entry("command", "TODO: Log CC");
+        ret = ret.with_nested(self.command.to_log_payload());
 
         ret.into()
     }

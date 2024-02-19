@@ -1,3 +1,5 @@
+#![feature(let_chains)]
+
 pub mod cache;
 pub mod checksum;
 pub mod definitions;

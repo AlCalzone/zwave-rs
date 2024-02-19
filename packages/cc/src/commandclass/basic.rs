@@ -115,6 +115,14 @@ impl CCSerializable for BasicCCSet {
     }
 }
 
+impl ToLogPayload for BasicCCSet {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayloadDict::new()
+            .with_entry("target value", self.target_value.to_string())
+            .into()
+    }
+}
+
 #[derive(Default, Debug, Clone, PartialEq, CCValues)]
 pub struct BasicCCGet {}
 
@@ -148,6 +156,12 @@ impl CCParsable for BasicCCGet {
 impl CCSerializable for BasicCCGet {
     fn serialize(&self, _output: &mut BytesMut) {
         // No payload
+    }
+}
+
+impl ToLogPayload for BasicCCGet {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayload::empty()
     }
 }
 
@@ -197,6 +211,21 @@ impl CCSerializable for BasicCCReport {
             target_value.serialize(output);
             self.duration.unwrap_or_default().serialize(output);
         }
+    }
+}
+
+impl ToLogPayload for BasicCCReport {
+    fn to_log_payload(&self) -> LogPayload {
+        let mut ret =
+            LogPayloadDict::new().with_entry("current value", self.current_value.to_string());
+        if let Some(target_value) = self.target_value {
+            ret = ret.with_entry("target value", target_value.to_string());
+        }
+        if let Some(duration) = self.duration {
+            ret = ret.with_entry("duration", duration.to_string());
+        }
+
+        ret.into()
     }
 }
 

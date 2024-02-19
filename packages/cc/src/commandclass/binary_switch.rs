@@ -115,6 +115,19 @@ impl CCSerializable for BinarySwitchCCSet {
     }
 }
 
+impl ToLogPayload for BinarySwitchCCSet {
+    fn to_log_payload(&self) -> LogPayload {
+        let mut ret =
+            LogPayloadDict::new().with_entry("target value", self.target_value.to_string());
+
+        if let Some(duration) = self.duration {
+            ret = ret.with_entry("duration", duration.to_string());
+        }
+
+        ret.into()
+    }
+}
+
 #[derive(Default, Debug, Clone, PartialEq, CCValues)]
 pub struct BinarySwitchCCGet {}
 
@@ -148,6 +161,12 @@ impl CCParsable for BinarySwitchCCGet {
 impl CCSerializable for BinarySwitchCCGet {
     fn serialize(&self, _output: &mut BytesMut) {
         // No payload
+    }
+}
+
+impl ToLogPayload for BinarySwitchCCGet {
+    fn to_log_payload(&self) -> LogPayload {
+        LogPayload::empty()
     }
 }
 
@@ -198,5 +217,20 @@ impl CCSerializable for BinarySwitchCCReport {
             target_value.serialize(output);
             self.duration.unwrap_or_default().serialize(output);
         }
+    }
+}
+
+impl ToLogPayload for BinarySwitchCCReport {
+    fn to_log_payload(&self) -> LogPayload {
+        let mut ret =
+            LogPayloadDict::new().with_entry("current value", self.current_value.to_string());
+        if let Some(target_value) = self.target_value {
+            ret = ret.with_entry("target value", target_value.to_string());
+        }
+        if let Some(duration) = self.duration {
+            ret = ret.with_entry("duration", duration.to_string());
+        }
+
+        ret.into()
     }
 }

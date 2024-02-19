@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::serialize::{self, Serializable};
 use crate::parse::{bytes::be_u8, combinators::map_res};
 use crate::prelude::*;
@@ -23,6 +25,16 @@ impl TryFrom<u8> for DurationSet {
             0xff => Ok(Self::Default),
             0..=SECONDS_MASK => Ok(Self::Seconds(value)),
             _ => Ok(Self::Minutes((value & SECONDS_MASK) + 1)),
+        }
+    }
+}
+
+impl Display for DurationSet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Seconds(s) => write!(f, "{} seconds", s),
+            Self::Minutes(m) => write!(f, "{} minutes", m),
+            Self::Default => write!(f, "default"),
         }
     }
 }
@@ -82,6 +94,16 @@ pub enum DurationReport {
     Minutes(u8),
     #[default] // By default, we don't know the duration for a report
     Unknown,
+}
+
+impl Display for DurationReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Seconds(s) => write!(f, "{} seconds", s),
+            Self::Minutes(m) => write!(f, "{} minutes", m),
+            Self::Unknown => write!(f, "unknown"),
+        }
+    }
 }
 
 impl TryFrom<u8> for DurationReport {

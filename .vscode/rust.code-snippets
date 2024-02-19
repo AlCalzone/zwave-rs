@@ -690,7 +690,12 @@
             "        todo!(\"ERROR: ${1}CC${2}::serialize() not implemented\")",
             "    }",
             "}",
-            ""
+            "",
+            "impl ToLogPayload for ${1}CC${2} {",
+            "    fn to_log_payload(&self) -> LogPayload {",
+            "        LogPayloadText::new(\"TODO: implement ToLogPayload for ${1}CC${2}\").into()",
+            "    }",
+            "}"
         ]
     },
     "CC implementation (get request, with response)": {
@@ -735,7 +740,12 @@
             "        todo!(\"ERROR: ${1}CC${2}::serialize() not implemented\")",
             "    }",
             "}",
-            ""
+            "",
+            "impl ToLogPayload for ${1}CC${2} {",
+            "    fn to_log_payload(&self) -> LogPayload {",
+            "        LogPayloadText::new(\"TODO: implement ToLogPayload for ${1}CC${2}\").into()",
+            "    }",
+            "}"
         ]
     },
     "CC implementation (empty get request)": {
@@ -777,7 +787,12 @@
             "        // No payload",
             "    }",
             "}",
-            ""
+            "",
+            "impl ToLogPayload for ${1}CC${2} {",
+            "    fn to_log_payload(&self) -> LogPayload {",
+            "        LogPayload::empty()",
+            "    }",
+            "}"
         ]
     },
     "CC implementation (report)": {
@@ -815,7 +830,12 @@
             "        todo!(\"ERROR: ${1}CC${2}::serialize() not implemented\")",
             "    }",
             "}",
-            ""
+            "",
+            "impl ToLogPayload for ${1}CC${2} {",
+            "    fn to_log_payload(&self) -> LogPayload {",
+            "        LogPayloadText::new(\"TODO: implement ToLogPayload for ${1}CC${2}\").into()",
+            "    }",
+            "}"
         ]
     },
     "CC API implementation": {
