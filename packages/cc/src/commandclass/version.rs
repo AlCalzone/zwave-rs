@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use crate::values::*;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use proc_macros::{CCValues, TryFromRepr};
 use std::borrow::Cow;
 use typed_builder::TypedBuilder;
@@ -13,8 +13,6 @@ use zwave_core::prelude::*;
 use zwave_core::serialize::{self, Serializable};
 use zwave_core::util::ToDiscriminant;
 use zwave_core::value_id::{ValueId, ValueIdProperties};
-
-use super::CCSerializable;
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)] // must match the ToDiscriminant impl
@@ -299,7 +297,7 @@ impl CCParsable for VersionCCGet {
 }
 
 impl CCSerializable for VersionCCGet {
-    fn serialize(&self, _output: &mut bytes::BytesMut) {
+    fn serialize(&self, _output: &mut BytesMut) {
         // No payload
     }
 }
@@ -386,7 +384,7 @@ impl CCParsable for VersionCCReport {
 }
 
 impl CCSerializable for VersionCCReport {
-    fn serialize(&self, _output: &mut bytes::BytesMut) {
+    fn serialize(&self, _output: &mut BytesMut) {
         todo!("ERROR: VersionCCReport::serialize() not implemented")
     }
 }
@@ -431,7 +429,7 @@ impl CCParsable for VersionCCCommandClassGet {
 }
 
 impl CCSerializable for VersionCCCommandClassGet {
-    fn serialize(&self, output: &mut bytes::BytesMut) {
+    fn serialize(&self, output: &mut BytesMut) {
         self.requested_cc.serialize(output);
     }
 }
@@ -467,7 +465,7 @@ impl CCParsable for VersionCCCommandClassReport {
 }
 
 impl CCSerializable for VersionCCCommandClassReport {
-    fn serialize(&self, output: &mut bytes::BytesMut) {
+    fn serialize(&self, output: &mut BytesMut) {
         use serialize::bytes::be_u8;
         self.requested_cc.serialize(output);
         be_u8(self.version).serialize(output);
@@ -505,7 +503,7 @@ impl CCParsable for VersionCCCapabilitiesGet {
 }
 
 impl CCSerializable for VersionCCCapabilitiesGet {
-    fn serialize(&self, _output: &mut bytes::BytesMut) {
+    fn serialize(&self, _output: &mut BytesMut) {
         // No payload
     }
 }
@@ -540,7 +538,7 @@ impl CCParsable for VersionCCCapabilitiesReport {
 }
 
 impl CCSerializable for VersionCCCapabilitiesReport {
-    fn serialize(&self, output: &mut bytes::BytesMut) {
+    fn serialize(&self, output: &mut BytesMut) {
         use serialize::bytes::be_u8;
         let capabilities = if self.supports_zwave_software_get {
             0b100
@@ -582,7 +580,7 @@ impl CCParsable for VersionCCZWaveSoftwareGet {
 }
 
 impl CCSerializable for VersionCCZWaveSoftwareGet {
-    fn serialize(&self, _output: &mut bytes::BytesMut) {
+    fn serialize(&self, _output: &mut BytesMut) {
         // No payload
     }
 }
@@ -698,7 +696,7 @@ impl CCParsable for VersionCCZWaveSoftwareReport {
 }
 
 impl CCSerializable for VersionCCZWaveSoftwareReport {
-    fn serialize(&self, _output: &mut bytes::BytesMut) {
+    fn serialize(&self, _output: &mut BytesMut) {
         todo!("ERROR: VersionCCZWaveSoftwareReport::serialize() not implemented")
     }
 }

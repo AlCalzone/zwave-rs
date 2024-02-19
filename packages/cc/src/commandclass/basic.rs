@@ -10,8 +10,6 @@ use zwave_core::{
     value_id::{ValueId, ValueIdProperties},
 };
 
-use super::CCSerializable;
-
 #[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)]
 enum BasicCCProperties {

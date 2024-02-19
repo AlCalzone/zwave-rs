@@ -1,16 +1,13 @@
 use crate::prelude::*;
 use crate::values::*;
-use bytes::Bytes;
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 use proc_macros::{CCValues, TryFromRepr};
 use typed_builder::TypedBuilder;
-use zwave_core::serialize;
 use zwave_core::cache::CacheValue;
 use zwave_core::parse::combinators::{map, opt};
 use zwave_core::prelude::*;
+use zwave_core::serialize;
 use zwave_core::value_id::{ValueId, ValueIdProperties};
-
-use super::CCSerializable;
 
 #[derive(Debug, Clone, Copy, PartialEq, TryFromRepr)]
 #[repr(u8)]
@@ -112,7 +109,7 @@ impl CCParsable for BinarySwitchCCSet {
 }
 
 impl CCSerializable for BinarySwitchCCSet {
-    fn serialize(&self, output: &mut bytes::BytesMut) {
+    fn serialize(&self, output: &mut BytesMut) {
         use serialize::sequence::tuple;
         tuple((self.target_value, self.duration)).serialize(output)
     }
@@ -194,7 +191,7 @@ impl CCParsable for BinarySwitchCCReport {
 }
 
 impl CCSerializable for BinarySwitchCCReport {
-    fn serialize(&self, output: &mut bytes::BytesMut) {
+    fn serialize(&self, output: &mut BytesMut) {
         self.current_value.serialize(output);
 
         if let Some(target_value) = self.target_value {

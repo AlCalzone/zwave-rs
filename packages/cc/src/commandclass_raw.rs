@@ -35,7 +35,7 @@ impl Parsable for CCRaw {
 }
 
 impl Serializable for CCRaw {
-    fn serialize(&self, output: &mut bytes::BytesMut) {
+    fn serialize(&self, output: &mut BytesMut) {
         use serialize::{
             bytes::{be_u8, empty, slice},
             sequence::tuple,
