@@ -19,12 +19,12 @@ impl SerialLogger {
             return;
         }
 
-        let message_lines: Vec<_> = vec![format!("0x{}", hex::encode(data)).into()];
+        let message = format!("0x{}", hex::encode(data));
         let log = LogInfo::builder()
             .label("SERIAL")
             .direction(direction)
             .secondary_tag(format!("{} bytes", data.len()).into())
-            .payload(LogPayload::Flat(message_lines))
+            .payload(LogPayload::Text(message.into()))
             .build();
         self.inner.log(log, SERIAL_LOGLEVEL);
     }
@@ -41,7 +41,7 @@ impl SerialLogger {
             .direction(direction)
             .primary_tags(vec![byte.to_string().into()])
             .secondary_tag(tag)
-            .payload(LogPayload::Flat(Vec::new()))
+            .payload(LogPayload::empty())
             .build();
         self.inner.log(log, SERIAL_LOGLEVEL);
     }
@@ -51,13 +51,13 @@ impl SerialLogger {
             return;
         }
 
-        let message_lines: Vec<_> = vec![format!("invalid data: 0x{}", hex::encode(data)).into()];
+        let message = format!("invalid data: 0x{}", hex::encode(data));
         let log = LogInfo::builder()
             .label("SERIAL")
             .direction(Direction::Inbound)
             .primary_tags(vec!["DISCARDED".into()])
             .secondary_tag(format!("{} bytes", data.len()).into())
-            .payload(LogPayload::Flat(message_lines))
+            .payload(LogPayload::Text(message.into()))
             .build();
         self.inner.log(log, SERIAL_LOGLEVEL);
     }

@@ -2,7 +2,7 @@ use crate::{Direction, FormattedString, LogFormatter, LogInfo, WithColor};
 use termcolor::{Color, ColorSpec};
 use unicode_segmentation::UnicodeSegmentation;
 use zwave_core::{
-    log::{FlattenLog, Loglevel},
+    log::{Loglevel, NormalizeLogPayload},
     util::str_width,
 };
 
@@ -148,12 +148,48 @@ impl LogFormatter for DefaultFormatter {
         let mut last_line_remaining_width =
             available_width - primary_tags_width - secondary_tag_width;
 
-        // FIXME: Nested "objects" like CCs should be tagified
-        let lines = log.payload.flatten_log();
-        if !lines.is_empty() {
-            let num_lines = lines.len();
-            for (i, line) in lines.iter().enumerate() {
-                let mut is_first = i == 0;
+        // FIXME: move primary tags out of log info into the log payload
+        let mut payload = Some(log.payload.normalize(0));
+        let mut is_first = true;
+
+        while let Some(cur) = payload {
+            // Format tags if there are some
+            if !cur.tags.is_empty() {
+                let (cs_text, cs_delim) =
+                    get_primary_tag_color_specs(*text_color.fg().unwrap(), Color::Black);
+
+                if !is_first {
+                    ret.push("\n".into());
+                    ret.push(" ".repeat(preamble_width as usize).into());
+                }
+                is_first = false;
+
+                if cur.indent_level > 0 {
+                    ret.push(" ".repeat((cur.indent_level - 1) * 2).into());
+                    ret.push("└─".into());
+                }
+
+                for (i, tag) in cur.tags.iter().enumerate() {
+                    if i > 0 {
+                        ret.push(" ".with_color(self.cs_default.clone()));
+                    }
+                    ret.push("[".with_color(cs_delim.clone()));
+                    ret.push(tag.clone().with_color(cs_text.clone()));
+                    ret.push("]".with_color(cs_delim.clone()));
+                    ret.push("".with_color(self.cs_default.clone()));
+                }
+                if !cur.lines.is_empty() {
+                    ret.push(" ".into());
+                }
+            }
+
+            // Render tree lines if the payload has another nested payload "object" with tags
+            let render_border = cur.indent_level > 0
+                && matches!(cur.nested, Some(ref nested) if !nested.tags.is_empty());
+
+            // Format lines if there are some
+            let num_lines = cur.lines.len();
+            for (i, line) in cur.lines.iter().enumerate() {
                 let is_last = i == num_lines - 1;
 
                 let mut graphemes = line.graphemes(true).peekable();
@@ -181,6 +217,14 @@ impl LogFormatter for DefaultFormatter {
                         last_line_remaining_width = available_width - str_width(&cur_line) as isize;
                     }
 
+                    if cur.indent_level > 0 {
+                        if render_border {
+                            ret.push(" ".repeat((cur.indent_level - 1) * 2).into());
+                            ret.push("│ ".into());
+                        } else {
+                            ret.push(" ".repeat(cur.indent_level * 2).into());
+                        }
+                    }
                     ret.push(cur_line.with_color(text_color.clone()));
 
                     // This is a bit ugly, but allows us to reuse the logic for multiple non-empty lines
@@ -188,6 +232,13 @@ impl LogFormatter for DefaultFormatter {
                         break;
                     }
                 }
+            }
+
+            // Continue with the nested payload
+            if let Some(nested) = cur.nested {
+                payload = Some(*nested);
+            } else {
+                payload = None;
             }
         }
 
@@ -234,7 +285,7 @@ mod test {
             .direction(Direction::Outbound)
             .primary_tags(vec![ControlFlow::ACK.to_string().into()])
             .secondary_tag("0x06".into())
-            .payload(LogPayload::Flat(Vec::new()))
+            .payload(LogPayload::empty())
             .build();
         let formatted = fmt.format_log(&log, Loglevel::Info);
         let formatted1 = formatted
@@ -246,7 +297,7 @@ mod test {
             .label("SERIAL")
             .direction(Direction::Outbound)
             .secondary_tag("7 bytes".into())
-            .payload(LogPayload::Flat(vec!["0x01020304050607".into()]))
+            .payload(LogPayload::Text("0x01020304050607".into()))
             .build();
         let formatted = fmt.format_log(&log, Loglevel::Info);
         let formatted2 = formatted

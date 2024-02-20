@@ -1,7 +1,7 @@
 use crate::{ImmutableLogger, LogInfo};
 use std::{borrow::Cow, sync::Arc};
 use zwave_core::{
-    log::{LogPayload, Loglevel},
+    log::{LogPayload, LogPayloadText, Loglevel},
     util::to_lines,
 };
 
@@ -32,9 +32,10 @@ impl DriverLogger {
             return;
         }
 
+        let message: Cow<'static, str> = message().into();
         let log = LogInfo::builder()
             .label("DRIVER")
-            .payload(LogPayload::Flat(to_lines(message())))
+            .payload(LogPayload::Text(message.into()))
             .build();
         self.inner.log(log, level);
     }

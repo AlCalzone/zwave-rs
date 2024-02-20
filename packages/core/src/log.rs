@@ -1,5 +1,5 @@
 use crate::util::{str_width, to_lines};
-use std::{borrow::Cow, convert::From, fmt::Write, sync::OnceLock};
+use std::{borrow::Cow, convert::From};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Loglevel {
@@ -11,46 +11,37 @@ pub enum Loglevel {
     Silly,
 }
 
-const NESTED_INDENT: usize = 2;
-fn nested_indent_str() -> &'static str {
-    static STR: OnceLock<String> = OnceLock::new();
-    STR.get_or_init(|| " ".repeat(NESTED_INDENT))
-}
-
 pub trait ToLogPayload {
     fn to_log_payload(&self) -> LogPayload;
 }
 
 impl ToLogPayload for String {
     fn to_log_payload(&self) -> LogPayload {
-        LogPayload::Flat(to_lines(self.to_owned()))
+        LogPayload::Text(self.to_owned().into())
     }
 }
 
 impl ToLogPayload for &'static str {
     fn to_log_payload(&self) -> LogPayload {
-        LogPayload::Flat(to_lines(*self))
+        LogPayload::Text((*self).into())
     }
 }
 
-// FIXME: FlattenLog should convert into LogPayloadText with nested LogPayloadTexts instead
-
-pub trait FlattenLog {
-    fn flatten_log(&self) -> Vec<Cow<'static, str>>;
+pub trait NormalizeLogPayload {
+    fn normalize(&self, indent_level: usize) -> NormalizedLogPayload;
 }
 
 #[derive(Clone)]
 pub enum LogPayload {
+    Empty,
     Text(LogPayloadText),
     Dict(LogPayloadDict),
     List(LogPayloadList),
-    // FIXME: Flat is used in some locations where Text should be used instead
-    Flat(Vec<Cow<'static, str>>),
 }
 
 impl LogPayload {
     pub fn empty() -> Self {
-        Self::Flat(Vec::new())
+        Self::Empty
     }
 }
 
@@ -83,17 +74,39 @@ impl From<LogPayloadList> for LogPayload {
 
 impl From<Vec<Cow<'static, str>>> for LogPayload {
     fn from(lines: Vec<Cow<'static, str>>) -> Self {
-        Self::Flat(lines)
+        LogPayloadText {
+            tags: Vec::new(),
+            lines,
+            nested: None,
+        }
+        .into()
     }
 }
 
-impl FlattenLog for LogPayload {
-    fn flatten_log(&self) -> Vec<Cow<'static, str>> {
+impl NormalizeLogPayload for LogPayload {
+    fn normalize(&self, indent_level: usize) -> NormalizedLogPayload {
         match self {
-            LogPayload::Text(text) => text.flatten_log(),
-            LogPayload::Dict(dict) => dict.flatten_log(),
-            LogPayload::List(list) => list.flatten_log(),
-            LogPayload::Flat(lines) => lines.clone(),
+            LogPayload::Empty => NormalizedLogPayload::empty(indent_level),
+            LogPayload::Text(text) => text.normalize(indent_level),
+            LogPayload::Dict(dict) => dict.normalize(indent_level),
+            LogPayload::List(list) => list.normalize(indent_level),
+        }
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct NormalizedLogPayload {
+    pub indent_level: usize,
+    pub tags: Vec<Cow<'static, str>>,
+    pub lines: Vec<Cow<'static, str>>,
+    pub nested: Option<Box<NormalizedLogPayload>>,
+}
+
+impl NormalizedLogPayload {
+    pub fn empty(indent_level: usize) -> Self {
+        Self {
+            indent_level,
+            ..Default::default()
         }
     }
 }
@@ -134,41 +147,17 @@ impl LogPayloadText {
     }
 }
 
-impl FlattenLog for LogPayloadText {
-    fn flatten_log(&self) -> Vec<Cow<'static, str>> {
-        let mut ret = self.lines.clone();
-        if !self.tags.is_empty() {
-            let tags = self
-                .tags
-                .iter()
-                .enumerate()
-                .fold(String::new(), |mut out, (i, tag)| {
-                    if i > 0 {
-                        let _ = write!(out, " ");
-                    }
-                    let _ = write!(out, "[{}]", tag);
-                    out
-                });
-
-            if ret.is_empty() {
-                ret.push(tags.into());
-            } else if ret[0].is_empty() {
-                ret[0] = tags.into()
-            } else {
-                ret[0] = format!("{} {}", tags, ret[0]).into();
-            }
+impl NormalizeLogPayload for LogPayloadText {
+    fn normalize(&self, indent_level: usize) -> NormalizedLogPayload {
+        NormalizedLogPayload {
+            indent_level,
+            tags: self.tags.clone(),
+            lines: self.lines.clone(),
+            nested: self
+                .nested
+                .as_ref()
+                .map(|n| Box::new(n.normalize(indent_level + 1))),
         }
-        if let Some(nested) = &self.nested {
-            ret.extend(
-                nested
-                    .as_ref()
-                    .flatten_log()
-                    .iter()
-                    .map(|item| format!("{}{}", nested_indent_str(), item).into()),
-            );
-        }
-
-        ret
     }
 }
 
@@ -217,8 +206,8 @@ where
     }
 }
 
-impl FlattenLog for LogPayloadDict {
-    fn flatten_log(&self) -> Vec<Cow<'static, str>> {
+impl NormalizeLogPayload for LogPayloadDict {
+    fn normalize(&self, indent_level: usize) -> NormalizedLogPayload {
         // Dicts align their values by the longest key, so we have to iterate twice
         let max_key_width = self
             .entries
@@ -230,13 +219,13 @@ impl FlattenLog for LogPayloadDict {
             .max()
             .unwrap_or(0);
 
-        let mut ret = Vec::new();
+        let mut lines = Vec::with_capacity(self.entries.len());
         // Add the dict itself
         for (key, value) in self.entries.iter() {
             match value {
                 // Text values have the key and value on the same line
                 LogPayloadDictValue::Text(text) => {
-                    ret.push(
+                    lines.push(
                         format!(
                             "{:width$} {}",
                             format!("{}:", key),
@@ -248,21 +237,22 @@ impl FlattenLog for LogPayloadDict {
                 }
                 // Lists are on the next line after the key and indented
                 LogPayloadDictValue::List(list) => {
-                    ret.push(format!("{}:", key).into());
-                    ret.extend(
-                        list.flatten_log()
-                            .iter()
-                            .map(|item| format!("{}{}", nested_indent_str(), item).into()),
-                    );
+                    lines.push(format!("{}:", key).into());
+                    lines.extend(list.normalize(indent_level + 1).lines);
                 }
             }
         }
-        // Then append the nested payload, but not indented.
-        // The dict is usually indented, and this would add unnecessary indentation
-        if let Some(nested) = &self.nested {
-            ret.extend(nested.as_ref().flatten_log());
+
+        NormalizedLogPayload {
+            indent_level,
+            tags: Vec::new(),
+            lines,
+            nested: self
+                .nested
+                .as_ref()
+                // Nested items of a dict are not indented more than the dict itself for optical reasons
+                .map(|n| Box::new(n.normalize(indent_level))),
         }
-        ret
     }
 }
 
@@ -310,11 +300,19 @@ impl LogPayloadList {
     }
 }
 
-impl FlattenLog for LogPayloadList {
-    fn flatten_log(&self) -> Vec<Cow<'static, str>> {
-        self.items
+impl NormalizeLogPayload for LogPayloadList {
+    fn normalize(&self, indent_level: usize) -> NormalizedLogPayload {
+        let lines = self
+            .items
             .iter()
             .map(|item| format!("· {}", item).into())
-            .collect()
+            .collect();
+
+        NormalizedLogPayload {
+            indent_level,
+            tags: Vec::new(),
+            lines,
+            nested: None,
+        }
     }
 }
