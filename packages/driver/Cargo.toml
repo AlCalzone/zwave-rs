@@ -9,7 +9,9 @@ edition.workspace = true
 [dependencies]
 custom_debug_derive.workspace = true
 paste.workspace = true
+petgraph.workspace = true
 proc-macros.workspace = true
+termcolor.workspace = true
 thiserror.workspace = true
 time.workspace = true
 tokio.workspace = true
@@ -17,6 +19,5 @@ typed-builder.workspace = true
 unique_id.workspace = true
 zwave-cc.workspace = true
 zwave-core.workspace = true
-zwave-serial.workspace = true
 zwave-logging.workspace = true
-termcolor.workspace = true
+zwave-serial.workspace = true

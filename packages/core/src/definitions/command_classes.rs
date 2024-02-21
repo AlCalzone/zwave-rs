@@ -1,12 +1,15 @@
 use crate::{
-    serialize::{self, Serializable}, parse::{
+    parse::{
         bytes::{be_u16, be_u8},
         combinators::{map_res, peek},
-    }, prelude::*
+    },
+    prelude::*,
+    serialize::{self, Serializable},
 };
 use enum_iterator::Sequence;
 use proc_macros::TryFromRepr;
-use std::fmt::Display;
+use std::sync::OnceLock;
+use std::{collections::BTreeSet, fmt::Display};
 
 pub const COMMAND_CLASS_SUPPORT_CONTROL_MARK: u8 = 0xef;
 
@@ -148,168 +151,188 @@ impl CommandClasses {
     }
 
     /// Returns an iterator over all defined command classes
-    pub fn all_ccs() -> impl Iterator<Item = Self> {
-        enum_iterator::all::<Self>()
+    pub fn all_ccs() -> &'static [CommandClasses] {
+        static RET: OnceLock<Vec<CommandClasses>> = OnceLock::new();
+        RET.get_or_init(|| {
+            let ccs: Vec<_> = enum_iterator::all::<Self>().collect();
+            ccs
+        })
+        .as_slice()
     }
 
     /// Defines which CCs are considered Application CCs
-    pub fn application_ccs() -> impl Iterator<Item = Self> {
-        [
-            CommandClasses::AlarmSensor,
-            CommandClasses::AlarmSilence,
-            CommandClasses::AllSwitch,
-            CommandClasses::AntiTheft,
-            CommandClasses::BarrierOperator,
-            CommandClasses::Basic,
-            CommandClasses::BasicTariffInformation,
-            CommandClasses::BasicWindowCovering,
-            CommandClasses::BinarySensor,
-            CommandClasses::BinarySwitch,
-            CommandClasses::BinaryToggleSwitch,
-            CommandClasses::ClimateControlSchedule,
-            CommandClasses::CentralScene,
-            CommandClasses::Clock,
-            CommandClasses::ColorSwitch,
-            CommandClasses::Configuration,
-            CommandClasses::ControllerReplication,
-            CommandClasses::DemandControlPlanConfiguration,
-            CommandClasses::DemandControlPlanMonitor,
-            CommandClasses::DoorLock,
-            CommandClasses::DoorLockLogging,
-            CommandClasses::EnergyProduction,
-            CommandClasses::EntryControl,
-            CommandClasses::GenericSchedule,
-            CommandClasses::GeographicLocation,
-            CommandClasses::HRVStatus,
-            CommandClasses::HRVControl,
-            CommandClasses::HumidityControlMode,
-            CommandClasses::HumidityControlOperatingState,
-            CommandClasses::HumidityControlSetpoint,
-            CommandClasses::IRRepeater,
-            CommandClasses::Irrigation,
-            CommandClasses::Language,
-            CommandClasses::Lock,
-            CommandClasses::ManufacturerProprietary,
-            CommandClasses::Meter,
-            CommandClasses::MeterTableConfiguration,
-            CommandClasses::MeterTableMonitor,
-            CommandClasses::MeterTablePushConfiguration,
-            CommandClasses::MoveToPositionWindowCovering,
-            CommandClasses::MultilevelSensor,
-            CommandClasses::MultilevelSwitch,
-            CommandClasses::MultilevelToggleSwitch,
-            CommandClasses::Notification,
-            CommandClasses::Prepayment,
-            CommandClasses::PrepaymentEncapsulation,
-            CommandClasses::Proprietary,
-            CommandClasses::Protection,
-            CommandClasses::PulseMeter,
-            CommandClasses::RateTableConfiguration,
-            CommandClasses::RateTableMonitor,
-            CommandClasses::SceneActivation,
-            CommandClasses::SceneActuatorConfiguration,
-            CommandClasses::SceneControllerConfiguration,
-            CommandClasses::Schedule,
-            CommandClasses::ScheduleEntryLock,
-            CommandClasses::ScreenAttributes,
-            CommandClasses::ScreenMetaData,
-            CommandClasses::SensorConfiguration,
-            CommandClasses::SimpleAVControl,
-            CommandClasses::SoundSwitch,
-            CommandClasses::TariffTableConfiguration,
-            CommandClasses::TariffTableMonitor,
-            CommandClasses::ThermostatFanMode,
-            CommandClasses::ThermostatFanState,
-            CommandClasses::ThermostatMode,
-            CommandClasses::ThermostatOperatingState,
-            CommandClasses::ThermostatSetback,
-            CommandClasses::ThermostatSetpoint,
-            CommandClasses::UserCode,
-            CommandClasses::WindowCovering,
-        ]
-        .into_iter()
+    pub fn application_ccs() -> &'static [CommandClasses] {
+        static RET: OnceLock<&[CommandClasses]> = OnceLock::new();
+        RET.get_or_init(|| {
+            &[
+                CommandClasses::AlarmSensor,
+                CommandClasses::AlarmSilence,
+                CommandClasses::AllSwitch,
+                CommandClasses::AntiTheft,
+                CommandClasses::BarrierOperator,
+                CommandClasses::Basic,
+                CommandClasses::BasicTariffInformation,
+                CommandClasses::BasicWindowCovering,
+                CommandClasses::BinarySensor,
+                CommandClasses::BinarySwitch,
+                CommandClasses::BinaryToggleSwitch,
+                CommandClasses::ClimateControlSchedule,
+                CommandClasses::CentralScene,
+                CommandClasses::Clock,
+                CommandClasses::ColorSwitch,
+                CommandClasses::Configuration,
+                CommandClasses::ControllerReplication,
+                CommandClasses::DemandControlPlanConfiguration,
+                CommandClasses::DemandControlPlanMonitor,
+                CommandClasses::DoorLock,
+                CommandClasses::DoorLockLogging,
+                CommandClasses::EnergyProduction,
+                CommandClasses::EntryControl,
+                CommandClasses::GenericSchedule,
+                CommandClasses::GeographicLocation,
+                CommandClasses::HRVStatus,
+                CommandClasses::HRVControl,
+                CommandClasses::HumidityControlMode,
+                CommandClasses::HumidityControlOperatingState,
+                CommandClasses::HumidityControlSetpoint,
+                CommandClasses::IRRepeater,
+                CommandClasses::Irrigation,
+                CommandClasses::Language,
+                CommandClasses::Lock,
+                CommandClasses::ManufacturerProprietary,
+                CommandClasses::Meter,
+                CommandClasses::MeterTableConfiguration,
+                CommandClasses::MeterTableMonitor,
+                CommandClasses::MeterTablePushConfiguration,
+                CommandClasses::MoveToPositionWindowCovering,
+                CommandClasses::MultilevelSensor,
+                CommandClasses::MultilevelSwitch,
+                CommandClasses::MultilevelToggleSwitch,
+                CommandClasses::Notification,
+                CommandClasses::Prepayment,
+                CommandClasses::PrepaymentEncapsulation,
+                CommandClasses::Proprietary,
+                CommandClasses::Protection,
+                CommandClasses::PulseMeter,
+                CommandClasses::RateTableConfiguration,
+                CommandClasses::RateTableMonitor,
+                CommandClasses::SceneActivation,
+                CommandClasses::SceneActuatorConfiguration,
+                CommandClasses::SceneControllerConfiguration,
+                CommandClasses::Schedule,
+                CommandClasses::ScheduleEntryLock,
+                CommandClasses::ScreenAttributes,
+                CommandClasses::ScreenMetaData,
+                CommandClasses::SensorConfiguration,
+                CommandClasses::SimpleAVControl,
+                CommandClasses::SoundSwitch,
+                CommandClasses::TariffTableConfiguration,
+                CommandClasses::TariffTableMonitor,
+                CommandClasses::ThermostatFanMode,
+                CommandClasses::ThermostatFanState,
+                CommandClasses::ThermostatMode,
+                CommandClasses::ThermostatOperatingState,
+                CommandClasses::ThermostatSetback,
+                CommandClasses::ThermostatSetpoint,
+                CommandClasses::UserCode,
+                CommandClasses::WindowCovering,
+            ]
+        })
     }
 
-    pub fn non_application_ccs() -> impl Iterator<Item = Self> {
-        // 	allCCs.filter((cc) => !applicationCCs.includes(cc)),
-        let application_ccs: Vec<_> = Self::application_ccs().collect();
-        Self::all_ccs().filter(move |cc| !application_ccs.contains(cc))
+    pub fn non_application_ccs() -> &'static [CommandClasses] {
+        static RET: OnceLock<Vec<CommandClasses>> = OnceLock::new();
+        RET.get_or_init(|| {
+            let application_ccs = BTreeSet::from_iter(Self::application_ccs().iter().copied());
+            let all_ccs = BTreeSet::from_iter(Self::all_ccs().iter().copied());
+            let ret: Vec<_> = all_ccs.difference(&application_ccs).copied().collect();
+            ret
+        })
+        .as_slice()
     }
 
     /// Defines which CCs are considered Actuator CCs
-    pub fn actuator_ccs() -> impl Iterator<Item = Self> {
-        [
-            CommandClasses::BarrierOperator,
-            CommandClasses::BinarySwitch,
-            CommandClasses::ColorSwitch,
-            CommandClasses::DoorLock,
-            CommandClasses::MultilevelSwitch,
-            CommandClasses::SimpleAVControl,
-            CommandClasses::SoundSwitch,
-            CommandClasses::ThermostatSetpoint,
-            CommandClasses::ThermostatMode,
-            CommandClasses::WindowCovering,
-        ]
-        .into_iter()
+    pub fn actuator_ccs() -> &'static [CommandClasses] {
+        static RET: OnceLock<&[CommandClasses]> = OnceLock::new();
+        RET.get_or_init(|| {
+            &[
+                CommandClasses::BarrierOperator,
+                CommandClasses::BinarySwitch,
+                CommandClasses::ColorSwitch,
+                CommandClasses::DoorLock,
+                CommandClasses::MultilevelSwitch,
+                CommandClasses::SimpleAVControl,
+                CommandClasses::SoundSwitch,
+                CommandClasses::ThermostatSetpoint,
+                CommandClasses::ThermostatMode,
+                CommandClasses::WindowCovering,
+            ]
+        })
     }
 
     /// Defines which CCs are considered Sensor CCs
-    pub fn sensor_ccs() -> impl Iterator<Item = Self> {
-        [
-            CommandClasses::AlarmSensor,
-            CommandClasses::Battery,
-            CommandClasses::BinarySensor,
-            CommandClasses::EnergyProduction,
-            CommandClasses::Meter,
-            CommandClasses::MultilevelSensor,
-            CommandClasses::Notification, // For pull nodes
-            CommandClasses::PulseMeter,
-        ]
-        .into_iter()
+    pub fn sensor_ccs() -> &'static [CommandClasses] {
+        static RET: OnceLock<&[CommandClasses]> = OnceLock::new();
+        RET.get_or_init(|| {
+            &[
+                CommandClasses::AlarmSensor,
+                CommandClasses::Battery,
+                CommandClasses::BinarySensor,
+                CommandClasses::EnergyProduction,
+                CommandClasses::Meter,
+                CommandClasses::MultilevelSensor,
+                CommandClasses::Notification, // For pull nodes
+                CommandClasses::PulseMeter,
+            ]
+        })
     }
 
     /// Defines which CCs are considered Encapsulation CCs
-    pub fn encapsulation_ccs() -> impl Iterator<Item = Self> {
-        [
-            CommandClasses::CRC16Encapsulation,
-            CommandClasses::MultiChannel,
-            CommandClasses::MultiCommand,
-            CommandClasses::Security,
-            CommandClasses::Security2,
-            CommandClasses::Supervision,
-            CommandClasses::TransportService,
-        ]
-        .into_iter()
+    pub fn encapsulation_ccs() -> &'static [CommandClasses] {
+        static RET: OnceLock<&[CommandClasses]> = OnceLock::new();
+        RET.get_or_init(|| {
+            &[
+                CommandClasses::CRC16Encapsulation,
+                CommandClasses::MultiChannel,
+                CommandClasses::MultiCommand,
+                CommandClasses::Security,
+                CommandClasses::Security2,
+                CommandClasses::Supervision,
+                CommandClasses::TransportService,
+            ]
+        })
     }
 
     /// Defines which CCs are considered Management CCs
-    pub fn management_ccs() -> impl Iterator<Item = Self> {
-        [
-            CommandClasses::ApplicationCapability,
-            CommandClasses::ApplicationStatus,
-            CommandClasses::Association,
-            CommandClasses::AssociationCommandConfiguration,
-            CommandClasses::AssociationGroupInformation,
-            // Battery is in the Management CC specs, but we consider it a Sensor CC
-            CommandClasses::DeviceResetLocally,
-            CommandClasses::FirmwareUpdateMetaData,
-            CommandClasses::GroupingName,
-            CommandClasses::Hail,
-            CommandClasses::Indicator,
-            CommandClasses::IPAssociation,
-            CommandClasses::ManufacturerSpecific,
-            CommandClasses::MultiChannelAssociation,
-            CommandClasses::NodeNamingAndLocation,
-            CommandClasses::RemoteAssociationActivation,
-            CommandClasses::RemoteAssociationConfiguration,
-            CommandClasses::Time,
-            CommandClasses::TimeParameters,
-            CommandClasses::Version,
-            CommandClasses::WakeUp,
-            CommandClasses::ZIPNamingAndLocation,
-            CommandClasses::ZWavePlusInfo,
-        ]
-        .into_iter()
+    pub fn management_ccs() -> &'static [CommandClasses] {
+        static RET: OnceLock<&[CommandClasses]> = OnceLock::new();
+        RET.get_or_init(|| {
+            &[
+                CommandClasses::ApplicationCapability,
+                CommandClasses::ApplicationStatus,
+                CommandClasses::Association,
+                CommandClasses::AssociationCommandConfiguration,
+                CommandClasses::AssociationGroupInformation,
+                // Battery is in the Management CC specs, but we consider it a Sensor CC
+                CommandClasses::DeviceResetLocally,
+                CommandClasses::FirmwareUpdateMetaData,
+                CommandClasses::GroupingName,
+                CommandClasses::Hail,
+                CommandClasses::Indicator,
+                CommandClasses::IPAssociation,
+                CommandClasses::ManufacturerSpecific,
+                CommandClasses::MultiChannelAssociation,
+                CommandClasses::NodeNamingAndLocation,
+                CommandClasses::RemoteAssociationActivation,
+                CommandClasses::RemoteAssociationConfiguration,
+                CommandClasses::Time,
+                CommandClasses::TimeParameters,
+                CommandClasses::Version,
+                CommandClasses::WakeUp,
+                CommandClasses::ZIPNamingAndLocation,
+                CommandClasses::ZWavePlusInfo,
+            ]
+        })
     }
 }
 
@@ -466,7 +489,7 @@ impl Display for CommandClasses {
 
 #[test]
 fn test_non_application_ccs() {
-    let nac = CommandClasses::non_application_ccs().collect::<Vec<_>>();
+    let nac = CommandClasses::non_application_ccs();
     assert!(nac.contains(&CommandClasses::Association));
 }
 

@@ -326,6 +326,15 @@ pub fn impl_cc_apis(input: TokenStream) -> TokenStream {
         }
     });
 
+    let interview_depends_on_match_arms = ccs.iter().map(|(m, c)| {
+        let module = format_ident!("{}", m);
+        let cc_id = c.cc_id;
+        quote! {
+            #cc_id => Some(CCAPIs::new(ctx.endpoint).#module().interview_depends_on()),
+        }
+    });
+
+
     let interview_match_arms = ccs.iter().map(|(m, c)| {
         let module = format_ident!("{}", m);
         let cc_id = c.cc_id;
@@ -355,6 +364,13 @@ pub fn impl_cc_apis(input: TokenStream) -> TokenStream {
     let tokens = quote! {
         // Import all interview modules, so we don't have to do it manually
         #(#submodules)*
+
+        pub fn interview_depends_on(cc: CommandClasses, ctx: &CCInterviewContext<'_>) -> Option<&'static [CommandClasses]> {
+            match cc {
+                #( #interview_depends_on_match_arms )*
+                _ => None
+            }
+        }
 
         pub async fn interview_cc(cc: CommandClasses, ctx: &CCInterviewContext<'_>) -> CCAPIResult<()> {
             match cc {

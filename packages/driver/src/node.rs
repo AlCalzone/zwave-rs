@@ -96,6 +96,8 @@ pub trait EndpointLike<'a> {
 
     fn supported_command_classes(&self) -> Vec<CommandClasses>;
     fn controlled_command_classes(&self) -> Vec<CommandClasses>;
+    fn supports_cc(&self, cc: CommandClasses) -> bool;
+    fn controls_cc(&self, cc: CommandClasses) -> bool;
     fn get_cc_version(&self, cc: CommandClasses) -> Option<u8>;
 
     // TODO: Add the rest
@@ -120,6 +122,10 @@ impl<'a> Node<'a> {
 
     pub fn id(&self) -> NodeId {
         self.id
+    }
+
+    pub fn get_endpoint(&self, index: u8) -> Endpoint {
+        Endpoint::new(self, index, self.driver)
     }
 
     pub fn interview_stage(&self) -> InterviewStage {
@@ -207,8 +213,119 @@ impl<'a> EndpointLike<'a> for Node<'a> {
             .unwrap_or_default()
     }
 
+    fn supports_cc(&self, cc: CommandClasses) -> bool {
+        read_endpoint_locked!(self, &self.id, &self.index(), cc_info)
+            .map(|map| map.get(&cc).map(|cc| cc.supported()))
+            .flatten()
+            .unwrap_or(false)
+    }
+
+    fn controls_cc(&self, cc: CommandClasses) -> bool {
+        read_endpoint_locked!(self, &self.id, &self.index(), cc_info)
+            .map(|map| map.get(&cc).map(|cc| cc.controlled()))
+            .flatten()
+            .unwrap_or(false)
+    }
+
     fn get_cc_version(&self, cc: CommandClasses) -> Option<u8> {
         read_endpoint_locked!(self, &self.id, &self.index(), cc_info)
+            .map(|map| map.get(&cc).map(|cc| cc.version()))
+            .flatten()
+    }
+}
+
+pub struct Endpoint<'a> {
+    node: &'a Node<'a>,
+    index: u8,
+    driver: &'a Driver<Ready>,
+}
+
+impl<'a> Endpoint<'a> {
+    pub fn new(node: &'a Node<'a>, index: u8, driver: &'a Driver<Ready>) -> Self {
+        Self {
+            node,
+            index,
+            driver,
+        }
+    }
+
+    pub fn driver(&self) -> &Driver<Ready> {
+        self.driver
+    }
+}
+
+impl<'a> EndpointLike<'a> for Endpoint<'a> {
+    fn node_id(&self) -> NodeId {
+        self.node.id()
+    }
+
+    fn get_node(&'a self) -> &Node<'a> {
+        self.node
+    }
+
+    fn index(&self) -> EndpointIndex {
+        EndpointIndex::Endpoint(self.index)
+    }
+
+    fn value_cache(&'a self) -> EndpointValueCache<'a> {
+        EndpointValueCache::new(self, self.driver.value_cache())
+    }
+
+    fn modify_cc_info(&self, cc: CommandClasses, info: &PartialCommandClassInfo) {
+        if let Some(mut cc_info) =
+            write_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
+        {
+            cc_info
+                .entry(cc)
+                .and_modify(|cc_info| cc_info.merge(info))
+                .or_insert_with(|| info.into());
+        }
+    }
+
+    fn remove_cc(&self, cc: CommandClasses) {
+        if let Some(mut cc_info) =
+            write_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
+        {
+            cc_info.remove(&cc);
+        }
+    }
+
+    fn supported_command_classes(&self) -> Vec<CommandClasses> {
+        read_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
+            .map(|map| {
+                map.iter()
+                    .filter_map(|(cc, info)| if info.supported() { Some(*cc) } else { None })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    fn controlled_command_classes(&self) -> Vec<CommandClasses> {
+        read_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
+            .map(|map| {
+                map.iter()
+                    .filter_map(|(cc, info)| if info.controlled() { Some(*cc) } else { None })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    fn supports_cc(&self, cc: CommandClasses) -> bool {
+        read_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
+            .map(|map| map.get(&cc).map(|cc| cc.supported()))
+            .flatten()
+            .unwrap_or(false)
+    }
+
+    fn controls_cc(&self, cc: CommandClasses) -> bool {
+        read_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
+            .map(|map| map.get(&cc).map(|cc| cc.controlled()))
+            .flatten()
+            .unwrap_or(false)
+    }
+
+    fn get_cc_version(&self, cc: CommandClasses) -> Option<u8> {
+        read_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
             .map(|map| map.get(&cc).map(|cc| cc.version()))
             .flatten()
     }
