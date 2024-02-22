@@ -1,4 +1,4 @@
-use crate::{expect_cc_or_timeout, CCAPIResult, CCInterviewContext, EndpointLike, CCAPI};
+use crate::{expect_cc_or_timeout, CCAPIResult, EndpointLike, CCAPI};
 use zwave_cc::commandclass::{basic::*, CCAddressable};
 use zwave_core::{cache::CacheExt, prelude::*};
 
@@ -22,12 +22,13 @@ impl<'a> CCAPI<'a> for BasicCCAPI<'a> {
         2
     }
 
-    async fn interview<'ctx: 'a>(&self, ctx: &CCInterviewContext<'ctx>) -> CCAPIResult<()> {
-        let endpoint = ctx.endpoint;
+    async fn interview(&self) -> CCAPIResult<()> {
+        let endpoint = self.endpoint;
         let node = endpoint.get_node();
         let cache = node.value_cache();
+        let log = endpoint.logger();
 
-        ctx.log.info(||"interviewing Basic CC...");
+        log.info(|| "interviewing Basic CC...");
 
         // Try to query the current state
         self.refresh_values().await?;
@@ -37,9 +38,9 @@ impl<'a> CCAPI<'a> for BasicCCAPI<'a> {
             .read_level_report(&BasicCCValues::current_value().id)
             .is_none()
         {
-            ctx.log.info(||
-                "No response to Basic Get command, assuming the node does not support Basic CC...",
-            );
+            log.info(|| {
+                "No response to Basic Get command, assuming the node does not support Basic CC..."
+            });
 
             // TODO: Actually remove Basic CC support
         }
@@ -48,10 +49,12 @@ impl<'a> CCAPI<'a> for BasicCCAPI<'a> {
     }
 
     async fn refresh_values(&self) -> CCAPIResult<()> {
-        println!("Quering Basic CC state...");
+        let log = self.endpoint.logger();
+
+        log.info(|| "Quering Basic CC state...");
 
         if let Some(basic_response) = self.get().await? {
-            println!("received Basic CC state: {:?}", basic_response);
+            log.info(|| format!("received Basic CC state: {:?}", basic_response));
         }
 
         Ok(())

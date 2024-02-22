@@ -1,7 +1,4 @@
-use crate::{
-    error::Result, interview_cc, interview_depends_on, CCInterviewContext, Endpoint, EndpointLike,
-    Node,
-};
+use crate::{error::Result, interview_cc, interview_depends_on, Endpoint, EndpointLike, Node};
 use petgraph::{algo, graphmap::DiGraphMap};
 use std::fmt::Write;
 use zwave_core::definitions::*;
@@ -24,7 +21,7 @@ pub enum InterviewStage {
 
 impl<'a> Node<'a> {
     pub async fn interview(&self) -> Result<()> {
-        let log = self.driver.node_log(self.id(), EndpointIndex::Root);
+        let log = self.logger();
         log.info(|| {
             format!(
                 "Beginning interview - current stage: {:?}",
@@ -55,11 +52,7 @@ impl<'a> Node<'a> {
     }
 
     async fn interview_ccs(&self) -> Result<()> {
-        let ctx = CCInterviewContext {
-            driver: self.driver,
-            endpoint: self,
-            log: self.driver.node_log(self.node_id(), EndpointIndex::Root),
-        };
+        let log = self.logger();
 
         if self.supports_cc(CommandClasses::Security2) {
             // TODO
@@ -70,7 +63,7 @@ impl<'a> Node<'a> {
         }
 
         if self.supports_cc(CommandClasses::ManufacturerSpecific) {
-            interview_cc(CommandClasses::ManufacturerSpecific, &ctx)
+            interview_cc(self, CommandClasses::ManufacturerSpecific)
                 .await
                 // FIXME: Handle errors
                 .unwrap();
@@ -81,7 +74,7 @@ impl<'a> Node<'a> {
         // or list of supported CCs, we need to add it here manually, so its version can get queried.
 
         if self.supports_cc(CommandClasses::Version) {
-            interview_cc(CommandClasses::Version, &ctx).await.unwrap();
+            interview_cc(self, CommandClasses::Version).await.unwrap();
             // FIXME: Load device config file, apply CC related compat flags
         }
 
@@ -119,11 +112,11 @@ impl<'a> Node<'a> {
             CommandClasses::WakeUp,
         ];
         let root_interviews_before_endpoints = determine_interview_order(
-            &ctx,
+            self,
             &[priority_ccs, CommandClasses::application_ccs()].concat(),
         )
         .collect::<Vec<_>>();
-        ctx.log.silly(|| {
+        log.silly(|| {
             format!(
                 "Root device interviews before endpoints:{}",
                 root_interviews_before_endpoints
@@ -135,11 +128,11 @@ impl<'a> Node<'a> {
             )
         });
         let root_interviews_after_endpoints = determine_interview_order(
-            &ctx,
+            self,
             &[priority_ccs, CommandClasses::non_application_ccs()].concat(),
         )
         .collect::<Vec<_>>();
-        ctx.log.silly(|| {
+        log.silly(|| {
             format!(
                 "Root device interviews after endpoints:{}",
                 root_interviews_after_endpoints
@@ -153,7 +146,7 @@ impl<'a> Node<'a> {
 
         // Interview CCs that should be interviewed before endpoints
         for cc in root_interviews_before_endpoints {
-            interview_cc(cc, &ctx).await.unwrap();
+            interview_cc(self, cc).await.unwrap();
         }
 
         // Interview all endpoints
@@ -165,7 +158,7 @@ impl<'a> Node<'a> {
 
         // Interview CCs that should be interviewed after endpoints
         for cc in root_interviews_after_endpoints {
-            interview_cc(cc, &ctx).await.unwrap();
+            interview_cc(self, cc).await.unwrap();
         }
 
         Ok(())
@@ -174,11 +167,7 @@ impl<'a> Node<'a> {
 
 impl<'a> Endpoint<'a> {
     async fn interview_ccs(&self) -> Result<()> {
-        let ctx = CCInterviewContext {
-            driver: self.driver,
-            endpoint: self,
-            log: self.driver.node_log(self.node_id(), self.index()),
-        };
+        let log = self.logger();
 
         if self.supports_cc(CommandClasses::Security2) {
             // TODO
@@ -189,12 +178,12 @@ impl<'a> Endpoint<'a> {
         }
 
         if self.supports_cc(CommandClasses::Version) {
-            interview_cc(CommandClasses::Version, &ctx).await.unwrap();
+            interview_cc(self, CommandClasses::Version).await.unwrap();
         }
 
         // FIXME: Modify supported CCs before further interview - see Z-Wave JS
         let interview_order = determine_interview_order(
-            &ctx,
+            self,
             &[
                 CommandClasses::Security2,
                 CommandClasses::Security,
@@ -202,7 +191,7 @@ impl<'a> Endpoint<'a> {
             ],
         )
         .collect::<Vec<_>>();
-        ctx.log.silly(|| {
+        log.silly(|| {
             format!(
                 "Endpoint {} interviews:{}",
                 self.index,
@@ -214,21 +203,20 @@ impl<'a> Endpoint<'a> {
         });
 
         for cc in interview_order {
-            interview_cc(cc, &ctx).await.unwrap();
+            interview_cc(self, cc).await.unwrap();
         }
 
         Ok(())
     }
 }
 
-fn determine_interview_order(
-    ctx: &CCInterviewContext<'_>,
+fn determine_interview_order<'a>(
+    endpoint: &'a dyn EndpointLike<'a>,
     except: &[CommandClasses],
 ) -> impl Iterator<Item = CommandClasses> {
     let mut graph = DiGraphMap::new();
 
-    let graph_ccs: Vec<_> = ctx
-        .endpoint
+    let graph_ccs: Vec<_> = endpoint
         .supported_command_classes()
         .into_iter()
         .filter(|cc| !except.contains(cc))
@@ -241,7 +229,7 @@ fn determine_interview_order(
 
     // Now that we have all nodes, determine which CCs depend on which
     for cc in &graph_ccs {
-        let Some(deps) = interview_depends_on(*cc, ctx) else {
+        let Some(deps) = interview_depends_on(endpoint, *cc) else {
             continue;
         };
         for dep in deps {

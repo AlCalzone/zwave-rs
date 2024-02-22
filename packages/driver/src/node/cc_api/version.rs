@@ -1,5 +1,5 @@
 use crate::{cc_api_assert_supported, expect_cc_or_timeout, get_implemented_version};
-use crate::{CCAPIResult, CCInterviewContext, EndpointLike, CCAPI};
+use crate::{CCAPIResult, EndpointLike, CCAPI};
 use zwave_cc::commandclass::{version::*, CCAddressable};
 use zwave_core::{cache::CacheExt, prelude::*};
 
@@ -27,10 +27,11 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
         &[CommandClasses::ManufacturerSpecific]
     }
 
-    async fn interview<'ctx: 'a>(&self, ctx: &CCInterviewContext<'ctx>) -> CCAPIResult<()> {
-        let endpoint = ctx.endpoint;
+    async fn interview(&self) -> CCAPIResult<()> {
+        let endpoint = self.endpoint;
         let node = endpoint.get_node();
         let cache = node.value_cache();
+        let log = endpoint.logger();
 
         // In a Multi Channel device, the Version Command Class MUST be supported by the Root Device, while
         // the Version Command Class SHOULD NOT be supported by individual End Points.
@@ -43,18 +44,17 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
         // Therefore we use the root endpoint for all queries
         let api = Self::new(node);
 
-        ctx.log.info(|| "interviewing Version CC...");
+        log.info(|| "interviewing Version CC...");
 
         // On the root endpoint, query the VersionCC version and static version information
         if endpoint.index() == EndpointIndex::Root {
-            api.query_cc_version(CommandClasses::Version, ctx).await?;
+            api.query_cc_version(CommandClasses::Version).await?;
             // TODO: When we use CC versions to check support for features,
             // we might have to update the version after this call
 
-            ctx.log.info(|| "querying node versions...");
+            log.info(|| "querying node versions...");
             if let Some(response) = api.get().await? {
-                ctx.log
-                    .info(|| format!("received response for node versions: {:?}", response));
+                log.info(|| format!("received response for node versions: {:?}", response));
             }
         }
 
@@ -69,25 +69,27 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
                 continue;
             }
 
-            api.query_cc_version(cc, ctx).await?;
+            api.query_cc_version(cc).await?;
         }
 
         // On the root device, query Version CC capabilities
         if endpoint.index() == EndpointIndex::Root
             && node.get_cc_version(CommandClasses::Version) >= Some(3)
         {
-            ctx.log.info(|| "querying Version CC capabilities...");
+            log.info(|| "querying Version CC capabilities...");
             if let Some(response) = api.get_capabilities().await? {
-                println!(
-                    "received Version CC capabilities capabilities: {:?}",
-                    response
-                );
+                log.info(|| {
+                    format!(
+                        "received Version CC capabilities capabilities: {:?}",
+                        response
+                    )
+                });
 
                 if cache.read_bool(&VersionCCValues::supports_zwave_software_get().id) == Some(true)
                 {
-                    ctx.log.info(|| "querying Z-Wave software version...");
+                    log.info(|| "querying Z-Wave software version...");
                     if let Some(response) = api.get_zwave_software().await? {
-                        println!("received Z-Wave software version: {:?}", response);
+                        log.info(|| format!("received Z-Wave software version: {:?}", response));
                     }
                 }
             }
@@ -103,23 +105,21 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
 }
 
 impl VersionCCAPI<'_> {
-    async fn query_cc_version<'ctx>(
+    async fn query_cc_version(
         &self,
         cc: CommandClasses,
-        ctx: &CCInterviewContext<'ctx>,
     ) -> CCAPIResult<()> {
+        let log = self.endpoint.logger();
+
         if get_implemented_version(cc).is_none() {
-            ctx.log
-                .info(|| format!("skipping query for not yet implemented CC {}", cc));
+            log.info(|| format!("skipping query for not yet implemented CC {}", cc));
             return Ok(());
         }
 
-        ctx.log
-            .info(|| format!("querying version for CC {}...", cc));
+        log.info(|| format!("querying version for CC {}...", cc));
         if let Some(version) = self.get_cc_version(cc).await? {
             if version > 0 {
-                ctx.log
-                    .info(|| format!("supports CC {} in version {}", cc, version));
+                log.info(|| format!("supports CC {} in version {}", cc, version));
                 self.endpoint
                     .modify_cc_info(cc, &PartialCommandClassInfo::default().version(version))
             } else {
@@ -131,13 +131,12 @@ impl VersionCCAPI<'_> {
                 if is_critical {
                     todo!()
                 } else {
-                    ctx.log.info(|| format!("does not support CC {}", cc));
+                    log.info(|| format!("does not support CC {}", cc));
                     self.endpoint.remove_cc(cc);
                 }
             }
         } else {
-            ctx.log
-                .info(|| format!("CC version query for {} timed out. Assuming version 1", cc));
+            log.info(|| format!("CC version query for {} timed out. Assuming version 1", cc));
             self.endpoint
                 .modify_cc_info(cc, &PartialCommandClassInfo::default().version(1))
         }

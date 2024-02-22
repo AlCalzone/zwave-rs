@@ -260,17 +260,17 @@ where
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<NodeInformationProtocolData> {
         let log = self.node_log(*node_id, EndpointIndex::Root);
-        log.info(||"querying protocol info...");
+        log.info(|| "querying protocol info...");
 
         let cmd = GetNodeProtocolInfoRequest { node_id: *node_id };
         let response = self.exec_controller_command(cmd, options).await;
         let response = expect_controller_command_result!(response, GetNodeProtocolInfoResponse);
 
         if self.controller_log().level() < Loglevel::Debug {
-            log.info(||
+            log.info(|| {
                 LogPayloadText::new("received protocol info:")
-                    .with_nested(response.to_log_payload()),
-            );
+                    .with_nested(response.to_log_payload())
+            });
         }
 
         Ok(response.protocol_info)
@@ -407,8 +407,9 @@ impl Driver<Ready> {
         node_id: &NodeId,
         options: Option<&ExecControllerCommandOptions>,
     ) -> ControllerCommandResult<NodeInformationApplicationData> {
-        self.controller_log()
-            .info(|| format!("querying node info for node {}...", node_id));
+        let log = self.controller_log();
+
+        log.info(|| format!("querying node info for node {}...", node_id));
         let response = self
             .exec_controller_command(RequestNodeInfoRequest::new(*node_id), options)
             .await;
@@ -421,7 +422,7 @@ impl Driver<Ready> {
                     },
                 ..
             }))) => {
-                println!("Node info received: {:?}", application_data);
+                log.info(|| format!("Node info received: {:?}", application_data));
                 application_data
             }
             Ok(_) => {
@@ -430,8 +431,7 @@ impl Driver<Ready> {
                 ))
             }
             Err(e) => {
-                self.controller_log()
-                    .error(|| "querying the node info failed");
+                log.error(|| "querying the node info failed");
                 return Err(e.into());
             }
         };

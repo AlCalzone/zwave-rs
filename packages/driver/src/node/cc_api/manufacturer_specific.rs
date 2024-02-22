@@ -1,5 +1,5 @@
 use crate::{cc_api_assert_supported, expect_cc_or_timeout};
-use crate::{CCAPIResult, CCInterviewContext, EndpointLike, CCAPI};
+use crate::{CCAPIResult, EndpointLike, CCAPI};
 use zwave_cc::commandclass::{manufacturer_specific::*, CCAddressable};
 use zwave_core::prelude::*;
 
@@ -23,17 +23,19 @@ impl<'a> CCAPI<'a> for ManufacturerSpecificCCAPI<'a> {
         2
     }
 
-    async fn interview<'ctx: 'a>(&self, ctx: &CCInterviewContext<'ctx>) -> CCAPIResult<()> {
-        let _endpoint = ctx.endpoint;
+    async fn interview(&self) -> CCAPIResult<()> {
+        let log = self.endpoint.logger();
 
-        ctx.log.info(|| "interviewing Manufacturer Specific CC...");
+        log.info(|| "interviewing Manufacturer Specific CC...");
 
-        ctx.log.info(|| "querying manufacturer information...");
+        log.info(|| "querying manufacturer information...");
         if let Some(response) = self.get().await? {
-            println!(
-                "received response for manufacturer information: {:?}",
-                response
-            );
+            log.info(|| {
+                format!(
+                    "received response for manufacturer information: {:?}",
+                    response
+                )
+            });
         }
 
         Ok(())

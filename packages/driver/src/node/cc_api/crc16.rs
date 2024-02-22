@@ -1,4 +1,4 @@
-use crate::{CCAPIResult, CCInterviewContext, EndpointLike, CCAPI};
+use crate::{CCAPIResult, EndpointLike, CCAPI};
 use zwave_core::prelude::*;
 
 pub struct Crc16CCAPI<'a> {
@@ -21,7 +21,7 @@ impl<'a> CCAPI<'a> for Crc16CCAPI<'a> {
         1
     }
 
-    async fn interview<'ctx: 'a>(&self, _ctx: &CCInterviewContext<'ctx>) -> CCAPIResult<()> {
+    async fn interview(&self) -> CCAPIResult<()> {
         // Nothing to do
         Ok(())
     }

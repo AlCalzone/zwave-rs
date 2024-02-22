@@ -1,5 +1,6 @@
 use zwave_cc::commandclass::{CCAddressable, NoOperationCC};
 use zwave_core::{definitions::*, submodule};
+use zwave_logging::loggers::node::NodeLogger;
 
 use crate::{ControllerCommandResult, Driver, ExecNodeCommandError, Ready};
 
@@ -100,6 +101,8 @@ pub trait EndpointLike<'a> {
     fn controls_cc(&self, cc: CommandClasses) -> bool;
     fn get_cc_version(&self, cc: CommandClasses) -> Option<u8>;
 
+    fn logger(&self) -> NodeLogger;
+
     // TODO: Add the rest
 }
 
@@ -158,6 +161,7 @@ impl<'a> Node<'a> {
             Err(ExecNodeCommandError::NodeTimeout) => panic!("NoOperation CC should not time out"),
         }
     }
+
 }
 
 impl<'a> EndpointLike<'a> for Node<'a> {
@@ -232,6 +236,11 @@ impl<'a> EndpointLike<'a> for Node<'a> {
             .map(|map| map.get(&cc).map(|cc| cc.version()))
             .flatten()
     }
+
+    fn logger(&self) -> NodeLogger {
+        self.driver.node_log(self.node_id(), self.index())
+    }
+
 }
 
 pub struct Endpoint<'a> {
@@ -329,4 +338,10 @@ impl<'a> EndpointLike<'a> for Endpoint<'a> {
             .map(|map| map.get(&cc).map(|cc| cc.version()))
             .flatten()
     }
+
+
+    fn logger(&self) -> NodeLogger {
+        self.driver.node_log(self.node_id(), self.index())
+    }
+
 }

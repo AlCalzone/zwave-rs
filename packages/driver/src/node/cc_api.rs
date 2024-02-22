@@ -3,12 +3,6 @@ use proc_macros::impl_cc_apis;
 use thiserror::Error;
 use zwave_core::definitions::*;
 
-pub struct CCInterviewContext<'a> {
-    pub driver: &'a Driver<Ready>,
-    pub endpoint: &'a dyn EndpointLike<'a>,
-    pub log: NodeLogger,
-}
-
 pub trait CCAPI<'a> {
     fn new(endpoint: &'a dyn EndpointLike<'a>) -> Self
     where
@@ -22,7 +16,7 @@ pub trait CCAPI<'a> {
     }
 
     #[allow(async_fn_in_trait)]
-    async fn interview<'ctx: 'a>(&self, ctx: &CCInterviewContext<'ctx>) -> CCAPIResult<()>;
+    async fn interview(&self) -> CCAPIResult<()>;
 
     #[allow(async_fn_in_trait)]
     async fn refresh_values(&self) -> CCAPIResult<()>;

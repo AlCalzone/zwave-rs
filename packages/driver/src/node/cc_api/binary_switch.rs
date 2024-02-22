@@ -1,5 +1,5 @@
 use crate::expect_cc_or_timeout;
-use crate::{CCAPIResult, CCInterviewContext, EndpointLike, CCAPI};
+use crate::{CCAPIResult, EndpointLike, CCAPI};
 use zwave_cc::commandclass::{binary_switch::*, CCAddressable};
 use zwave_core::prelude::*;
 
@@ -23,10 +23,10 @@ impl<'a> CCAPI<'a> for BinarySwitchCCAPI<'a> {
         2
     }
 
-    async fn interview<'ctx: 'a>(&self, ctx: &CCInterviewContext<'ctx>) -> CCAPIResult<()> {
-        let _endpoint = ctx.endpoint;
+    async fn interview(&self) -> CCAPIResult<()> {
+        let log = self.endpoint.logger();
 
-        ctx.log.info(||"interviewing Binary Switch CC...");
+        log.info(|| "interviewing Binary Switch CC...");
 
         // Try to query the current state
         self.refresh_values().await?;
@@ -35,10 +35,12 @@ impl<'a> CCAPI<'a> for BinarySwitchCCAPI<'a> {
     }
 
     async fn refresh_values(&self) -> CCAPIResult<()> {
-        println!("quering Binary Switch state...");
+        let log = self.endpoint.logger();
+
+        log.info(|| "quering Binary Switch state...");
 
         if let Some(response) = self.get().await? {
-            println!("received Binary Switch CC state: {:?}", response);
+            log.info(|| format!("received Binary Switch CC state: {:?}", response));
         }
 
         Ok(())

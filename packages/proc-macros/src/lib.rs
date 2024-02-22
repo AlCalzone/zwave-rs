@@ -330,7 +330,7 @@ pub fn impl_cc_apis(input: TokenStream) -> TokenStream {
         let module = format_ident!("{}", m);
         let cc_id = c.cc_id;
         quote! {
-            #cc_id => Some(CCAPIs::new(ctx.endpoint).#module().interview_depends_on()),
+            #cc_id => Some(CCAPIs::new(endpoint).#module().interview_depends_on()),
         }
     });
 
@@ -339,7 +339,7 @@ pub fn impl_cc_apis(input: TokenStream) -> TokenStream {
         let module = format_ident!("{}", m);
         let cc_id = c.cc_id;
         quote! {
-            #cc_id => CCAPIs::new(ctx.endpoint).#module().interview(ctx).await,
+            #cc_id => CCAPIs::new(endpoint).#module().interview().await,
         }
     });
 
@@ -365,14 +365,14 @@ pub fn impl_cc_apis(input: TokenStream) -> TokenStream {
         // Import all interview modules, so we don't have to do it manually
         #(#submodules)*
 
-        pub fn interview_depends_on(cc: CommandClasses, ctx: &CCInterviewContext<'_>) -> Option<&'static [CommandClasses]> {
+        pub fn interview_depends_on<'a>(endpoint: &'a dyn EndpointLike<'a>, cc: CommandClasses) -> Option<&'static [CommandClasses]> {
             match cc {
                 #( #interview_depends_on_match_arms )*
                 _ => None
             }
         }
 
-        pub async fn interview_cc(cc: CommandClasses, ctx: &CCInterviewContext<'_>) -> CCAPIResult<()> {
+        pub async fn interview_cc<'a>(endpoint: &'a dyn EndpointLike<'a>, cc: CommandClasses) -> CCAPIResult<()> {
             match cc {
                 #( #interview_match_arms )*
                 _ => {
