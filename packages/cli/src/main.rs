@@ -5,7 +5,8 @@ use zwave_driver::DriverOptions;
 
 #[cfg(target_os = "linux")]
 // const PORT: &str = "/dev/ttyUSB0";
-const PORT: &str = "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5479014030-if00";
+// const PORT: &str = "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5479014030-if00";
+const PORT: &str = "tcp://Z-Net-R2v2.local:2001";
 
 #[cfg(target_os = "windows")]
 const PORT: &str = "COM6";

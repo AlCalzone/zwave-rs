@@ -334,7 +334,6 @@ pub fn impl_cc_apis(input: TokenStream) -> TokenStream {
         }
     });
 
-
     let interview_match_arms = ccs.iter().map(|(m, c)| {
         let module = format_ident!("{}", m);
         let cc_id = c.cc_id;

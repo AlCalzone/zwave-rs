@@ -1,9 +1,6 @@
 use crate::{ImmutableLogger, LogInfo};
 use std::{borrow::Cow, sync::Arc};
-use zwave_core::{
-    log::{LogPayload, LogPayloadText, Loglevel},
-    util::to_lines,
-};
+use zwave_core::log::{LogPayload, Loglevel};
 
 pub struct DriverLogger {
     inner: Arc<dyn ImmutableLogger>,

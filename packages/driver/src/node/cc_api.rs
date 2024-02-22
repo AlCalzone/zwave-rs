@@ -1,4 +1,4 @@
-use crate::{ControllerCommandError, Driver, EndpointLike, ExecNodeCommandError, Node, Ready};
+use crate::{ControllerCommandError, EndpointLike, ExecNodeCommandError, Node};
 use proc_macros::impl_cc_apis;
 use thiserror::Error;
 use zwave_core::definitions::*;
@@ -96,4 +96,3 @@ macro_rules! cc_api_assert_supported {
     };
 }
 pub(crate) use cc_api_assert_supported;
-use zwave_logging::loggers::node::NodeLogger;

@@ -1,10 +1,6 @@
 use crate::{error::Result, frame::RawSerialFrame};
 
 pub trait SerialBinding {
-    fn new(path: &str) -> Result<Self>
-    where
-        Self: Sized;
-
     fn write(
         &mut self,
         frame: RawSerialFrame,

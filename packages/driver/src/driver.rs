@@ -28,7 +28,7 @@ use zwave_logging::{Direction, LogInfo, Logger};
 use zwave_serial::binding::SerialBinding;
 use zwave_serial::frame::{ControlFlow, RawSerialFrame, SerialFrame};
 use zwave_serial::prelude::*;
-use zwave_serial::serialport::SerialPort;
+use zwave_serial::serialport::{SerialPort, TcpSocket, ZWavePort};
 
 pub use serial_api_machine::SerialApiMachineResult;
 
@@ -127,7 +127,13 @@ impl Driver<Init> {
         driver_logger.info(|| "");
         driver_logger.info(|| format!("opening serial port {}", path));
 
-        let port = match SerialPort::new(path) {
+        let open_port_result = if let Some(path) = path.strip_prefix("tcp://") {
+            TcpSocket::new(path).map(ZWavePort::Tcp)
+        } else {
+            SerialPort::new(path).map(ZWavePort::Serial)
+        };
+
+        let port = match open_port_result {
             Ok(port) => {
                 driver_logger.info(|| "serial port opened");
                 port
@@ -775,7 +781,7 @@ struct SerialLoopStorage {
 }
 
 async fn serial_loop(
-    mut port: SerialPort,
+    mut port: ZWavePort,
     logger: SerialLogger,
     mut cmd_rx: SerialTaskCommandReceiver,
     shutdown: Arc<Notify>,
@@ -806,7 +812,7 @@ async fn serial_loop(
 
 async fn serial_loop_handle_command(
     storage: &mut SerialLoopStorage,
-    port: &mut SerialPort,
+    port: &mut ZWavePort,
     cmd: SerialTaskCommand,
 ) {
     match cmd {
@@ -837,7 +843,7 @@ async fn serial_loop_handle_command(
 
 async fn serial_loop_handle_frame(
     storage: &SerialLoopStorage,
-    port: &mut SerialPort,
+    port: &mut ZWavePort,
     frame: RawSerialFrame,
     frame_emitter: &SerialFrameEmitter,
 ) {
@@ -908,7 +914,7 @@ async fn serial_loop_handle_frame(
 }
 
 async fn write_serial(
-    port: &mut SerialPort,
+    port: &mut ZWavePort,
     frame: RawSerialFrame,
     logger: &SerialLogger,
 ) -> Result<()> {
