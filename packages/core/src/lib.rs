@@ -6,6 +6,7 @@ pub mod definitions;
 pub mod log;
 pub mod parse;
 pub mod prelude;
+pub mod security;
 pub mod serialize;
 pub mod state_machine;
 pub mod util;

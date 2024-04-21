@@ -7,13 +7,16 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+aes.workspace = true
 bitvec.workspace = true
 bytes.workspace = true
 crc16.workspace = true
+cbc.workspace = true
 custom_debug_derive.workspace = true
 enum-iterator.workspace = true
 hex.workspace = true
 num-traits.workspace = true
+ofb.workspace = true
 paste.workspace = true
 pin-project.workspace = true
 proc-macros.workspace = true

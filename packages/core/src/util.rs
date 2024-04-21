@@ -83,6 +83,14 @@ pub fn to_lines(text: impl Into<Cow<'static, str>>) -> Vec<Cow<'static, str>> {
 }
 
 #[macro_export]
+macro_rules! hex_literal {
+    ($hex:expr) => {
+        hex::decode($hex).unwrap()
+    };
+}
+
+
+#[macro_export]
 macro_rules! hex_bytes {
     ($hex:expr) => {
         bytes::BytesMut::from(hex::decode($hex).unwrap().as_slice()).freeze()
