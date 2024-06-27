@@ -12,6 +12,7 @@ use crate::BackgroundLogger;
 /// interior mutability to allow for concurrent access without requiring a mutable reference.
 pub(crate) struct DriverStorage {
     node_id_type: RwLock<NodeIdType>,
+    sdk_version: RwLock<Option<Version>>,
 
     driver_logger: DriverLogger,
     controller_logger: ControllerLogger,
@@ -25,6 +26,7 @@ impl DriverStorage {
     ) -> Self {
         Self {
             node_id_type: RwLock::new(node_id_type),
+            sdk_version: RwLock::new(None),
             driver_logger,
             controller_logger,
         }
@@ -44,6 +46,14 @@ impl DriverStorage {
 
     pub fn set_node_id_type(&self, node_id_type: NodeIdType) {
         *self.node_id_type.write().unwrap() = node_id_type;
+    }
+
+    pub fn sdk_version(&self) -> Option<Version> {
+        *self.sdk_version.read().unwrap()
+    }
+
+    pub fn set_sdk_version(&self, version: Version) {
+        *self.sdk_version.write().unwrap() = Some(version);
     }
 }
 

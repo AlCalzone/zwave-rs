@@ -769,6 +769,10 @@ define_task_commands!(SerialTaskCommand {
     // Use the given node ID type for parsing frames
     UseNodeIDType -> () {
         node_id_type: NodeIdType
+    },
+    // Use the given SDK version for parsing frames
+    UseSDKVersion -> () {
+        sdk_version: Version
     }
 });
 
@@ -776,6 +780,7 @@ type SerialTaskCommandSender = TaskCommandSender<SerialTaskCommand>;
 type SerialTaskCommandReceiver = TaskCommandReceiver<SerialTaskCommand>;
 
 struct SerialLoopStorage {
+    sdk_version: Option<Version>,
     node_id_type: NodeIdType,
     logger: SerialLogger,
 }
@@ -789,6 +794,7 @@ async fn serial_loop(
 ) {
     let mut storage = SerialLoopStorage {
         node_id_type: Default::default(),
+        sdk_version: None,
         logger,
     };
 
@@ -838,6 +844,15 @@ async fn serial_loop_handle_command(
                 .send(())
                 .expect("invoking the callback of a SerialTaskCommand should not fail");
         }
+        SerialTaskCommand::UseSDKVersion(UseSDKVersion {
+            sdk_version,
+            callback,
+        }) => {
+            storage.sdk_version = Some(sdk_version);
+            callback
+                .send(())
+                .expect("invoking the callback of a SerialTaskCommand should not fail");
+        }
     }
 }
 
@@ -851,7 +866,7 @@ async fn serial_loop_handle_frame(
         RawSerialFrame::Data(data) => {
             storage.logger.data(data, Direction::Inbound);
             // Try to parse the frame
-            // TODO: Do we need to clone the BytesMut here?
+            // TODO: Do we really need to clone the BytesMut here?
             match zwave_serial::command_raw::CommandRaw::parse(&mut data.clone()) {
                 Ok(raw) => {
                     // The first step of parsing was successful, ACK the frame
@@ -866,18 +881,19 @@ async fn serial_loop_handle_frame(
                     // Now try to convert it into an actual command
                     let ctx = CommandEncodingContext::builder()
                         .node_id_type(storage.node_id_type)
+                        .sdk_version(storage.sdk_version)
                         .build();
                     match zwave_serial::command::Command::try_from_raw(raw, &ctx) {
                         Ok(cmd) => Some(SerialFrame::Command(cmd)),
                         Err(e) => {
-                            println!("{} error: {:?}", now(), e);
+                            println!("{} error: {}", now(), e);
                             // TODO: Handle misformatted frames
                             None
                         }
                     }
                 }
                 Err(e) => {
-                    println!("{} error: {:?}", now(), e);
+                    println!("{} error: {}", now(), e);
                     // Parsing failed, this means we've received garbage after all
                     write_serial(
                         port,
@@ -990,8 +1006,8 @@ fn log_loop_handle_command(storage: &mut LogLoopStorage, cmd: LogTaskCommand) {
 macro_rules! exec_background_task {
     ($command_sender:expr, $command_type:ident::$variant:ident, $($new_args:tt)*) => {
         {
-            let (cmd, rx) = $variant::new($($new_args)*);
-            let cmd = $command_type::$variant(cmd);
+            let (cmd, rx) = $crate::driver::$variant::new($($new_args)*);
+            let cmd = $crate::driver::$command_type::$variant(cmd);
             $command_sender.send(cmd).await.map_err(|_| $crate::error::Error::Internal)?;
             rx.await.map_err(|_| $crate::error::Error::Internal)
         }

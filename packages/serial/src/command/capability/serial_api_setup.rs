@@ -10,7 +10,7 @@ use zwave_core::parse::{
 use zwave_core::prelude::*;
 use zwave_core::serialize;
 
-#[derive(Debug, Copy, Clone, PartialEq, TryFromRepr)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(u8)]
 pub enum SerialApiSetupCommand {
     Unsupported = 0x00,
@@ -29,6 +29,71 @@ pub enum SerialApiSetupCommand {
     GetLRMaximumPayloadSize = 0x11,
     SetPowerlevel16Bit = 0x12,
     GetPowerlevel16Bit = 0x13,
+
+    // Catch-all for unknown commands
+    // FIXME: We should have a FromRepr and IntoRepr macro that
+    // supports catch-all variants
+    Unknown(u8),
+}
+
+impl From<u8> for SerialApiSetupCommand {
+    fn from(value: u8) -> Self {
+        match value {
+            0x00 => Self::Unsupported,
+            0x01 => Self::GetSupportedCommands,
+            0x02 => Self::SetTxStatusReport,
+            0x04 => Self::SetPowerlevel,
+            0x08 => Self::GetPowerlevel,
+            0x10 => Self::GetMaximumPayloadSize,
+            0x20 => Self::GetRFRegion,
+            0x40 => Self::SetRFRegion,
+            0x80 => Self::SetNodeIDType,
+
+            0x03 => Self::SetLRMaximumTxPower,
+            0x05 => Self::GetLRMaximumTxPower,
+            0x11 => Self::GetLRMaximumPayloadSize,
+            0x12 => Self::SetPowerlevel16Bit,
+            0x13 => Self::GetPowerlevel16Bit,
+
+            _ => Self::Unknown(value),
+        }
+    }
+}
+
+impl Parsable for SerialApiSetupCommand {
+    fn parse(i: &mut Bytes) -> ParseResult<Self> {
+        map(be_u8, SerialApiSetupCommand::from).parse(i)
+    }
+}
+
+impl Serializable for SerialApiSetupCommand {
+    fn serialize(&self, output: &mut BytesMut) {
+        serialize::bytes::be_u8(u8::from(*self)).serialize(output)
+    }
+}
+
+impl From<SerialApiSetupCommand> for u8 {
+    fn from(val: SerialApiSetupCommand) -> Self {
+        match val {
+            SerialApiSetupCommand::Unsupported => 0x00,
+            SerialApiSetupCommand::GetSupportedCommands => 0x01,
+            SerialApiSetupCommand::SetTxStatusReport => 0x02,
+            SerialApiSetupCommand::SetPowerlevel => 0x04,
+            SerialApiSetupCommand::GetPowerlevel => 0x08,
+            SerialApiSetupCommand::GetMaximumPayloadSize => 0x10,
+            SerialApiSetupCommand::GetRFRegion => 0x20,
+            SerialApiSetupCommand::SetRFRegion => 0x40,
+            SerialApiSetupCommand::SetNodeIDType => 0x80,
+
+            SerialApiSetupCommand::SetLRMaximumTxPower => 0x03,
+            SerialApiSetupCommand::GetLRMaximumTxPower => 0x05,
+            SerialApiSetupCommand::GetLRMaximumPayloadSize => 0x11,
+            SerialApiSetupCommand::SetPowerlevel16Bit => 0x12,
+            SerialApiSetupCommand::GetPowerlevel16Bit => 0x13,
+
+            SerialApiSetupCommand::Unknown(value) => value,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -194,7 +259,7 @@ impl SerializableWith<&CommandEncodingContext> for SerialApiSetupRequest {
             sequence::tuple,
         };
 
-        be_u8(self.command as u8).serialize(output);
+        self.command.serialize(output);
         match self.payload {
             SerialApiSetupRequestPayload::GetSupportedCommands
             | SerialApiSetupRequestPayload::GetPowerlevel
@@ -291,6 +356,8 @@ pub struct SerialApiSetupResponse {
 #[derive(Debug, Clone, PartialEq)]
 pub enum SerialApiSetupResponsePayload {
     Unsupported(SerialApiSetupCommand),
+    Unknown(u8),
+
     GetSupportedCommands {
         commands: Vec<SerialApiSetupCommand>,
     },
@@ -350,11 +417,13 @@ impl CommandBase for SerialApiSetupResponse {}
 
 impl CommandParsable for SerialApiSetupResponse {
     fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self> {
-        let command = map_res(be_u8, SerialApiSetupCommand::try_from).parse(i)?;
+        let command = SerialApiSetupCommand::parse(i)?;
         let payload = match command {
             SerialApiSetupCommand::Unsupported => {
                 SerialApiSetupResponsePayload::Unsupported(command)
             }
+            SerialApiSetupCommand::Unknown(value) => SerialApiSetupResponsePayload::Unknown(value),
+
             SerialApiSetupCommand::GetSupportedCommands => {
                 let mut commands = if i.len() > 1 {
                     // This module supports the extended bitmask to report the supported serial API setup commands
@@ -364,19 +433,20 @@ impl CommandParsable for SerialApiSetupResponse {
                     // According to the Host API specification, the first bit (bit 0) should be GetSupportedCommands
                     // However, in Z-Wave SDK < 7.19.1, the entire bitmask is shifted by 1 bit and
                     // GetSupportedCommands is encoded in the second bit (bit 1)
-                    let start_value =
+                    let start_value: u8 =
                         if ctx.sdk_version < Some(Version::try_from("7.19.1").unwrap()) {
                             SerialApiSetupCommand::Unsupported
                         } else {
                             SerialApiSetupCommand::GetSupportedCommands
-                        };
+                        }
+                        .into();
 
-                    map_res(
-                        move |i: &mut Bytes| fixed_length_bitmask_u8(i, start_value as u8, i.len()),
+                    map(
+                        move |i: &mut Bytes| fixed_length_bitmask_u8(i, start_value, i.len()),
                         |x| {
                             x.iter()
-                                .map(|x| SerialApiSetupCommand::try_from(*x))
-                                .collect::<Result<Vec<_>, _>>()
+                                .map(|x| SerialApiSetupCommand::from(*x))
+                                .collect::<Vec<_>>()
                         },
                     )
                     .parse(i)?
@@ -397,7 +467,7 @@ impl CommandParsable for SerialApiSetupResponse {
                     commands
                         .into_iter()
                         .filter(|x| {
-                            let x = *x as u8;
+                            let x: u8 = (*x).into();
                             (bitmask & x) == x
                         })
                         .collect()
@@ -493,6 +563,9 @@ impl ToLogPayload for SerialApiSetupResponse {
         let additional = match self.payload {
             SerialApiSetupResponsePayload::Unsupported(ref c) => {
                 return LogPayloadText::new(format!("Unsupported command: {:?}", c)).into()
+            }
+            SerialApiSetupResponsePayload::Unknown(ref c) => {
+                return LogPayloadText::new(format!("Unknown command: {:#04x}", c)).into()
             }
             SerialApiSetupResponsePayload::GetSupportedCommands { ref commands } => {
                 LogPayloadDict::new().with_entry(

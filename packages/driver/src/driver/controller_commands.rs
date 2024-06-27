@@ -1,5 +1,3 @@
-use crate::driver::SerialTaskCommand;
-use crate::driver::UseNodeIDType;
 use crate::exec_background_task;
 use crate::Driver;
 use crate::Ready;
@@ -118,6 +116,8 @@ where
             });
         }
 
+        // FIXME: Store SDK version here too
+
         Ok(version_info)
     }
 
@@ -160,6 +160,14 @@ where
                     .with_nested(protocol_version.to_log_payload())
             });
         }
+
+        // Remember the protocol version and update the context for the serial task
+        self.storage.set_sdk_version(protocol_version.version);
+        exec_background_task!(
+            &self.tasks.serial_cmd,
+            SerialTaskCommand::UseSDKVersion,
+            protocol_version.version
+        )?;
 
         Ok(protocol_version)
     }
@@ -242,6 +250,7 @@ where
             )
         });
 
+        // Remember the node ID type and update the context for the serial task
         if success {
             self.storage.set_node_id_type(node_id_type);
             exec_background_task!(
