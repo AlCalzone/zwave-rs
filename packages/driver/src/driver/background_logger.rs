@@ -1,8 +1,5 @@
 use super::LogTaskCommandSender;
-use crate::{
-    driver::{Log, LogTaskCommand, UseLogLevel},
-    exec_background_task2,
-};
+use crate::bg_task_oneshot;
 use zwave_core::log::Loglevel;
 use zwave_logging::{ImmutableLogger, LogInfo};
 
@@ -19,7 +16,7 @@ impl BackgroundLogger {
 
 impl ImmutableLogger for BackgroundLogger {
     fn log(&self, log: LogInfo, level: Loglevel) {
-        let _ = exec_background_task2!(self.cmd_tx, LogTaskCommand::Log, log, level);
+        let _ = bg_task_oneshot!(self.cmd_tx, LogTaskCommand::Log, log, level);
     }
 
     fn log_level(&self) -> Loglevel {
@@ -27,6 +24,6 @@ impl ImmutableLogger for BackgroundLogger {
     }
 
     fn set_log_level(&self, level: Loglevel) {
-        let _ = exec_background_task2!(self.cmd_tx, LogTaskCommand::UseLogLevel, level);
+        let _ = bg_task_oneshot!(self.cmd_tx, LogTaskCommand::UseLogLevel, level);
     }
 }

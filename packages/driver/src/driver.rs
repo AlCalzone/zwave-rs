@@ -190,7 +190,7 @@ impl Driver<Init> {
 
         // Synchronize the serial port
         logger.verbose(|| "synchronizing serial port...");
-        exec_background_task!(
+        bg_task_async!(
             self.tasks.serial_cmd,
             SerialTaskCommand::SendFrame,
             SerialFrame::ControlFlow(ControlFlow::NAK)
@@ -222,7 +222,7 @@ where
             .await_control_flow_frame(Box::new(|_| true), Some(Duration::from_millis(1600)))
             .await;
         // ...then send the frame
-        exec_background_task!(
+        bg_task_async!(
             &self.tasks.serial_cmd,
             SerialTaskCommand::SendFrame,
             frame.clone()
@@ -254,7 +254,7 @@ where
         predicate: Predicate<ControlFlow>,
         timeout: Option<Duration>,
     ) -> Result<AwaitedRef<ControlFlow>> {
-        exec_background_task!(
+        bg_task_async!(
             self.tasks.main_cmd,
             MainTaskCommand::RegisterAwaitedControlFlowFrame,
             predicate,
@@ -267,7 +267,7 @@ where
         predicate: Predicate<Command>,
         timeout: Option<Duration>,
     ) -> Result<AwaitedRef<Command>> {
-        exec_background_task!(
+        bg_task_async!(
             self.tasks.main_cmd,
             MainTaskCommand::RegisterAwaitedCommand,
             predicate,
@@ -280,7 +280,7 @@ where
         predicate: Predicate<WithAddress<CC>>,
         timeout: Option<Duration>,
     ) -> Result<AwaitedRef<WithAddress<CC>>> {
-        exec_background_task!(
+        bg_task_async!(
             self.tasks.main_cmd,
             MainTaskCommand::RegisterAwaitedCC,
             predicate,
@@ -289,7 +289,7 @@ where
     }
 
     pub async fn get_next_callback_id(&self) -> Result<u8> {
-        exec_background_task!(self.tasks.main_cmd, MainTaskCommand::GetNextCallbackId)
+        bg_task_async!(self.tasks.main_cmd, MainTaskCommand::GetNextCallbackId)
     }
 
     pub async fn execute_serial_api_command<C>(
@@ -465,7 +465,7 @@ where
     }
 }
 
-macro_rules! define_task_commands {
+macro_rules! define_async_task_commands {
     (
         $enum_name:ident$(<$($enum_lt:lifetime),+ $(,)?>)? {
             $( $cmd_name:ident$(<$($lt:lifetime),+ $(,)?>)? -> $cmd_result:ty {
@@ -480,7 +480,7 @@ macro_rules! define_task_commands {
         }
 
         $(
-            define_task_commands!(
+            define_async_task_commands!(
                 @variant $cmd_name$(<$($lt),+>)? -> $cmd_result {
                     $( $field_name : $field_type ),*
                 }
@@ -541,7 +541,71 @@ macro_rules! define_task_commands {
     }
 }
 
-define_task_commands!(MainTaskCommand {
+macro_rules! define_oneshot_task_commands {
+    (
+        $enum_name:ident$(<$($enum_lt:lifetime),+ $(,)?>)? {
+            $( $cmd_name:ident$(<$($lt:lifetime),+ $(,)?>)? {
+                $( $field_name:ident : $field_type:ty ),* $(,)?
+            } ),* $(,)?
+        }
+    ) => {
+        enum $enum_name$(<$($enum_lt),+>)? {
+            $(
+                $cmd_name($cmd_name$(<$($lt),+>)?),
+            )*
+        }
+
+        $(
+            define_oneshot_task_commands!(
+                @variant $cmd_name$(<$($lt),+>)? {
+                    $( $field_name : $field_type ),*
+                }
+            );
+        )*
+    };
+    // Variant with lifetimes
+    (
+        @variant $cmd_name:ident<$($lt:lifetime),+ $(,)?> {
+            $( $field_name:ident : $field_type:ty ),* $(,)?
+        }
+    ) => {
+        struct $cmd_name<$($lt),+> {
+            $( pub $field_name: $field_type ),*,
+        }
+
+        impl<$($lt),+> $cmd_name<$($lt),+> {
+            pub fn new(
+                $( $field_name: $field_type ),*
+            ) -> Self {
+                Self {
+                    $( $field_name ),*,
+                }
+            }
+        }
+    };
+    // Variant without lifetimes
+    (
+        @variant $cmd_name:ident {
+            $( $field_name:ident : $field_type:ty ),* $(,)?
+        }
+    ) => {
+        struct $cmd_name {
+            $( pub $field_name: $field_type ),*
+        }
+
+        impl $cmd_name {
+            pub fn new(
+                $( $field_name: $field_type ),*
+            ) -> Self {
+                Self {
+                    $( $field_name ),*
+                }
+            }
+        }
+    }
+}
+
+define_async_task_commands!(MainTaskCommand {
     RegisterAwaitedCC -> AwaitedRef<WithAddress<CC>> {
         predicate: Predicate<WithAddress<CC>>,
         timeout: Option<Duration>
@@ -761,7 +825,7 @@ async fn main_loop_handle_frame(
     // tokio::time::sleep(Duration::from_millis(10)).await;
 }
 
-define_task_commands!(SerialTaskCommand {
+define_async_task_commands!(SerialTaskCommand {
     // Send the given frame to the serial port
     SendFrame -> Result<()> {
         frame: SerialFrame
@@ -948,13 +1012,13 @@ async fn write_serial(
 }
 
 // FIXME: We need a variant for threads
-define_task_commands!(LogTaskCommand {
+define_oneshot_task_commands!(LogTaskCommand {
     // Set the log level of the given logger
-    UseLogLevel -> () {
+    UseLogLevel {
         level: Loglevel,
     },
     // Log the given message
-    Log -> () {
+    Log {
         log: LogInfo,
         level: Loglevel,
     },
@@ -986,12 +1050,11 @@ fn log_loop(cmd_rx: LogTaskCommandReceiver, loglevel: Loglevel) {
 
 fn log_loop_handle_command(storage: &mut LogLoopStorage, cmd: LogTaskCommand) {
     match cmd {
-        LogTaskCommand::UseLogLevel(UseLogLevel { level, callback: _ }) => {
+        LogTaskCommand::UseLogLevel(UseLogLevel { level }) => {
             storage.logger.set_log_level(level);
         }
 
         LogTaskCommand::Log(Log {
-            callback: _,
             log,
             level,
         }) => {
@@ -1003,7 +1066,22 @@ fn log_loop_handle_command(storage: &mut LogLoopStorage, cmd: LogTaskCommand) {
     }
 }
 
-macro_rules! exec_background_task {
+/// Execute the given command in the given background task and await the result.
+/// ```ignore
+/// bg_task_async!(
+///     task_ref: &Sender<TaskCommand>,
+///     TaskCommand::Variant,
+///     ...args
+/// )?
+/// ```
+///
+/// The command enum MUST be generated with the `define_async_task_commands!` macro.
+/// The second argument to the macro is the variant of the command enum to execute, but without arguments, if there are any.
+/// The arguments of the command are passed to the macro as the remaining arguments.
+///
+/// This invocation will return the result of the command execution, or an `Error::Internal`, if there was a problem communicating
+/// with the background task. To convey an error, the task must return a `Result` itself.
+macro_rules! bg_task_async {
     ($command_sender:expr, $command_type:ident::$variant:ident, $($new_args:tt)*) => {
         {
             let (cmd, rx) = $crate::driver::$variant::new($($new_args)*);
@@ -1014,25 +1092,39 @@ macro_rules! exec_background_task {
     };
 
     ($command_sender:expr, $command_type:ident::$variant:ident) => {
-        exec_background_task!($command_sender, $command_type::$variant,)
+        bg_task_async!($command_sender, $command_type::$variant,)
     }
 
 }
-pub(crate) use exec_background_task;
+pub(crate) use bg_task_async;
 
-// FIXME: This is a shitty name
-macro_rules! exec_background_task2 {
+/// Execute the given command in the given background task **without** waiting for the result.
+/// ```ignore
+/// bg_task_oneshot!(
+///     task_ref: &Sender<TaskCommand>,
+///     TaskCommand::Variant,
+///     ...args
+/// )?
+/// ```
+///
+/// The command enum MUST be generated with the `define_oneshot_task_commands!` macro.
+/// The second argument to the macro is the variant of the command enum to execute, but without arguments, if there are any.
+/// The arguments of the command are passed to the macro as the remaining arguments.
+///
+/// This invocation will return `()`, or an `Error::Internal`, if there was a problem communicating
+/// with the background task.
+macro_rules! bg_task_oneshot {
     ($command_sender:expr, $command_type:ident::$variant:ident, $($new_args:tt)*) => {
         {
-            let (cmd, _rx) = $variant::new($($new_args)*);
-            let cmd = $command_type::$variant(cmd);
+            let cmd = $crate::driver::$variant::new($($new_args)*);
+            let cmd = $crate::driver::$command_type::$variant(cmd);
             $command_sender.send(cmd).map_err(|_| $crate::error::Error::Internal)
         }
     };
 
     ($command_sender:expr, $command_type:ident::$variant:ident) => {
-        exec_background_task2!($command_sender, $command_type::$variant,)
+        bg_task_oneshot!($command_sender, $command_type::$variant,)
     }
 
 }
-pub(crate) use exec_background_task2;
+pub(crate) use bg_task_oneshot;

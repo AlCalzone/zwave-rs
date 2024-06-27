@@ -1,4 +1,4 @@
-use crate::exec_background_task;
+use crate::bg_task_async;
 use crate::Driver;
 use crate::Ready;
 use crate::SerialApiMachineResult;
@@ -163,7 +163,7 @@ where
 
         // Remember the protocol version and update the context for the serial task
         self.storage.set_sdk_version(protocol_version.version);
-        exec_background_task!(
+        bg_task_async!(
             &self.tasks.serial_cmd,
             SerialTaskCommand::UseSDKVersion,
             protocol_version.version
@@ -253,7 +253,7 @@ where
         // Remember the node ID type and update the context for the serial task
         if success {
             self.storage.set_node_id_type(node_id_type);
-            exec_background_task!(
+            bg_task_async!(
                 &self.tasks.serial_cmd,
                 SerialTaskCommand::UseNodeIDType,
                 node_id_type
