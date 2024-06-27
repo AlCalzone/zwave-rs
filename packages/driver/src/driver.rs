@@ -19,13 +19,13 @@ use zwave_core::util::now;
 use zwave_core::value_id::EndpointValueId;
 use zwave_core::wrapping_counter::WrappingCounter;
 use zwave_core::{prelude::*, submodule};
-use zwave_logging::loggers::base::BaseLogger;
-use zwave_logging::loggers::controller::ControllerLogger;
-use zwave_logging::loggers::driver::DriverLogger;
-use zwave_logging::loggers::node::NodeLogger;
-use zwave_logging::loggers::serial::SerialLogger;
+use zwave_logging::loggers::{
+    base::BaseLogger, controller::ControllerLogger, driver::DriverLogger, node::NodeLogger,
+    serial::SerialLogger,
+};
 use zwave_logging::{Direction, LogInfo, Logger};
 use zwave_serial::binding::SerialBinding;
+use zwave_serial::command::AsCommandRaw;
 use zwave_serial::frame::{ControlFlow, RawSerialFrame, SerialFrame};
 use zwave_serial::prelude::*;
 use zwave_serial::serialport::{SerialPort, TcpSocket, ZWavePort};
@@ -144,8 +144,8 @@ impl Driver<Init> {
             }
         };
 
-        let storage = DriverStorage::new(Default::default(), driver_logger, controller_logger);
-        let shared_storage = Arc::new(DriverStorageShared::new(bg_logger));
+        let storage = DriverStorage::new(driver_logger, controller_logger);
+        let shared_storage = Arc::new(DriverStorageShared::new(bg_logger, NodeIdType::NodeId8Bit));
 
         // Start the background task for the main logic
         let main_task = tokio::spawn(main_loop(
@@ -193,7 +193,7 @@ impl Driver<Init> {
         bg_task_async!(
             self.tasks.serial_cmd,
             SerialTaskCommand::SendFrame,
-            SerialFrame::ControlFlow(ControlFlow::NAK)
+            RawSerialFrame::ControlFlow(ControlFlow::NAK)
         )??;
 
         let ready = self.interview_controller().await?;
@@ -216,35 +216,13 @@ where
     S: DriverState,
 {
     /// Write a frame to the serial port, returning a reference to the awaited ACK frame
-    pub async fn write_serial(&self, frame: SerialFrame) -> Result<AwaitedRef<ControlFlow>> {
+    pub async fn write_serial(&self, frame: RawSerialFrame) -> Result<AwaitedRef<ControlFlow>> {
         // Register an awaiter for the ACK frame
         let ret = self
             .await_control_flow_frame(Box::new(|_| true), Some(Duration::from_millis(1600)))
             .await;
         // ...then send the frame
-        bg_task_async!(
-            &self.tasks.serial_cmd,
-            SerialTaskCommand::SendFrame,
-            frame.clone()
-        )??;
-
-        // And log the command information if this was a command
-        if let SerialFrame::Command(cmd) = &frame {
-            let node_id = match cmd {
-                // FIXME: Extract the endpoint index aswell
-                Command::SendDataRequest(cmd) => Some(cmd.node_id),
-                _ => None,
-            };
-
-            if let Some(node_id) = node_id {
-                self.node_log(node_id, EndpointIndex::Root)
-                    .command(cmd, Direction::Outbound);
-            } else {
-                self.storage
-                    .controller_logger()
-                    .command(cmd, Direction::Outbound);
-            }
-        }
+        bg_task_async!(&self.tasks.serial_cmd, SerialTaskCommand::SendFrame, frame)??;
 
         ret
     }
@@ -297,8 +275,7 @@ where
         mut command: C,
     ) -> Result<SerialApiMachineResult>
     where
-        C: CommandRequest + Clone + 'static,
-        SerialFrame: From<C>,
+        C: CommandRequest + AsCommandRaw + Into<Command> + Clone + 'static,
     {
         // Set up state machine and interpreter
         let mut state_machine = SerialApiMachine::new();
@@ -359,12 +336,33 @@ where
                     match state_machine.state() {
                         SerialApiMachineState::Initial => (),
                         SerialApiMachineState::Sending => {
-                            // FIXME: We should take a reference here and use try_into()
-                            let frame = SerialFrame::from(command.clone());
+                            let ctx = CommandEncodingContext::builder()
+                                .node_id_type(self.shared_storage.node_id_type())
+                                .sdk_version(self.shared_storage.sdk_version())
+                                .build();
+
+                            let raw = command.as_raw(&ctx);
+                            let frame = SerialFrame::Command(raw);
                             // Send the command to the controller
-                            awaited_ack = Some(self.write_serial(frame).await?);
+                            awaited_ack = Some(self.write_serial(frame.into()).await?);
                             // and notify the state machine
                             next_input = Some(SerialApiMachineInput::FrameSent);
+
+                            // And log the command information if this was a command
+                            let node_id = match Into::<Command>::into(command.clone()) {
+                                // FIXME: Extract the endpoint index aswell
+                                Command::SendDataRequest(cmd) => Some(cmd.node_id),
+                                _ => None,
+                            };
+
+                            if let Some(node_id) = node_id {
+                                self.node_log(node_id, EndpointIndex::Root)
+                                    .command(&command, Direction::Outbound);
+                            } else {
+                                self.storage
+                                    .controller_logger()
+                                    .command(&command, Direction::Outbound);
+                            }
                         }
                         SerialApiMachineState::WaitingForACK => {
                             // Wait for ACK, but also accept CAN and NAK
@@ -731,68 +729,74 @@ async fn main_loop_handle_frame(
     _serial_cmd: &SerialTaskCommandSender,
     shared_storage: &Arc<DriverStorageShared>,
 ) {
-    // Persist CC values. TODO: test first if we should
-    if let SerialFrame::Command(cmd) = &frame {
-        let cc = match cmd {
-            Command::ApplicationCommandRequest(cmd) => Some(&cmd.command),
-            Command::BridgeApplicationCommandRequest(cmd) => Some(&cmd.command),
-            _ => None,
-        };
-        if let Some(cc) = cc {
-            let mut cache = ValueCache::new(shared_storage);
-            persist_cc_values(cc, &mut cache);
-        }
-    }
-
-    // Log the received command
-    if let SerialFrame::Command(cmd) = &frame {
-        let address = match cmd {
-            Command::ApplicationCommandRequest(cmd) => Some(cmd.command.address()),
-            Command::BridgeApplicationCommandRequest(cmd) => Some(cmd.command.address()),
-            _ => None,
-        };
-
-        if let Some(address) = address {
-            let node_logger = NodeLogger::new(
-                storage.bg_logger.clone(),
-                address.source_node_id,
-                address.endpoint_index,
-            );
-            node_logger.command(cmd, Direction::Inbound);
-        } else {
-            storage.controller_logger.command(cmd, Direction::Inbound);
-        }
-    }
-
-    // TODO: Consider if we need to always handle something here
-    match &frame {
+    match frame {
         SerialFrame::ControlFlow(cf) => {
             // If the awaited control-flow-frame registry has a matching awaiter,
             // remove it and send the frame through its channel
-            if let Some(channel) = storage.awaited_control_flow_frames.take_matching(cf) {
+            if let Some(channel) = storage.awaited_control_flow_frames.take_matching(&cf) {
                 channel
-                    .send(*cf)
+                    .send(cf)
                     .expect("invoking the callback of an Awaited should not fail");
-
-                #[allow(clippy::needless_return)]
                 return;
             }
         }
-        SerialFrame::Command(cmd) => {
+
+        SerialFrame::Command(raw) => {
+            // Try to convert it into an actual command
+            let ctx = CommandEncodingContext::builder()
+                .node_id_type(shared_storage.node_id_type())
+                .sdk_version(shared_storage.sdk_version())
+                .build();
+            let cmd = match zwave_serial::command::Command::try_from_raw(raw, &ctx) {
+                Ok(cmd) => cmd,
+                Err(e) => {
+                    println!("{} failed to decode CommandRaw: {}", now(), e);
+                    // TODO: Handle misformatted frames
+                    return;
+                }
+            };
+
+            // Persist CC values. TODO: test first if we should
+            let cc = match &cmd {
+                Command::ApplicationCommandRequest(cmd) => Some(&cmd.command),
+                Command::BridgeApplicationCommandRequest(cmd) => Some(&cmd.command),
+                _ => None,
+            };
+            if let Some(cc) = cc {
+                let mut cache = ValueCache::new(shared_storage);
+                persist_cc_values(&cc, &mut cache);
+            }
+
+            // Log the received command
+            let address = match &cmd {
+                Command::ApplicationCommandRequest(cmd) => Some(cmd.command.address()),
+                Command::BridgeApplicationCommandRequest(cmd) => Some(cmd.command.address()),
+                _ => None,
+            };
+
+            if let Some(address) = address {
+                let node_logger = NodeLogger::new(
+                    storage.bg_logger.clone(),
+                    address.source_node_id,
+                    address.endpoint_index,
+                );
+                node_logger.command(&cmd, Direction::Inbound);
+            } else {
+                storage.controller_logger.command(&cmd, Direction::Inbound);
+            }
+
             // If the awaited command registry has a matching awaiter,
             // remove it and send the command through its channel
-            if let Some(channel) = storage.awaited_commands.take_matching(cmd) {
+            if let Some(channel) = storage.awaited_commands.take_matching(&cmd) {
                 channel
                     .send(cmd.clone())
                     .expect("invoking the callback of an Awaited should not fail");
-
-                #[allow(clippy::needless_return)]
                 return;
             }
 
             // Otherwise, figure out what to do with the command
             // TODO: This is a bit awkward due to the duplication
-            match cmd {
+            match &cmd {
                 Command::ApplicationCommandRequest(cmd) => {
                     // If the awaited CC registry has a matching awaiter,
                     // remove it and send the CC through its channel
@@ -818,34 +822,24 @@ async fn main_loop_handle_frame(
                 _ => {}
             }
 
-            println!("TODO: Handle command {:?}", cmd);
+            println!("TODO: Handle command {:?}", &cmd);
         }
         _ => {}
     }
-    // tokio::time::sleep(Duration::from_millis(10)).await;
 }
+// tokio::time::sleep(Duration::from_millis(10)).await;
 
 define_async_task_commands!(SerialTaskCommand {
     // Send the given frame to the serial port
     SendFrame -> Result<()> {
-        frame: SerialFrame
+        frame: RawSerialFrame
     },
-    // Use the given node ID type for parsing frames
-    UseNodeIDType -> () {
-        node_id_type: NodeIdType
-    },
-    // Use the given SDK version for parsing frames
-    UseSDKVersion -> () {
-        sdk_version: Version
-    }
 });
 
 type SerialTaskCommandSender = TaskCommandSender<SerialTaskCommand>;
 type SerialTaskCommandReceiver = TaskCommandReceiver<SerialTaskCommand>;
 
 struct SerialLoopStorage {
-    sdk_version: Option<Version>,
-    node_id_type: NodeIdType,
     logger: SerialLogger,
 }
 
@@ -856,11 +850,7 @@ async fn serial_loop(
     shutdown: Arc<Notify>,
     frame_emitter: SerialFrameEmitter,
 ) {
-    let mut storage = SerialLoopStorage {
-        node_id_type: Default::default(),
-        sdk_version: None,
-        logger,
-    };
+    let mut storage = SerialLoopStorage { logger };
 
     loop {
         // Whatever happens first gets handled first.
@@ -887,34 +877,9 @@ async fn serial_loop_handle_command(
 ) {
     match cmd {
         SerialTaskCommand::SendFrame(SendFrame { frame, callback }) => {
-            let ctx = CommandEncodingContext::builder()
-                .node_id_type(storage.node_id_type)
-                .build();
-
-            // Try encoding the frame
-            let raw = frame.as_raw(&ctx);
-            let result = write_serial(port, raw, &storage.logger).await;
-
+            let result = write_serial(port, frame, &storage.logger).await;
             callback
                 .send(result)
-                .expect("invoking the callback of a SerialTaskCommand should not fail");
-        }
-        SerialTaskCommand::UseNodeIDType(UseNodeIDType {
-            node_id_type,
-            callback,
-        }) => {
-            storage.node_id_type = node_id_type;
-            callback
-                .send(())
-                .expect("invoking the callback of a SerialTaskCommand should not fail");
-        }
-        SerialTaskCommand::UseSDKVersion(UseSDKVersion {
-            sdk_version,
-            callback,
-        }) => {
-            storage.sdk_version = Some(sdk_version);
-            callback
-                .send(())
                 .expect("invoking the callback of a SerialTaskCommand should not fail");
         }
     }
@@ -942,19 +907,7 @@ async fn serial_loop_handle_frame(
                     .await
                     .unwrap();
 
-                    // Now try to convert it into an actual command
-                    let ctx = CommandEncodingContext::builder()
-                        .node_id_type(storage.node_id_type)
-                        .sdk_version(storage.sdk_version)
-                        .build();
-                    match zwave_serial::command::Command::try_from_raw(raw, &ctx) {
-                        Ok(cmd) => Some(SerialFrame::Command(cmd)),
-                        Err(e) => {
-                            println!("{} error: {}", now(), e);
-                            // TODO: Handle misformatted frames
-                            None
-                        }
-                    }
+                    Some(SerialFrame::Command(raw))
                 }
                 Err(e) => {
                     println!("{} error: {}", now(), e);
@@ -1054,10 +1007,7 @@ fn log_loop_handle_command(storage: &mut LogLoopStorage, cmd: LogTaskCommand) {
             storage.logger.set_log_level(level);
         }
 
-        LogTaskCommand::Log(Log {
-            log,
-            level,
-        }) => {
+        LogTaskCommand::Log(Log { log, level }) => {
             storage.logger.log(log, level);
         }
 

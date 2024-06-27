@@ -55,7 +55,7 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
         let origin = c.origin;
         quote! {
             (#command_type, #function_type, #origin) => {
-                #command_name::parse(&mut payload, &ctx).map(Self::#command_name)
+                #command_name::parse(&mut payload, ctx).map(Self::#command_name)
             }
         }
     });
@@ -63,9 +63,14 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
     let command_raw_serial_frame_conversions = commands.iter().map(|c| {
         let command_name = c.command_name;
         quote! {
-            impl From<#command_name> for SerialFrame {
-                fn from(val: #command_name) -> Self {
-                    SerialFrame::Command(val.into())
+            impl AsCommandRaw for #command_name {
+                fn as_raw(&self, ctx: &CommandEncodingContext) -> CommandRaw {
+                    CommandRaw {
+                        command_type: self.command_type(),
+                        function_type: self.function_type(),
+                        payload: self.as_bytes(&ctx),
+                        checksum: 0, // placeholder
+                    }
                 }
             }
         }
@@ -128,15 +133,6 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
                     }
                 }
                 ret
-            }
-
-            pub fn as_raw(self, ctx: &CommandEncodingContext) -> CommandRaw {
-                CommandRaw {
-                    command_type: self.command_type(),
-                    function_type: self.function_type(),
-                    payload: self.as_bytes(&ctx),
-                    checksum: 0, // placeholder
-                }
             }
         }
 
@@ -215,13 +211,13 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
         if let Some(cc_command) = cc_command {
             quote! {
                 (#cc_id, Some(#cc_command)) => {
-                    #cc_name::parse(&mut payload, &ctx).map(Self::#cc_name)
+                    #cc_name::parse(&mut payload, ctx).map(Self::#cc_name)
                 }
             }
         } else {
             quote! {
                 (#cc_id, None) => {
-                    #cc_name::parse(&mut payload, &ctx).map(Self::#cc_name)
+                    #cc_name::parse(&mut payload, ctx).map(Self::#cc_name)
                 }
             }
         }

@@ -9,6 +9,7 @@ use zwave_core::log::Loglevel;
 use zwave_core::prelude::*;
 use zwave_serial::command::ApplicationUpdateRequest;
 use zwave_serial::command::ApplicationUpdateRequestPayload;
+use zwave_serial::command::AsCommandRaw;
 use zwave_serial::command::RequestNodeInfoRequest;
 use zwave_serial::command::{
     Command, CommandBase, CommandRequest, GetControllerCapabilitiesRequest,
@@ -19,6 +20,7 @@ use zwave_serial::command::{
     GetSucNodeIdRequest, SerialApiSetupCommand, SerialApiSetupRequest,
     SerialApiSetupResponsePayload, SetSucNodeIdRequest,
 };
+use zwave_serial::command_raw::CommandRaw;
 use zwave_serial::frame::SerialFrame;
 
 // FIXME: Having a wrapper for this with the correct command options set would be nicer API-wise
@@ -161,13 +163,9 @@ where
             });
         }
 
-        // Remember the protocol version and update the context for the serial task
-        self.storage.set_sdk_version(protocol_version.version);
-        bg_task_async!(
-            &self.tasks.serial_cmd,
-            SerialTaskCommand::UseSDKVersion,
-            protocol_version.version
-        )?;
+        // Remember the protocol version
+        self.shared_storage
+            .set_sdk_version(protocol_version.version);
 
         Ok(protocol_version)
     }
@@ -250,14 +248,9 @@ where
             )
         });
 
-        // Remember the node ID type and update the context for the serial task
+        // Remember the node ID type
         if success {
-            self.storage.set_node_id_type(node_id_type);
-            bg_task_async!(
-                &self.tasks.serial_cmd,
-                SerialTaskCommand::UseNodeIDType,
-                node_id_type
-            )?;
+            self.shared_storage.set_node_id_type(node_id_type);
         }
 
         Ok(success)
@@ -459,8 +452,7 @@ where
         options: Option<&ExecControllerCommandOptions>,
     ) -> ExecControllerCommandResult<Option<Command>>
     where
-        C: CommandRequest + Clone + 'static,
-        SerialFrame: From<C>,
+        C: CommandRequest + AsCommandRaw + Into<Command> + Clone + 'static,
     {
         let options = match options {
             Some(options) => options.clone(),

@@ -1,4 +1,4 @@
-use crate::prelude::{Command, CommandEncodingContext};
+use crate::prelude::{Command, CommandEncodingContext, CommandRaw};
 use bytes::{Buf, Bytes, BytesMut};
 use proc_macros::TryFromRepr;
 use std::fmt::Display;
@@ -51,7 +51,7 @@ pub enum RawSerialFrame {
 #[derive(Clone, Debug, PartialEq)]
 pub enum SerialFrame {
     ControlFlow(ControlFlow),
-    Command(Command),
+    Command(CommandRaw),
     Raw(Bytes),
 }
 
@@ -116,15 +116,12 @@ impl Serializable for RawSerialFrame {
     }
 }
 
-impl SerialFrame {
-    pub fn as_raw(self, ctx: &CommandEncodingContext) -> RawSerialFrame {
-        match self {
-            SerialFrame::ControlFlow(byte) => RawSerialFrame::ControlFlow(byte),
-            SerialFrame::Command(cmd) => {
-                let data = cmd.as_raw(ctx).as_bytes();
-                RawSerialFrame::Data(data)
-            }
-            SerialFrame::Raw(data) => RawSerialFrame::Data(data),
+impl From<SerialFrame> for RawSerialFrame {
+    fn from(value: SerialFrame) -> Self {
+        match value {
+            SerialFrame::ControlFlow(byte) => Self::ControlFlow(byte),
+            SerialFrame::Command(cmd) => Self::Data(cmd.as_bytes()),
+            SerialFrame::Raw(data) => Self::Data(data),
         }
     }
 }

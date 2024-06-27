@@ -41,7 +41,7 @@ impl NodeLogger {
     }
 
     // FIXME: Remove duplication with DriverLogger
-    pub fn command(&self, command: &Command, direction: Direction) {
+    pub fn command(&self, command: &impl CommandId, direction: Direction) {
         let level = Loglevel::Debug;
         if self.inner.log_level() < level {
             return;

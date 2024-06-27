@@ -92,10 +92,8 @@ pub trait CommandRequest: CommandId {
     fn set_callback_id(&mut self, _callback_id: Option<u8>) {}
 }
 
-impl From<Command> for SerialFrame {
-    fn from(val: Command) -> Self {
-        SerialFrame::Command(val)
-    }
+pub trait AsCommandRaw {
+    fn as_raw(&self, ctx: &CommandEncodingContext) -> CommandRaw;
 }
 
 #[derive(Debug, Clone, PartialEq)]

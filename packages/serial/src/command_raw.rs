@@ -1,3 +1,4 @@
+use crate::frame::SerialFrame;
 use crate::{frame::SerialControlByte, util::hex_fmt};
 use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
@@ -105,6 +106,12 @@ impl Serializable for CommandRaw {
         buf[len - 1] = checksum;
 
         slice(buf).serialize(output);
+    }
+}
+
+impl From<CommandRaw> for SerialFrame {
+    fn from(val: CommandRaw) -> Self {
+        SerialFrame::Command(val)
     }
 }
 
