@@ -3,25 +3,28 @@ use bytes::{Bytes, BytesMut};
 use proc_macros::{CCValues, TryFromRepr};
 use typed_builder::TypedBuilder;
 use ux::{u2, u4};
-use zwave_core::parse::{
-    bits::{self, bool},
-    bytes::{be_u8, complete::take},
-    fail_validation, validate,
-};
 use zwave_core::prelude::*;
 use zwave_core::security::{compute_mac, decrypt_aes_ofb, S0Nonce, MAC_SIZE, S0_HALF_NONCE_SIZE};
 use zwave_core::serialize;
+use zwave_core::{
+    parse::{
+        bits::{self, bool},
+        bytes::{be_u8, complete::take},
+        fail_validation, validate,
+    },
+    security::encrypt_aes_ofb,
+};
 
-struct S0AuthData {
-    sender_nonce: Bytes,
-    receiver_nonce: Bytes,
+struct S0AuthData<'a> {
+    sender_nonce: &'a [u8],
+    receiver_nonce: &'a [u8],
     cc_command: SecurityCCCommand,
     sending_node_id: NodeId,
     receiving_node_id: NodeId,
-    ciphertext: Bytes,
+    ciphertext: &'a [u8],
 }
 
-impl Serializable for S0AuthData {
+impl Serializable for S0AuthData<'_> {
     fn serialize(&self, output: &mut BytesMut) {
         use serialize::bytes::{be_u8, slice};
 
@@ -139,14 +142,29 @@ impl ToLogPayload for SecurityCCNonceReport {
 
 #[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]
 pub struct SecurityCCCommandEncapsulation {
-    pub encapsulated: Box<CC>,
+    // TODO: Consider typestate to distinguish between received, sent and partial commands
+    encapsulated: Box<CC>,
+    nonce: Option<S0Nonce>,
+    enc_key: Option<Vec<u8>>,
+    auth_key: Option<Vec<u8>>,
 }
 
 impl SecurityCCCommandEncapsulation {
     pub fn new(encapsulated: CC) -> Self {
         Self {
             encapsulated: Box::new(encapsulated),
+            nonce: None,
+            enc_key: None,
+            auth_key: None,
         }
+    }
+
+    pub fn set_nonce(&mut self, nonce: S0Nonce) {
+        self.nonce = Some(nonce);
+    }
+
+    pub fn nonce(&self) -> Option<&S0Nonce> {
+        self.nonce.as_ref()
     }
 }
 
@@ -158,8 +176,9 @@ impl CCBase for SecurityCCCommandEncapsulation {
 
     fn test_response(&self, response: &CC) -> bool {
         // The encapsulated CC decides whether the response is the expected one
-        let CC::SecurityCCCommandEncapsulation(SecurityCCCommandEncapsulation { encapsulated }) =
-            response
+        let CC::SecurityCCCommandEncapsulation(SecurityCCCommandEncapsulation {
+            encapsulated, ..
+        }) = response
         else {
             return false;
         };
@@ -218,12 +237,12 @@ impl CCParsable for SecurityCCCommandEncapsulation {
 
         // Validate the encrypted data
         let auth_data = S0AuthData {
-            sender_nonce: sender_nonce.clone(),
-            receiver_nonce: nonce.get().clone(),
+            sender_nonce: &sender_nonce,
+            receiver_nonce: nonce.get(),
             cc_command: SecurityCCCommand::CommandEncapsulation,
             sending_node_id: source_node_id,
             receiving_node_id: own_node_id,
-            ciphertext: ciphertext.clone(),
+            ciphertext: &ciphertext,
         }
         .as_bytes();
 
@@ -253,14 +272,61 @@ impl CCParsable for SecurityCCCommandEncapsulation {
 
         Ok(Self {
             encapsulated: Box::new(encapsulated),
+            nonce: Some(nonce),
+            enc_key: None,
+            auth_key: None,
         })
     }
 }
 
 impl SerializableWith<&CCEncodingContext> for SecurityCCCommandEncapsulation {
     fn serialize(&self, output: &mut BytesMut, ctx: &CCEncodingContext) {
-        use serialize::{bytes::be_u8, sequence::tuple};
-        todo!("ERROR: SecurityCCCommandEncapsulation::serialize() not implemented")
+        use serialize::{bytes::be_u8, bytes::slice, sequence::tuple};
+
+        // FIXME: Typestate might avoid this. The nonce is technically the receiver's nonce
+        let receiver_nonce = self
+            .nonce
+            .as_ref()
+            .expect("Nonce must be set before serializing a SecurityCCCommandEncapsulation");
+        let enc_key = self.enc_key.as_ref().expect(
+            "Encryption key must be set before serializing a SecurityCCCommandEncapsulation",
+        );
+        let auth_key = self.auth_key.as_ref().expect(
+            "Authentication key must be set before serializing a SecurityCCCommandEncapsulation",
+        );
+
+        let command = self.encapsulated.clone();
+        let payload = command.as_raw(ctx).as_bytes();
+
+        let plaintext = [
+            &[0u8], // TODO: Frame control / sequenced frames
+            &payload[..],
+        ]
+        .concat();
+
+        // Encrypt the plaintext
+        let sender_nonce = S0Nonce::random();
+        let iv = [sender_nonce.get().as_ref(), receiver_nonce.get().as_ref()].concat();
+        let ciphertext = encrypt_aes_ofb(&plaintext, enc_key, &iv);
+
+        // Authenticate the encrypted data
+        let auth_data = S0AuthData {
+            sender_nonce: sender_nonce.get(),
+            receiver_nonce: receiver_nonce.get(),
+            cc_command: SecurityCCCommand::CommandEncapsulation,
+            sending_node_id: ctx.own_node_id,
+            receiving_node_id: ctx.node_id,
+            ciphertext: &ciphertext,
+        };
+        let auth_code = compute_mac(&auth_data.as_bytes(), auth_key);
+
+        tuple((
+            slice(sender_nonce.get()),
+            slice(ciphertext),
+            be_u8(receiver_nonce.id()),
+            slice(auth_code),
+        ))
+        .serialize(output);
     }
 }
 
