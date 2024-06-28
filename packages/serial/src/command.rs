@@ -1,7 +1,10 @@
+use std::sync::{Arc, RwLock};
+
 use crate::prelude::*;
 use bytes::Bytes;
 use typed_builder::TypedBuilder;
 use zwave_core::prelude::*;
+use zwave_core::security::SecurityManager;
 use zwave_core::submodule;
 
 use crate::{frame::SerialFrame, util::hex_fmt};
@@ -14,7 +17,7 @@ submodule!(misc);
 submodule!(transport);
 submodule!(network_mgmt);
 
-#[derive(Default, Debug, Clone, PartialEq, TypedBuilder)]
+#[derive(Default, TypedBuilder)]
 #[builder(field_defaults(default))]
 pub struct CommandEncodingContext {
     #[builder(default, setter(into))]
@@ -22,11 +25,22 @@ pub struct CommandEncodingContext {
     node_id_type: NodeIdType,
 }
 
+#[derive(Default, TypedBuilder)]
+#[builder(field_defaults(default))]
+pub struct CommandParsingContext {
+    own_node_id: NodeId,
+    #[builder(default, setter(into))]
+    sdk_version: Option<Version>,
+    node_id_type: NodeIdType,
+    #[builder(default, setter(into))]
+    security_manager: Option<Arc<RwLock<SecurityManager>>>,
+}
+
 pub trait CommandParsable
 where
     Self: Sized + CommandBase,
 {
-    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self>;
+    fn parse(i: &mut Bytes, ctx: &mut CommandParsingContext) -> ParseResult<Self>;
 }
 
 #[enum_dispatch(Command)]

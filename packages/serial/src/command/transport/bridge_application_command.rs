@@ -37,13 +37,18 @@ impl CommandId for BridgeApplicationCommandRequest {
 impl CommandBase for BridgeApplicationCommandRequest {}
 
 impl CommandParsable for BridgeApplicationCommandRequest {
-    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, ctx: &mut CommandParsingContext) -> ParseResult<Self> {
         let frame_info = FrameInfo::parse(i)?;
         let destination_node_id = NodeId::parse(i, ctx.node_id_type)?;
         let source_node_id = NodeId::parse(i, ctx.node_id_type)?;
         let cc = map_res(length_value(be_u8, CCRaw::parse), |raw| {
-            let ctx = CCParsingContext::default();
-            CC::try_from_raw(raw, &ctx)
+            let mut ctx = CCParsingContext::builder()
+            .source_node_id(source_node_id)
+            .frame_addressing(frame_info.frame_addressing)
+                .own_node_id(ctx.own_node_id)
+                .security_manager(ctx.security_manager.clone())
+                .build();
+            CC::try_from_raw(raw, &mut ctx)
         })
         .parse(i)?;
         let multicast_node_id_bitmask = variable_length_bitmask_u8(i, 1)?;

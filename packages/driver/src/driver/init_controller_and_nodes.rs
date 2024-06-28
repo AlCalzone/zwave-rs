@@ -13,7 +13,7 @@ impl Driver<Init> {
         let command_options = ExecControllerCommandOptions::builder()
             .enforce_support(false)
             .build();
-        let command_options = Some(&command_options);
+        let command_options: Option<&ExecControllerCommandOptions> = Some(&command_options);
 
         // TODO: Log results
         let api_capabilities = self.get_serial_api_capabilities(command_options).await?;

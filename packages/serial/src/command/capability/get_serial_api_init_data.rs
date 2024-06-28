@@ -40,7 +40,7 @@ impl CommandRequest for GetSerialApiInitDataRequest {
 }
 
 impl CommandParsable for GetSerialApiInitDataRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &mut CommandParsingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
@@ -86,7 +86,7 @@ impl CommandId for GetSerialApiInitDataResponse {
 impl CommandBase for GetSerialApiInitDataResponse {}
 
 impl CommandParsable for GetSerialApiInitDataResponse {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &mut CommandParsingContext) -> ParseResult<Self> {
         let api_version = ZWaveApiVersion::parse(i)?;
         let (_reserved, is_sis, is_primary, supports_timers, node_type) =
             bits::bits((u4::parse, bool, bool, bool, NodeType::parse)).parse(i)?;
@@ -164,7 +164,7 @@ impl ToLogPayload for GetSerialApiInitDataResponse {
 mod test {
     use crate::{command::GetSerialApiInitDataResponse, prelude::*};
     use bytes::Bytes;
-    use zwave_core::{prelude::*, };
+    use zwave_core::prelude::*;
 
     #[test]
     fn test_serialize() {
@@ -216,7 +216,7 @@ mod test {
             chip_type: Some(ChipType::EFR32xG1x),
         };
         let actual =
-            GetSerialApiInitDataResponse::parse(&mut input, &CommandEncodingContext::default())
+            GetSerialApiInitDataResponse::parse(&mut input, &mut CommandParsingContext::default())
                 .unwrap();
         assert_eq!(actual, expected)
     }

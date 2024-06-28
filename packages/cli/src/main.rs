@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use zwave_core::log::Loglevel;
-use zwave_driver::DriverOptions;
+use zwave_core::{definitions::NodeId, hex_literal, log::Loglevel};
+use zwave_driver::{DriverOptions, SecurityKeys};
 
 #[cfg(target_os = "linux")]
 // const PORT: &str = "/dev/ttyUSB0";
@@ -16,6 +16,10 @@ async fn main() {
     let options = DriverOptions::builder()
         .path(PORT)
         // .loglevel(Loglevel::Silly)
+        .security_keys(SecurityKeys {
+            s0_legacy: Some([0; 16].to_vec()),
+            ..Default::default()
+        })
         .build();
     let driver = zwave_driver::Driver::new(options).unwrap();
 
@@ -26,7 +30,9 @@ async fn main() {
 
     // node2.ping().await.unwrap();
 
-    // let node = driver.get_node(&NodeId::new(2u8)).unwrap();
+    // let node = driver.get_node(&NodeId::new(3u8)).unwrap();
+    // let nonce = node.cc_api().security().get_nonce().await.unwrap();
+    // println!("nonce: {:#?}", &nonce);
 
     // node.cc_api().basic().set(LevelSet::Off).await.unwrap();
 
@@ -131,7 +137,7 @@ async fn main() {
     // // let result = driver.execute_serial_api_command(cmd).await.unwrap();
     // println!("execute result: {:?}", result);
 
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::time::sleep(Duration::from_millis(1000)).await;
 
     drop(driver);
     println!("driver stopped");

@@ -42,6 +42,8 @@ pub fn decrypt_aes_ofb(ciphertext: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8> {
     buf
 }
 
+pub const MAC_SIZE: usize = 8;
+
 pub fn compute_mac(plaintext: &[u8], key: &[u8]) -> Vec<u8> {
     let iv = [0u8; 16];
     compute_mac_iv(plaintext, key, &iv)
@@ -51,7 +53,7 @@ pub fn compute_mac_iv(plaintext: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8> {
     let cipher = Aes128CbcEnc::new(key.into(), iv.into());
     let buf = cipher.encrypt_padded_vec_mut::<ZeroPadding>(plaintext);
     // The MAC is the first 8 bytes of the last 16 byte block
-    buf[buf.len() - 16..][..8].to_vec()
+    buf[buf.len() - 16..][..MAC_SIZE].to_vec()
 }
 
 // Decodes a DER-encoded x25519 key (PKCS#8 or SPKI)

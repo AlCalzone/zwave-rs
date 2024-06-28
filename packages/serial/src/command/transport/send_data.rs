@@ -60,11 +60,13 @@ impl CommandRequest for SendDataRequest {
 }
 
 impl CommandParsable for SendDataRequest {
-    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, ctx: &mut CommandParsingContext) -> ParseResult<Self> {
         let node_id = NodeId::parse(i, ctx.node_id_type)?;
         let cc = map_res(length_value(be_u8, CCRaw::parse), |raw| {
-            let ctx = CCParsingContext::default();
-            CC::try_from_raw(raw, &ctx)
+            let mut ctx = CCParsingContext::builder()
+                .security_manager(ctx.security_manager.clone())
+                .build();
+            CC::try_from_raw(raw, &mut ctx)
         })
         .parse(i)?;
         let transmit_options = TransmitOptions::parse(i)?;
@@ -137,7 +139,7 @@ impl CommandId for SendDataResponse {
 }
 
 impl CommandParsable for SendDataResponse {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &mut CommandParsingContext) -> ParseResult<Self> {
         let was_sent = map(be_u8, |x| x > 0).parse(i)?;
         Ok(Self { was_sent })
     }
@@ -190,7 +192,7 @@ impl CommandId for SendDataCallback {
 }
 
 impl CommandParsable for SendDataCallback {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &mut CommandParsingContext) -> ParseResult<Self> {
         let callback_id = be_u8(i)?;
         let transmit_status = TransmitStatus::parse(i)?;
         let transmit_report = TransmitReport::parse(i, transmit_status != TransmitStatus::NoAck)?;

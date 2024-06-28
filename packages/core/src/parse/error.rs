@@ -104,6 +104,11 @@ pub fn validate(condition: bool, message: impl Into<Cow<'static, str>>) -> Parse
     }
 }
 
+/// Returns a Parse error indicating that a validation failed.
+pub fn fail_validation<T>(message: impl Into<Cow<'static, str>>) -> ParseResult<T> {
+    Err(ParseError::validation_failure(message))
+}
+
 /// Returns a Parse error indicating that this parser is not implemented yet.
 pub fn parser_not_implemented<T>(message: impl Into<Cow<'static, str>>) -> ParseResult<T> {
     Err(ParseError::not_implemented(message))

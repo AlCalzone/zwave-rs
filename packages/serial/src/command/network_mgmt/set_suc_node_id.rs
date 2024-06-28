@@ -57,7 +57,7 @@ impl CommandRequest for SetSucNodeIdRequest {
 }
 
 impl CommandParsable for SetSucNodeIdRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &mut CommandParsingContext) -> ParseResult<Self> {
         parser_not_implemented("ERROR: SetSucNodeIdRequest::parse() not implemented")
         // Ok(Self {})
     }
@@ -114,7 +114,7 @@ impl CommandBase for SetSucNodeIdResponse {
 }
 
 impl CommandParsable for SetSucNodeIdResponse {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &mut CommandParsingContext) -> ParseResult<Self> {
         let was_executed = map(be_u8, |x| x > 0).parse(i)?;
         Ok(Self { was_executed })
     }
@@ -166,7 +166,7 @@ impl CommandBase for SetSucNodeIdCallback {
 }
 
 impl CommandParsable for SetSucNodeIdCallback {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &mut CommandParsingContext) -> ParseResult<Self> {
         let callback_id = be_u8(i)?;
         let status = be_u8(i)?;
 

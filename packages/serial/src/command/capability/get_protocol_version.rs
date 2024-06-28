@@ -37,7 +37,7 @@ impl CommandRequest for GetProtocolVersionRequest {
 }
 
 impl CommandParsable for GetProtocolVersionRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &mut CommandParsingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
@@ -80,7 +80,7 @@ impl CommandId for GetProtocolVersionResponse {
 impl CommandBase for GetProtocolVersionResponse {}
 
 impl CommandParsable for GetProtocolVersionResponse {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &mut CommandParsingContext) -> ParseResult<Self> {
         let protocol_type = ProtocolType::parse(i)?;
         let version = map((be_u8, be_u8, be_u8), |(major, minor, patch)| Version {
             major,

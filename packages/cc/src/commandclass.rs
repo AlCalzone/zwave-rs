@@ -3,25 +3,44 @@ use enum_dispatch::enum_dispatch;
 use std::{
     marker::Sized,
     ops::{Deref, DerefMut},
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 use typed_builder::TypedBuilder;
-use zwave_core::prelude::*;
 use zwave_core::{cache::CacheValue, serialize, value_id::ValueId};
+use zwave_core::{prelude::*, security::SecurityManager};
 
 use crate::commandclass_raw::CCRaw;
 
-#[derive(Default, Clone, PartialEq, TypedBuilder)]
+#[derive(Default, TypedBuilder)]
 #[builder(field_defaults(default))]
 pub struct CCParsingContext {
+    source_node_id: NodeId,
+    own_node_id: NodeId,
     #[builder(default, setter(into))]
     frame_addressing: Option<FrameAddressing>,
+    #[builder(default, setter(into))]
+    security_manager: Option<Arc<RwLock<SecurityManager>>>,
+}
+
+impl CCParsingContext {
+    pub fn security_manager(&self) -> Option<RwLockReadGuard<SecurityManager>> {
+        self.security_manager
+            .as_ref()
+            .map(|lock| lock.read().unwrap())
+    }
+
+    pub fn security_manager_mut(&mut self) -> Option<RwLockWriteGuard<SecurityManager>> {
+        self.security_manager
+            .as_mut()
+            .map(|lock: &mut Arc<RwLock<SecurityManager>>| lock.write().unwrap())
+    }
 }
 
 pub trait CCParsable
 where
     Self: Sized + CCBase,
 {
-    fn parse(i: &mut Bytes, ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self>;
+    fn parse(i: &mut Bytes, ctx: &mut CCParsingContext) -> zwave_core::parse::ParseResult<Self>;
 }
 
 // FIXME: This trait is a duplicate of Serializable
@@ -313,8 +332,8 @@ fn test_cc_try_from_raw() {
         payload: Bytes::new(),
     };
 
-    let ctx = CCParsingContext::default();
-    let cc = CC::try_from_raw(raw, &ctx).unwrap();
+    let mut ctx = CCParsingContext::default();
+    let cc = CC::try_from_raw(raw, &mut ctx).unwrap();
     assert_eq!(cc, CC::BasicCCGet(BasicCCGet::default()));
 }
 

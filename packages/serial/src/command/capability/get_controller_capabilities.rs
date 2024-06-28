@@ -34,7 +34,7 @@ impl CommandRequest for GetControllerCapabilitiesRequest {
 }
 
 impl CommandParsable for GetControllerCapabilitiesRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &mut CommandParsingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
@@ -78,7 +78,7 @@ impl CommandId for GetControllerCapabilitiesResponse {
 impl CommandBase for GetControllerCapabilitiesResponse {}
 
 impl CommandParsable for GetControllerCapabilitiesResponse {
-    fn parse(i: &mut Bytes, _ctx: &CommandEncodingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &mut CommandParsingContext) -> ParseResult<Self> {
         let (_reserved765, is_suc, _reserved3, sis_present, other_network, secondary) =
             bits::bits((u3::parse, bool, u1::parse, bool, bool, bool)).parse(i)?;
         Ok(Self {

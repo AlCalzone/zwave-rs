@@ -15,6 +15,7 @@ ccm.workspace = true
 crc16.workspace = true
 custom_debug_derive.workspace = true
 enum-iterator.workspace = true
+getrandom.workspace = true
 hex.workspace = true
 num-traits.workspace = true
 ofb.workspace = true

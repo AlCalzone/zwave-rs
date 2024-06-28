@@ -5,7 +5,7 @@ use self::serial_api_machine::{
 };
 use self::storage::{DriverStorage, DriverStorageShared};
 use crate::error::{Error, Result};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, oneshot, Notify};
@@ -14,6 +14,7 @@ use typed_builder::TypedBuilder;
 use zwave_cc::commandclass::{CCValues, WithAddress, CC};
 use zwave_core::cache::Cache;
 use zwave_core::log::Loglevel;
+use zwave_core::security::{SecurityManager, SecurityManagerOptions, NETWORK_KEY_SIZE};
 use zwave_core::state_machine::{StateMachine, StateMachineTransition};
 use zwave_core::util::now;
 use zwave_core::value_id::EndpointValueId;
@@ -89,6 +90,29 @@ pub struct DriverOptions<'a> {
     path: &'a str,
     #[builder(default = Loglevel::Debug)]
     loglevel: Loglevel,
+
+    #[builder(default)]
+    security_keys: SecurityKeys,
+}
+
+struct DriverOptionsStatic {
+    pub loglevel: Loglevel,
+    pub security_keys: SecurityKeys,
+}
+
+impl From<DriverOptions<'_>> for DriverOptionsStatic {
+    fn from(options: DriverOptions) -> Self {
+        Self {
+            loglevel: options.loglevel,
+            security_keys: options.security_keys,
+        }
+    }
+}
+
+#[derive(Default, Clone, TypedBuilder)]
+pub struct SecurityKeys {
+    #[builder(default, setter(into))]
+    pub s0_legacy: Option<Vec<u8>>,
 }
 
 impl Driver<Init> {
@@ -144,7 +168,7 @@ impl Driver<Init> {
             }
         };
 
-        let storage = DriverStorage::new(driver_logger, controller_logger);
+        let storage = DriverStorage::new(options.into(), driver_logger, controller_logger);
         let shared_storage = Arc::new(DriverStorageShared::new(bg_logger, NodeIdType::NodeId8Bit));
 
         // Start the background task for the main logic
@@ -197,6 +221,17 @@ impl Driver<Init> {
         )??;
 
         let ready = self.interview_controller().await?;
+
+        // Store our node ID so other tasks have access too
+        self.shared_storage
+            .set_own_node_id(ready.controller.own_node_id);
+
+        // Initialize security managers
+        bg_task_async!(
+            self.tasks.main_cmd,
+            MainTaskCommand::InitSecurity,
+            self.storage.options().security_keys.clone()
+        )?;
 
         let mut this = Driver::<Ready> {
             tasks: self.tasks,
@@ -492,8 +527,10 @@ macro_rules! define_async_task_commands {
         }
     ) => {
         struct $cmd_name<$($lt),+> {
-            $( pub $field_name: $field_type ),*,
+            // The callback of every async task must be used, otherwise the caller will panic
+            #[forbid(dead_code)]
             pub callback: oneshot::Sender<$cmd_result>,
+            $( pub $field_name: $field_type ),*,
         }
 
         impl<$($lt),+> $cmd_name<$($lt),+> {
@@ -518,6 +555,8 @@ macro_rules! define_async_task_commands {
         }
     ) => {
         struct $cmd_name {
+            // The callback of every async task must be used, otherwise the caller will panic
+            #[forbid(dead_code)]
             pub callback: oneshot::Sender<$cmd_result>,
             $( pub $field_name: $field_type ),*
         }
@@ -616,7 +655,10 @@ define_async_task_commands!(MainTaskCommand {
         predicate: Predicate<ControlFlow>,
         timeout: Option<Duration>
     },
-    GetNextCallbackId -> u8 {}
+    GetNextCallbackId -> u8 {},
+    InitSecurity -> () {
+        security_keys: SecurityKeys,
+    },
 });
 
 type MainTaskCommandSender = TaskCommandSender<MainTaskCommand>;
@@ -630,6 +672,7 @@ struct MainLoopStorage {
     bg_logger: Arc<BackgroundLogger>,
     driver_logger: DriverLogger,
     controller_logger: ControllerLogger,
+    security_manager: Option<Arc<RwLock<SecurityManager>>>,
 }
 
 async fn main_loop(
@@ -638,7 +681,6 @@ async fn main_loop(
     serial_cmd: SerialTaskCommandSender,
     mut serial_listener: SerialListener,
     shared_storage: Arc<DriverStorageShared>,
-    // command_handlers: Arc<Mutex<Vec<CommandHandler>>>,
 ) {
     let bg_logger = shared_storage.logger().clone();
     let driver_logger = DriverLogger::new(bg_logger.clone());
@@ -652,6 +694,7 @@ async fn main_loop(
         bg_logger,
         driver_logger,
         controller_logger,
+        security_manager: None,
     };
 
     loop {
@@ -664,7 +707,7 @@ async fn main_loop(
             _ = shutdown.notified() => break,
 
             // We received a command from the outside
-            Some(cmd) = cmd_rx.recv() => main_loop_handle_command(&mut storage, cmd, &serial_cmd).await,
+            Some(cmd) = cmd_rx.recv() => main_loop_handle_command(&mut storage, cmd, &serial_cmd, &shared_storage).await,
 
             // The serial port emitted a frame
             Ok(frame) = serial_listener.recv() => main_loop_handle_frame(&storage, frame, &serial_cmd, &shared_storage).await
@@ -676,6 +719,7 @@ async fn main_loop_handle_command(
     storage: &mut MainLoopStorage,
     cmd: MainTaskCommand,
     _serial_cmd: &SerialTaskCommandSender,
+    shared_storage: &Arc<DriverStorageShared>,
 ) {
     match cmd {
         MainTaskCommand::RegisterAwaitedControlFlowFrame(ctrl) => {
@@ -705,6 +749,26 @@ async fn main_loop_handle_command(
             let id = storage.callback_id_gen.increment();
             cmd.callback
                 .send(id)
+                .expect("invoking the callback of a MainTaskCommand should not fail");
+        }
+
+        MainTaskCommand::InitSecurity(cmd) => {
+            if let Some(s0_key) = cmd.security_keys.s0_legacy {
+                storage
+                    .driver_logger
+                    .info(|| "Network key for S0 configured, enabling S0 security manager...");
+                let security_manager = SecurityManager::new(SecurityManagerOptions {
+                    own_node_id: shared_storage.own_node_id(),
+                    network_key: s0_key,
+                });
+
+                storage.security_manager = Some(Arc::new(RwLock::new(security_manager)));
+            } else {
+                storage.driver_logger.warn(|| "No network key for S0 configured, communication with secure (S0) devices won't work!");
+            }
+
+            cmd.callback
+                .send(())
                 .expect("invoking the callback of a MainTaskCommand should not fail");
         }
     }
@@ -743,16 +807,20 @@ async fn main_loop_handle_frame(
 
         SerialFrame::Command(raw) => {
             // Try to convert it into an actual command
-            let ctx = CommandEncodingContext::builder()
-                .node_id_type(shared_storage.node_id_type())
-                .sdk_version(shared_storage.sdk_version())
-                .build();
-            let cmd = match zwave_serial::command::Command::try_from_raw(raw, &ctx) {
-                Ok(cmd) => cmd,
-                Err(e) => {
-                    println!("{} failed to decode CommandRaw: {}", now(), e);
-                    // TODO: Handle misformatted frames
-                    return;
+            let cmd = {
+                let mut ctx = CommandParsingContext::builder()
+                    .own_node_id(shared_storage.own_node_id())
+                    .node_id_type(shared_storage.node_id_type())
+                    .sdk_version(shared_storage.sdk_version())
+                    .security_manager(storage.security_manager.clone())
+                    .build();
+                match zwave_serial::command::Command::try_from_raw(raw, &mut ctx) {
+                    Ok(cmd) => cmd,
+                    Err(e) => {
+                        println!("{} failed to decode CommandRaw: {}", now(), e);
+                        // TODO: Handle misformatted frames
+                        return;
+                    }
                 }
             };
 

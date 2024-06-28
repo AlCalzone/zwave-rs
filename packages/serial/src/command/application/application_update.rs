@@ -95,7 +95,7 @@ impl CommandBase for ApplicationUpdateRequest {
 }
 
 impl CommandParsable for ApplicationUpdateRequest {
-    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, ctx: &mut CommandParsingContext) -> ParseResult<Self> {
         let update_type = ApplicationUpdateType::parse(i)?;
         let payload = match update_type {
             ApplicationUpdateType::SucIdChanged => ApplicationUpdateRequestPayload::SucIdChanged,

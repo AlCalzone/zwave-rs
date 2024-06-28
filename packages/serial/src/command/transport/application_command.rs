@@ -36,22 +36,25 @@ impl CommandId for ApplicationCommandRequest {
 impl CommandBase for ApplicationCommandRequest {}
 
 impl CommandParsable for ApplicationCommandRequest {
-    fn parse(i: &mut Bytes, ctx: &CommandEncodingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, ctx: &mut CommandParsingContext) -> ParseResult<Self> {
         let frame_info = FrameInfo::parse(i)?;
         let source_node_id = NodeId::parse(i, ctx.node_id_type)?;
         let cc = map_res(length_value(be_u8, CCRaw::parse), |raw| {
-            let ctx = CCParsingContext::default();
-            CC::try_from_raw(raw, &ctx)
+            let mut ctx = CCParsingContext::builder()
+                .source_node_id(source_node_id)
+                .frame_addressing(frame_info.frame_addressing)
+                .own_node_id(ctx.own_node_id)
+                .security_manager(ctx.security_manager.clone())
+                .build();
+            CC::try_from_raw(raw, &mut ctx)
         })
         .parse(i)?;
         let rssi = opt(RSSI::parse).parse(i)?;
 
-        // FIXME: Figure out the correct node ID
-        let own_node_id = NodeId::new(1u8);
         let destination = match frame_info.frame_addressing {
-            FrameAddressing::Singlecast => Destination::Singlecast(own_node_id),
+            FrameAddressing::Singlecast => Destination::Singlecast(ctx.own_node_id),
             FrameAddressing::Broadcast => Destination::Broadcast,
-            FrameAddressing::Multicast => Destination::Multicast(vec![own_node_id]),
+            FrameAddressing::Multicast => Destination::Multicast(vec![ctx.own_node_id]),
         };
         let address = CCAddress {
             source_node_id,

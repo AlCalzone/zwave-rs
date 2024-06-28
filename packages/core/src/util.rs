@@ -89,7 +89,6 @@ macro_rules! hex_literal {
     };
 }
 
-
 #[macro_export]
 macro_rules! hex_bytes {
     ($hex:expr) => {
