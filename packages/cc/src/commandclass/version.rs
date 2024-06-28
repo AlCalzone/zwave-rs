@@ -296,8 +296,8 @@ impl CCParsable for VersionCCGet {
     }
 }
 
-impl CCSerializable for VersionCCGet {
-    fn serialize(&self, _output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for VersionCCGet {
+    fn serialize(&self, _output: &mut BytesMut, ctx: &CCEncodingContext) {
         // No payload
     }
 }
@@ -389,8 +389,8 @@ impl CCParsable for VersionCCReport {
     }
 }
 
-impl CCSerializable for VersionCCReport {
-    fn serialize(&self, _output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for VersionCCReport {
+    fn serialize(&self, _output: &mut BytesMut, ctx: &CCEncodingContext) {
         todo!("ERROR: VersionCCReport::serialize() not implemented")
     }
 }
@@ -455,8 +455,8 @@ impl CCParsable for VersionCCCommandClassGet {
     }
 }
 
-impl CCSerializable for VersionCCCommandClassGet {
-    fn serialize(&self, output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for VersionCCCommandClassGet {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CCEncodingContext) {
         self.requested_cc.serialize(output);
     }
 }
@@ -499,8 +499,8 @@ impl CCParsable for VersionCCCommandClassReport {
     }
 }
 
-impl CCSerializable for VersionCCCommandClassReport {
-    fn serialize(&self, output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for VersionCCCommandClassReport {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CCEncodingContext) {
         use serialize::bytes::be_u8;
         self.requested_cc.serialize(output);
         be_u8(self.version).serialize(output);
@@ -546,8 +546,8 @@ impl CCParsable for VersionCCCapabilitiesGet {
     }
 }
 
-impl CCSerializable for VersionCCCapabilitiesGet {
-    fn serialize(&self, _output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for VersionCCCapabilitiesGet {
+    fn serialize(&self, _output: &mut BytesMut, ctx: &CCEncodingContext) {
         // No payload
     }
 }
@@ -587,8 +587,8 @@ impl CCParsable for VersionCCCapabilitiesReport {
     }
 }
 
-impl CCSerializable for VersionCCCapabilitiesReport {
-    fn serialize(&self, output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for VersionCCCapabilitiesReport {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CCEncodingContext) {
         use serialize::bytes::be_u8;
         let capabilities = if self.supports_zwave_software_get {
             0b100
@@ -640,8 +640,8 @@ impl CCParsable for VersionCCZWaveSoftwareGet {
     }
 }
 
-impl CCSerializable for VersionCCZWaveSoftwareGet {
-    fn serialize(&self, _output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for VersionCCZWaveSoftwareGet {
+    fn serialize(&self, _output: &mut BytesMut, ctx: &CCEncodingContext) {
         // No payload
     }
 }
@@ -762,8 +762,8 @@ impl CCParsable for VersionCCZWaveSoftwareReport {
     }
 }
 
-impl CCSerializable for VersionCCZWaveSoftwareReport {
-    fn serialize(&self, _output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for VersionCCZWaveSoftwareReport {
+    fn serialize(&self, _output: &mut BytesMut, ctx: &CCEncodingContext) {
         todo!("ERROR: VersionCCZWaveSoftwareReport::serialize() not implemented")
     }
 }

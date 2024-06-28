@@ -83,8 +83,8 @@ impl CCParsable for SecurityCCNonceGet {
     }
 }
 
-impl CCSerializable for SecurityCCNonceGet {
-    fn serialize(&self, _output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for SecurityCCNonceGet {
+    fn serialize(&self, _output: &mut BytesMut, ctx: &CCEncodingContext) {
         // No payload
     }
 }
@@ -122,8 +122,8 @@ impl CCParsable for SecurityCCNonceReport {
     }
 }
 
-impl CCSerializable for SecurityCCNonceReport {
-    fn serialize(&self, output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for SecurityCCNonceReport {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CCEncodingContext) {
         use serialize::bytes::slice;
         slice(&self.nonce.get()).serialize(output);
     }
@@ -257,8 +257,8 @@ impl CCParsable for SecurityCCCommandEncapsulation {
     }
 }
 
-impl CCSerializable for SecurityCCCommandEncapsulation {
-    fn serialize(&self, output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for SecurityCCCommandEncapsulation {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CCEncodingContext) {
         use serialize::{bytes::be_u8, sequence::tuple};
         todo!("ERROR: SecurityCCCommandEncapsulation::serialize() not implemented")
     }

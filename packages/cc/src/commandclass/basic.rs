@@ -109,8 +109,8 @@ impl CCParsable for BasicCCSet {
     }
 }
 
-impl CCSerializable for BasicCCSet {
-    fn serialize(&self, output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for BasicCCSet {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CCEncodingContext) {
         self.target_value.serialize(output)
     }
 }
@@ -153,8 +153,8 @@ impl CCParsable for BasicCCGet {
     }
 }
 
-impl CCSerializable for BasicCCGet {
-    fn serialize(&self, _output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for BasicCCGet {
+    fn serialize(&self, _output: &mut BytesMut, ctx: &CCEncodingContext) {
         // No payload
     }
 }
@@ -203,8 +203,8 @@ impl CCParsable for BasicCCReport {
     }
 }
 
-impl CCSerializable for BasicCCReport {
-    fn serialize(&self, output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for BasicCCReport {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CCEncodingContext) {
         self.current_value.serialize(output);
 
         if let Some(ref target_value) = self.target_value {

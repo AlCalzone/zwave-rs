@@ -372,6 +372,7 @@ where
                         SerialApiMachineState::Initial => (),
                         SerialApiMachineState::Sending => {
                             let ctx = CommandEncodingContext::builder()
+                                .own_node_id(self.shared_storage.own_node_id())
                                 .node_id_type(self.shared_storage.node_id_type())
                                 .sdk_version(self.shared_storage.sdk_version())
                                 .build();

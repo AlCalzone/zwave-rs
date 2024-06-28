@@ -108,8 +108,8 @@ impl CCParsable for BinarySwitchCCSet {
     }
 }
 
-impl CCSerializable for BinarySwitchCCSet {
-    fn serialize(&self, output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for BinarySwitchCCSet {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CCEncodingContext) {
         use serialize::sequence::tuple;
         tuple((self.target_value, self.duration)).serialize(output)
     }
@@ -158,8 +158,8 @@ impl CCParsable for BinarySwitchCCGet {
     }
 }
 
-impl CCSerializable for BinarySwitchCCGet {
-    fn serialize(&self, _output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for BinarySwitchCCGet {
+    fn serialize(&self, _output: &mut BytesMut, ctx: &CCEncodingContext) {
         // No payload
     }
 }
@@ -209,8 +209,8 @@ impl CCParsable for BinarySwitchCCReport {
     }
 }
 
-impl CCSerializable for BinarySwitchCCReport {
-    fn serialize(&self, output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for BinarySwitchCCReport {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CCEncodingContext) {
         self.current_value.serialize(output);
 
         if let Some(target_value) = self.target_value {

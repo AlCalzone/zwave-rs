@@ -181,8 +181,8 @@ impl CCParsable for ManufacturerSpecificCCGet {
     }
 }
 
-impl CCSerializable for ManufacturerSpecificCCGet {
-    fn serialize(&self, _output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for ManufacturerSpecificCCGet {
+    fn serialize(&self, _output: &mut BytesMut, ctx: &CCEncodingContext) {
         // No payload
     }
 }
@@ -229,8 +229,8 @@ impl CCParsable for ManufacturerSpecificCCReport {
     }
 }
 
-impl CCSerializable for ManufacturerSpecificCCReport {
-    fn serialize(&self, output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for ManufacturerSpecificCCReport {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CCEncodingContext) {
         use serialize::{bytes::be_u16, sequence::tuple};
         tuple((
             be_u16(self.manufacturer_id),
@@ -297,8 +297,8 @@ impl CCParsable for ManufacturerSpecificCCDeviceSpecificGet {
     }
 }
 
-impl CCSerializable for ManufacturerSpecificCCDeviceSpecificGet {
-    fn serialize(&self, output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for ManufacturerSpecificCCDeviceSpecificGet {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CCEncodingContext) {
         use serialize::bits::bits;
         bits(move |bo| {
             u5::new(0).write(bo);
@@ -363,8 +363,8 @@ impl CCParsable for ManufacturerSpecificCCDeviceSpecificReport {
     }
 }
 
-impl CCSerializable for ManufacturerSpecificCCDeviceSpecificReport {
-    fn serialize(&self, _output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for ManufacturerSpecificCCDeviceSpecificReport {
+    fn serialize(&self, _output: &mut BytesMut, ctx: &CCEncodingContext) {
         todo!("ERROR: ManufacturerSpecificCCDeviceSpecificReport::serialize() not implemented")
     }
 }

@@ -188,7 +188,7 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
     let serializable_match_arms = ccs.iter().map(|c| {
         let cc_name = c.cc_name;
         quote! {
-            Self::#cc_name(c) => c.serialize(output)
+            Self::#cc_name(c) => c.serialize(output, ctx)
         }
     });
 
@@ -237,10 +237,11 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
         }
 
         // Delegate Serialization to the corresponding variant
-        impl CCSerializable for CC {
-            fn serialize(&self, output: &mut bytes::BytesMut) {
+        impl SerializableWith<&CCEncodingContext> for CC {
+            fn serialize(&self, output: &mut bytes::BytesMut, ctx: &CCEncodingContext) {
+                use zwave_core::serialize::bytes::slice;
                 match self {
-                    Self::NotImplemented(c) => serialize::bytes::slice(&c.payload).serialize(output),
+                    Self::NotImplemented(c) => slice(&c.payload).serialize(output),
                     #( #serializable_match_arms ),*
                 }
             }
@@ -271,11 +272,11 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
                 ret
             }
 
-            pub fn as_raw(&self) -> CCRaw {
+            pub fn as_raw(&self, ctx: &CCEncodingContext) -> CCRaw {
                 CCRaw {
                     cc_id: self.cc_id(),
                     cc_command: self.cc_command(),
-                    payload: self.as_bytes(),
+                    payload: self.as_bytes(ctx),
                 }
             }
         }

@@ -27,8 +27,8 @@ impl CCParsable for NoOperationCC {
     }
 }
 
-impl CCSerializable for NoOperationCC {
-    fn serialize(&self, _output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for NoOperationCC {
+    fn serialize(&self, _output: &mut BytesMut, ctx: &CCEncodingContext) {
         // No payload
     }
 }

@@ -87,12 +87,12 @@ impl CCParsable for Crc16CCCommandEncapsulation {
     }
 }
 
-impl CCSerializable for Crc16CCCommandEncapsulation {
-    fn serialize(&self, output: &mut BytesMut) {
+impl SerializableWith<&CCEncodingContext> for Crc16CCCommandEncapsulation {
+    fn serialize(&self, output: &mut BytesMut, ctx: &CCEncodingContext) {
         use serialize::{bytes::be_u16, bytes::slice, sequence::tuple};
 
         let command = self.encapsulated.clone();
-        let payload = command.as_raw().as_bytes();
+        let payload = command.as_raw(ctx).as_bytes();
 
         // The checksum includes the entire CRC16 CC
         let checksum = crc16_incremental()

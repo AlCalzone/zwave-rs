@@ -1,3 +1,4 @@
+use crate::commandclass_raw::CCRaw;
 use bytes::{Bytes, BytesMut};
 use enum_dispatch::enum_dispatch;
 use std::{
@@ -9,7 +10,12 @@ use typed_builder::TypedBuilder;
 use zwave_core::{cache::CacheValue, serialize, value_id::ValueId};
 use zwave_core::{prelude::*, security::SecurityManager};
 
-use crate::commandclass_raw::CCRaw;
+#[derive(Default, TypedBuilder)]
+#[builder(field_defaults(default))]
+pub struct CCEncodingContext {
+    node_id: NodeId,
+    own_node_id: NodeId,
+}
 
 #[derive(Default, TypedBuilder)]
 #[builder(field_defaults(default))]
@@ -41,26 +47,6 @@ where
     Self: Sized + CCBase,
 {
     fn parse(i: &mut Bytes, ctx: &mut CCParsingContext) -> zwave_core::parse::ParseResult<Self>;
-}
-
-// FIXME: This trait is a duplicate of Serializable
-// Figure out if we need it (e.g. to pass a context)
-pub trait CCSerializable
-where
-    Self: Sized + CCBase,
-{
-    /// Write the value into the given buffer
-    fn serialize(&self, output: &mut BytesMut);
-
-    fn as_bytes_mut(&self) -> BytesMut {
-        let mut output = BytesMut::with_capacity(serialize::DEFAULT_CAPACITY);
-        self.serialize(&mut output);
-        output
-    }
-
-    fn as_bytes(&self) -> Bytes {
-        self.as_bytes_mut().freeze()
-    }
 }
 
 // This auto-generates the CC enum by reading the files in the given directory
@@ -346,7 +332,8 @@ fn test_cc_as_raw() {
         cc_command: Some(0x01u8),
         payload: hex_bytes!("0203"),
     });
-    let raw: CCRaw = cc.as_raw();
+    let ctx: CCEncodingContext = Default::default();
+    let raw: CCRaw = cc.as_raw(&ctx);
 
     assert_eq!(
         raw,

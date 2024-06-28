@@ -20,6 +20,7 @@ submodule!(network_mgmt);
 #[derive(Default, TypedBuilder)]
 #[builder(field_defaults(default))]
 pub struct CommandEncodingContext {
+    own_node_id: NodeId,
     #[builder(default, setter(into))]
     sdk_version: Option<Version>,
     node_id_type: NodeIdType,

@@ -89,7 +89,11 @@ impl SerializableWith<&CommandEncodingContext> for SendDataRequest {
         // let error_msg = format!("Serializing command {:?} should not fail", &self.command);
 
         let command = self.command.clone();
-        let payload = command.as_raw().as_bytes();
+        let ccctx = CCEncodingContext::builder()
+            .own_node_id(ctx.own_node_id)
+            .node_id(self.node_id)
+            .build();
+        let payload = command.as_raw(&ccctx).as_bytes();
 
         self.node_id.serialize(output, ctx.node_id_type);
         be_u8(payload.len() as u8).serialize(output);
