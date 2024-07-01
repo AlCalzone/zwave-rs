@@ -1,4 +1,4 @@
-use crate::bg_task_async;
+use crate::dispatch_async;
 use crate::Driver;
 use crate::Ready;
 use crate::SerialApiMachineResult;

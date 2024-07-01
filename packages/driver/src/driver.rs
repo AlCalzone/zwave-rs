@@ -215,7 +215,7 @@ impl Driver<Init> {
 
         // Synchronize the serial port
         logger.verbose(|| "synchronizing serial port...");
-        bg_task_async!(
+        dispatch_async!(
             self.tasks.serial_cmd,
             SerialTaskCommand::SendFrame,
             RawSerialFrame::ControlFlow(ControlFlow::NAK)
@@ -228,7 +228,7 @@ impl Driver<Init> {
             .set_own_node_id(ready.controller.own_node_id);
 
         // Initialize security managers
-        bg_task_async!(
+        dispatch_async!(
             self.tasks.main_cmd,
             MainTaskCommand::InitSecurity,
             self.storage.options().security_keys.clone()
@@ -258,7 +258,7 @@ where
             .await_control_flow_frame(Box::new(|_| true), Some(Duration::from_millis(1600)))
             .await;
         // ...then send the frame
-        bg_task_async!(&self.tasks.serial_cmd, SerialTaskCommand::SendFrame, frame)??;
+        dispatch_async!(&self.tasks.serial_cmd, SerialTaskCommand::SendFrame, frame)??;
 
         ret
     }
@@ -268,7 +268,7 @@ where
         predicate: Predicate<ControlFlow>,
         timeout: Option<Duration>,
     ) -> Result<AwaitedRef<ControlFlow>> {
-        bg_task_async!(
+        dispatch_async!(
             self.tasks.main_cmd,
             MainTaskCommand::RegisterAwaitedControlFlowFrame,
             predicate,
@@ -281,7 +281,7 @@ where
         predicate: Predicate<Command>,
         timeout: Option<Duration>,
     ) -> Result<AwaitedRef<Command>> {
-        bg_task_async!(
+        dispatch_async!(
             self.tasks.main_cmd,
             MainTaskCommand::RegisterAwaitedCommand,
             predicate,
@@ -294,7 +294,7 @@ where
         predicate: Predicate<WithAddress<CC>>,
         timeout: Option<Duration>,
     ) -> Result<AwaitedRef<WithAddress<CC>>> {
-        bg_task_async!(
+        dispatch_async!(
             self.tasks.main_cmd,
             MainTaskCommand::RegisterAwaitedCC,
             predicate,
@@ -303,7 +303,7 @@ where
     }
 
     pub async fn get_next_callback_id(&self) -> Result<u8> {
-        bg_task_async!(self.tasks.main_cmd, MainTaskCommand::GetNextCallbackId)
+        dispatch_async!(self.tasks.main_cmd, MainTaskCommand::GetNextCallbackId)
     }
 
     pub async fn execute_serial_api_command<C>(
@@ -1050,7 +1050,6 @@ async fn write_serial(
     port.write(frame).await.map_err(|e| e.into())
 }
 
-// FIXME: We need a variant for threads
 define_oneshot_task_commands!(LogTaskCommand {
     // Set the log level of the given logger
     UseLogLevel {
@@ -1104,7 +1103,7 @@ fn log_loop_handle_command(storage: &mut LogLoopStorage, cmd: LogTaskCommand) {
 
 /// Execute the given command in the given background task and await the result.
 /// ```ignore
-/// bg_task_async!(
+/// dispatch_async!(
 ///     task_ref: &Sender<TaskCommand>,
 ///     TaskCommand::Variant,
 ///     ...args
@@ -1117,7 +1116,7 @@ fn log_loop_handle_command(storage: &mut LogLoopStorage, cmd: LogTaskCommand) {
 ///
 /// This invocation will return the result of the command execution, or an `Error::Internal`, if there was a problem communicating
 /// with the background task. To convey an error, the task must return a `Result` itself.
-macro_rules! bg_task_async {
+macro_rules! dispatch_async {
     ($command_sender:expr, $command_type:ident::$variant:ident, $($new_args:tt)*) => {
         {
             let (cmd, rx) = $crate::driver::$variant::new($($new_args)*);
@@ -1128,15 +1127,15 @@ macro_rules! bg_task_async {
     };
 
     ($command_sender:expr, $command_type:ident::$variant:ident) => {
-        bg_task_async!($command_sender, $command_type::$variant,)
+        dispatch_async!($command_sender, $command_type::$variant,)
     }
 
 }
-pub(crate) use bg_task_async;
+pub(crate) use dispatch_async;
 
 /// Execute the given command in the given background task **without** waiting for the result.
 /// ```ignore
-/// bg_task_oneshot!(
+/// dispatch_oneshot!(
 ///     task_ref: &Sender<TaskCommand>,
 ///     TaskCommand::Variant,
 ///     ...args
@@ -1149,7 +1148,7 @@ pub(crate) use bg_task_async;
 ///
 /// This invocation will return `()`, or an `Error::Internal`, if there was a problem communicating
 /// with the background task.
-macro_rules! bg_task_oneshot {
+macro_rules! dispatch_oneshot {
     ($command_sender:expr, $command_type:ident::$variant:ident, $($new_args:tt)*) => {
         {
             let cmd = $crate::driver::$variant::new($($new_args)*);
@@ -1159,8 +1158,8 @@ macro_rules! bg_task_oneshot {
     };
 
     ($command_sender:expr, $command_type:ident::$variant:ident) => {
-        bg_task_oneshot!($command_sender, $command_type::$variant,)
+        dispatch_oneshot!($command_sender, $command_type::$variant,)
     }
 
 }
-pub(crate) use bg_task_oneshot;
+pub(crate) use dispatch_oneshot;
