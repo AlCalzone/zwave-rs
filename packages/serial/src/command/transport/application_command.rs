@@ -19,6 +19,17 @@ pub struct ApplicationCommandRequest {
     pub rssi: Option<RSSI>,
 }
 
+impl ApplicationCommandRequest {
+    pub fn get_cc_parsing_context(&self, cmd_ctx: &CommandParsingContext) -> CCParsingContext {
+        CCParsingContext::builder()
+            .source_node_id(self.address.source_node_id)
+            .frame_addressing(self.frame_info.frame_addressing)
+            .own_node_id(cmd_ctx.own_node_id)
+            .security_manager(cmd_ctx.security_manager.clone())
+            .build()
+    }
+}
+
 impl CommandId for ApplicationCommandRequest {
     fn command_type(&self) -> CommandType {
         CommandType::Request
@@ -36,7 +47,7 @@ impl CommandId for ApplicationCommandRequest {
 impl CommandBase for ApplicationCommandRequest {}
 
 impl CommandParsable for ApplicationCommandRequest {
-    fn parse(i: &mut Bytes, ctx: &mut CommandParsingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, ctx: &CommandParsingContext) -> ParseResult<Self> {
         let frame_info = FrameInfo::parse(i)?;
         let source_node_id = NodeId::parse(i, ctx.node_id_type)?;
         let cc = map_res(length_value(be_u8, CCRaw::parse), |raw| {
@@ -46,7 +57,7 @@ impl CommandParsable for ApplicationCommandRequest {
                 .own_node_id(ctx.own_node_id)
                 .security_manager(ctx.security_manager.clone())
                 .build();
-            CC::try_from_raw(raw, &mut ctx)
+            CC::try_from_raw(raw, &ctx)
         })
         .parse(i)?;
         let rssi = opt(RSSI::parse).parse(i)?;

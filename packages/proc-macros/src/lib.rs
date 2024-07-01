@@ -109,7 +109,7 @@ pub fn impl_command_enum(input: TokenStream) -> TokenStream {
 
         impl Command {
             // Implement conversion from a raw command to the correct variant
-            pub fn try_from_raw(raw: CommandRaw, ctx: &mut CommandParsingContext) -> zwave_core::parse::ParseResult<Self> {
+            pub fn try_from_raw(raw: CommandRaw, ctx: &CommandParsingContext) -> zwave_core::parse::ParseResult<Self> {
                 let command_type = raw.command_type;
                 let function_type = raw.function_type;
                 let mut payload = raw.payload;
@@ -249,7 +249,7 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
 
         impl CC {
             // Implement conversion from a raw CC to the correct variant
-            pub fn try_from_raw(raw: CCRaw, ctx: &mut CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+            pub fn try_from_raw(raw: CCRaw, ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
                 let cc_id = raw.cc_id;
                 let cc_command = raw.cc_command;
                 let mut payload = raw.payload;

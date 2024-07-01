@@ -2,6 +2,7 @@ use crate::commandclass_raw::CCRaw;
 use bytes::{Bytes, BytesMut};
 use enum_dispatch::enum_dispatch;
 use std::{
+    hash::Hash,
     marker::Sized,
     ops::{Deref, DerefMut},
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
@@ -35,10 +36,10 @@ impl CCParsingContext {
             .map(|lock| lock.read().unwrap())
     }
 
-    pub fn security_manager_mut(&mut self) -> Option<RwLockWriteGuard<SecurityManager>> {
+    pub fn security_manager_mut(&self) -> Option<RwLockWriteGuard<SecurityManager>> {
         self.security_manager
-            .as_mut()
-            .map(|lock: &mut Arc<RwLock<SecurityManager>>| lock.write().unwrap())
+            .as_ref()
+            .map(|lock: &Arc<RwLock<SecurityManager>>| lock.write().unwrap())
     }
 }
 
@@ -46,7 +47,7 @@ pub trait CCParsable
 where
     Self: Sized + CCBase,
 {
-    fn parse(i: &mut Bytes, ctx: &mut CCParsingContext) -> zwave_core::parse::ParseResult<Self>;
+    fn parse(i: &mut Bytes, ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self>;
 }
 
 // This auto-generates the CC enum by reading the files in the given directory
@@ -93,6 +94,48 @@ pub trait CCBase:
         let _ = response;
         // Unless specified otherwise, assume that the response is no match
         false
+    }
+}
+
+/// Indicates that a CC can be split into multiple partial CCs
+pub trait CCSession {
+    /// If this CC can be split into multiple partial CCs, this function
+    /// returns a unique way to identify which CCs are part of one session.
+    fn session_id(&self) -> Option<u32>;
+
+    /// If this CC can be split into multiple partial CCs, this function returns
+    /// whether the session is complete (`true`) or more CCs are expected (`false`).
+    fn is_session_complete(&self, other_ccs: &[CC]) -> bool;
+
+    /// If this CC can be split into multiple partial CCs, this function merges the
+    /// current CC with the other CCs of the session into a complete CC.
+    fn merge_session(&mut self, ctx: &CCParsingContext, other_ccs: Vec<CC>) -> ParseResult<()>;
+}
+
+impl CCSession for CC {
+    fn session_id(&self) -> Option<u32> {
+        match self {
+            CC::SecurityCCCommandEncapsulation(me) => me.session_id(),
+            // By default, assume that the CC is not part of a session
+            _ => None,
+        }
+    }
+
+    fn is_session_complete(&self, other_ccs: &[CC]) -> bool {
+        match self {
+            CC::SecurityCCCommandEncapsulation(me) => me.is_session_complete(other_ccs),
+            // By default we assume the CC is not part of a session and therefore the session is always complete
+            _ => true,
+        }
+    }
+
+    fn merge_session(&mut self, ctx: &CCParsingContext, other_ccs: Vec<CC>) -> ParseResult<()> {
+        match self {
+            CC::SecurityCCCommandEncapsulation(me) => me.merge_session(ctx, other_ccs)?,
+            // By default we assume the CC is not part of a session, so it is already complete
+            _ => {}
+        }
+        Ok(())
     }
 }
 
@@ -319,7 +362,7 @@ fn test_cc_try_from_raw() {
     };
 
     let mut ctx = CCParsingContext::default();
-    let cc = CC::try_from_raw(raw, &mut ctx).unwrap();
+    let cc = CC::try_from_raw(raw, &ctx).unwrap();
     assert_eq!(cc, CC::BasicCCGet(BasicCCGet::default()));
 }
 

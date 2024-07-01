@@ -11,7 +11,7 @@ use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, oneshot, Notify};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
-use zwave_cc::commandclass::{CCValues, WithAddress, CC};
+use zwave_cc::commandclass::{CCBase, CCParsingContext, CCSession, CCValues, WithAddress, CC};
 use zwave_core::cache::Cache;
 use zwave_core::log::Loglevel;
 use zwave_core::security::{SecurityManager, SecurityManagerOptions, NETWORK_KEY_SIZE};
@@ -20,6 +20,7 @@ use zwave_core::util::now;
 use zwave_core::value_id::EndpointValueId;
 use zwave_core::wrapping_counter::WrappingCounter;
 use zwave_core::{prelude::*, submodule};
+use zwave_logging::loggers::node;
 use zwave_logging::loggers::{
     base::BaseLogger, controller::ControllerLogger, driver::DriverLogger, node::NodeLogger,
     serial::SerialLogger,
@@ -808,33 +809,20 @@ async fn main_loop_handle_frame(
 
         SerialFrame::Command(raw) => {
             // Try to convert it into an actual command
-            let cmd = {
-                let mut ctx = CommandParsingContext::builder()
-                    .own_node_id(shared_storage.own_node_id())
-                    .node_id_type(shared_storage.node_id_type())
-                    .sdk_version(shared_storage.sdk_version())
-                    .security_manager(storage.security_manager.clone())
-                    .build();
-                match zwave_serial::command::Command::try_from_raw(raw, &mut ctx) {
-                    Ok(cmd) => cmd,
-                    Err(e) => {
-                        println!("{} failed to decode CommandRaw: {}", now(), e);
-                        // TODO: Handle misformatted frames
-                        return;
-                    }
+            let mut ctx = CommandParsingContext::builder()
+                .own_node_id(shared_storage.own_node_id())
+                .node_id_type(shared_storage.node_id_type())
+                .sdk_version(shared_storage.sdk_version())
+                .security_manager(storage.security_manager.clone())
+                .build();
+            let cmd = match zwave_serial::command::Command::try_from_raw(raw, &ctx) {
+                Ok(cmd) => cmd,
+                Err(e) => {
+                    println!("{} failed to decode CommandRaw: {}", now(), e);
+                    // TODO: Handle misformatted frames
+                    return;
                 }
             };
-
-            // Persist CC values. TODO: test first if we should
-            let cc = match &cmd {
-                Command::ApplicationCommandRequest(cmd) => Some(&cmd.command),
-                Command::BridgeApplicationCommandRequest(cmd) => Some(&cmd.command),
-                _ => None,
-            };
-            if let Some(cc) = cc {
-                let mut cache = ValueCache::new(shared_storage);
-                persist_cc_values(&cc, &mut cache);
-            }
 
             // Log the received command
             let address = match &cmd {
@@ -863,37 +851,66 @@ async fn main_loop_handle_frame(
                 return;
             }
 
-            // Otherwise, figure out what to do with the command
-            // TODO: This is a bit awkward due to the duplication
-            match &cmd {
+            match cmd {
+                // Handle the CC if there is one
                 Command::ApplicationCommandRequest(cmd) => {
-                    // If the awaited CC registry has a matching awaiter,
-                    // remove it and send the CC through its channel
-                    if let Some(channel) = storage.awaited_ccs.take_matching(&cmd.command) {
-                        channel
-                            .send(cmd.command.clone())
-                            .expect("invoking the callback of an Awaited should not fail");
-
-                        return;
-                    }
+                    let ctx = cmd.get_cc_parsing_context(&ctx);
+                    let cc = cmd.command;
+                    main_loop_handle_cc(storage, cc, ctx, shared_storage);
+                    return;
                 }
                 Command::BridgeApplicationCommandRequest(cmd) => {
-                    // If the awaited CC registry has a matching awaiter,
-                    // remove it and send the CC through its channel
-                    if let Some(channel) = storage.awaited_ccs.take_matching(&cmd.command) {
-                        channel
-                            .send(cmd.command.clone())
-                            .expect("invoking the callback of an Awaited should not fail");
-
-                        return;
-                    }
+                    let ctx = cmd.get_cc_parsing_context(&ctx);
+                    let cc = cmd.command;
+                    main_loop_handle_cc(storage, cc, ctx, shared_storage);
+                    return;
                 }
-                _ => {}
-            }
 
-            println!("TODO: Handle command {:?}", &cmd);
+                // Or handle all other commands
+                _ => {
+                    println!("TODO: Handle command {:?}", &cmd);
+                }
+            }
         }
         _ => {}
+    }
+}
+
+fn main_loop_handle_cc(
+    storage: &MainLoopStorage,
+    mut cc: WithAddress<CC>,
+    ctx: CCParsingContext,
+    shared_storage: &Arc<DriverStorageShared>,
+) {
+    let node_logger = NodeLogger::new(
+        storage.bg_logger.clone(),
+        cc.address().source_node_id,
+        cc.address().endpoint_index,
+    );
+
+    // Check if the CC is split across multiple partial CCs
+    if let Some(session_id) = cc.session_id() {
+        // If so, try to merge it
+        if let Err(e) = cc.merge_session(&ctx, vec![]) {
+            node_logger.error(|| format!("failed to merge partial CCs: {}", e));
+            return;
+        }
+    }
+
+    // FIXME: Check if low-security command needs to be discarded
+
+    // Persist CC values. TODO: test first if we should
+    let mut cache = ValueCache::new(shared_storage);
+    persist_cc_values(&cc, &mut cache);
+
+    // If the awaited CC registry has a matching awaiter,
+    // remove it and send the CC through its channel
+    if let Some(channel) = storage.awaited_ccs.take_matching(&cc) {
+        channel
+            .send(cc.clone())
+            .expect("invoking the callback of an Awaited should not fail");
+
+        return;
     }
 }
 // tokio::time::sleep(Duration::from_millis(10)).await;

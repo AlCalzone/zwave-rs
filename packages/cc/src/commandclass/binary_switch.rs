@@ -97,7 +97,7 @@ impl CCId for BinarySwitchCCSet {
 }
 
 impl CCParsable for BinarySwitchCCSet {
-    fn parse(i: &mut Bytes, _ctx: &mut CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let target_value = BinarySet::parse(i)?;
         let duration = opt(DurationSet::parse).parse(i)?;
 
@@ -152,7 +152,7 @@ impl CCId for BinarySwitchCCGet {
 }
 
 impl CCParsable for BinarySwitchCCGet {
-    fn parse(_i: &mut Bytes, _ctx: &mut CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
@@ -193,7 +193,7 @@ impl CCId for BinarySwitchCCReport {
 }
 
 impl CCParsable for BinarySwitchCCReport {
-    fn parse(i: &mut Bytes, _ctx: &mut CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let current_value = BinaryReport::parse(i)?;
         let (target_value, duration) =
             map(opt((BinaryReport::parse, DurationReport::parse)), |x| {

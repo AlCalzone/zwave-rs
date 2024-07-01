@@ -32,7 +32,7 @@ impl CommandRequest for GetSucNodeIdRequest {
 }
 
 impl CommandParsable for GetSucNodeIdRequest {
-    fn parse(_i: &mut Bytes, _ctx: &mut CommandParsingContext) -> ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandParsingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
@@ -72,7 +72,7 @@ impl CommandId for GetSucNodeIdResponse {
 impl CommandBase for GetSucNodeIdResponse {}
 
 impl CommandParsable for GetSucNodeIdResponse {
-    fn parse(i: &mut Bytes, ctx: &mut CommandParsingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, ctx: &CommandParsingContext) -> ParseResult<Self> {
         let suc_node_id = NodeId::parse(i, ctx.node_id_type)?;
         Ok(Self {
             suc_node_id: if suc_node_id == 0u8 {

@@ -3,6 +3,7 @@ use bytes::{Bytes, BytesMut};
 use proc_macros::{CCValues, TryFromRepr};
 use typed_builder::TypedBuilder;
 use ux::{u2, u4};
+use zwave_core::parse::bytes::rest;
 use zwave_core::prelude::*;
 use zwave_core::security::{compute_mac, decrypt_aes_ofb, S0Nonce, MAC_SIZE, S0_HALF_NONCE_SIZE};
 use zwave_core::serialize;
@@ -14,6 +15,8 @@ use zwave_core::{
     },
     security::encrypt_aes_ofb,
 };
+
+use super::CCSession;
 
 struct S0AuthData<'a> {
     sender_nonce: &'a [u8],
@@ -80,7 +83,7 @@ impl CCId for SecurityCCNonceGet {
 }
 
 impl CCParsable for SecurityCCNonceGet {
-    fn parse(i: &mut Bytes, _ctx: &mut CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
@@ -118,7 +121,7 @@ impl CCId for SecurityCCNonceReport {
 }
 
 impl CCParsable for SecurityCCNonceReport {
-    fn parse(i: &mut Bytes, _ctx: &mut CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let nonce = take(S0_HALF_NONCE_SIZE).parse(i)?;
         let nonce = S0Nonce::new(nonce);
         Ok(Self { nonce })
@@ -140,49 +143,95 @@ impl ToLogPayload for SecurityCCNonceReport {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+enum SecurityCCCommandEncapsulationState {
+    Complete {
+        encapsulated: Box<CC>,
+    },
+    Partial {
+        sequenced: bool,
+        sequence_counter: u4,
+        second_frame: bool,
+        cc_slice: Bytes,
+
+        // These are only needed for transmitting
+        nonce: Option<S0Nonce>,
+        enc_key: Option<Vec<u8>>,
+        auth_key: Option<Vec<u8>>,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]
 pub struct SecurityCCCommandEncapsulation {
-    // TODO: Consider typestate to distinguish between received, sent and partial commands
-    encapsulated: Box<CC>,
-    nonce: Option<S0Nonce>,
-    enc_key: Option<Vec<u8>>,
-    auth_key: Option<Vec<u8>>,
+    state: SecurityCCCommandEncapsulationState,
 }
 
 impl SecurityCCCommandEncapsulation {
     pub fn new(encapsulated: CC) -> Self {
         Self {
-            encapsulated: Box::new(encapsulated),
-            nonce: None,
-            enc_key: None,
-            auth_key: None,
+            state: SecurityCCCommandEncapsulationState::Complete {
+                encapsulated: Box::new(encapsulated),
+            },
         }
     }
 
-    pub fn set_nonce(&mut self, nonce: S0Nonce) {
-        self.nonce = Some(nonce);
+    pub fn set_nonce(&mut self, new_nonce: S0Nonce) {
+        match &mut self.state {
+            SecurityCCCommandEncapsulationState::Partial { ref mut nonce, .. } => {
+                nonce.replace(new_nonce);
+            }
+            _ => panic!("Cannot set nonce on complete SecurityCCCommandEncapsulation"),
+        }
     }
 
     pub fn nonce(&self) -> Option<&S0Nonce> {
-        self.nonce.as_ref()
+        match &self.state {
+            SecurityCCCommandEncapsulationState::Partial { nonce, .. } => nonce.as_ref(),
+            _ => None,
+        }
     }
 }
 
 impl CCBase for SecurityCCCommandEncapsulation {
     fn expects_response(&self) -> bool {
         // The encapsulated CC decides whether a response is expected
-        self.encapsulated.expects_response()
+        match &self.state {
+            SecurityCCCommandEncapsulationState::Complete { encapsulated, .. } => {
+                encapsulated.expects_response()
+            }
+            // Partially parsed commands cannot expect a response
+            _ => false,
+        }
     }
 
     fn test_response(&self, response: &CC) -> bool {
-        // The encapsulated CC decides whether the response is the expected one
-        let CC::SecurityCCCommandEncapsulation(SecurityCCCommandEncapsulation {
-            encapsulated, ..
-        }) = response
+        // We can only compare two complete CCs, partials cannot expect a response
+        let SecurityCCCommandEncapsulationState::Complete {
+            encapsulated: sent, ..
+        } = &self.state
         else {
             return false;
         };
-        self.encapsulated.test_response(encapsulated)
+
+        // We expect a SecurityCCCommandEncapsulation in response
+        let CC::SecurityCCCommandEncapsulation(received_cc) = response else {
+            return false;
+        };
+
+        // Extract the encapsulated CC from the received command
+        let SecurityCCCommandEncapsulation {
+            state:
+                SecurityCCCommandEncapsulationState::Complete {
+                    encapsulated: received,
+                    ..
+                },
+        } = received_cc
+        else {
+            return false;
+        };
+
+        // The encapsulated CC decides whether the response is the expected one
+        sent.test_response(received)
     }
 }
 
@@ -197,7 +246,7 @@ impl CCId for SecurityCCCommandEncapsulation {
 }
 
 impl CCParsable for SecurityCCCommandEncapsulation {
-    fn parse(i: &mut Bytes, ctx: &mut CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(i: &mut Bytes, ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let source_node_id = ctx.source_node_id;
         let own_node_id = ctx.own_node_id;
 
@@ -264,45 +313,60 @@ impl CCParsable for SecurityCCCommandEncapsulation {
         let (_res76, second_frame, sequenced, sequence_counter) =
             bits::bits((u2::parse, bool, bool, u4::parse))
                 .parse(&mut frame_control_and_plaintext)?;
-
-        let encapsulated_raw = CCRaw::parse(&mut frame_control_and_plaintext)?;
-        let encapsulated = CC::try_from_raw(encapsulated_raw, ctx)?;
-
-        // FIXME: support sequenced commands
+        let cc_slice = rest(&mut frame_control_and_plaintext)?;
 
         Ok(Self {
-            encapsulated: Box::new(encapsulated),
-            nonce: Some(nonce),
-            enc_key: None,
-            auth_key: None,
+            state: SecurityCCCommandEncapsulationState::Partial {
+                sequenced,
+                sequence_counter,
+                second_frame,
+                cc_slice,
+                nonce: None,
+                enc_key: None,
+                auth_key: None,
+            },
         })
     }
 }
 
 impl SerializableWith<&CCEncodingContext> for SecurityCCCommandEncapsulation {
     fn serialize(&self, output: &mut BytesMut, ctx: &CCEncodingContext) {
-        use serialize::{bytes::be_u8, bytes::slice, sequence::tuple};
+        use serialize::{bits::bits, bytes::be_u8, bytes::slice, sequence::tuple};
+
+        let SecurityCCCommandEncapsulationState::Partial {
+            sequenced,
+            sequence_counter,
+            second_frame,
+            cc_slice,
+            nonce,
+            enc_key,
+            auth_key,
+        } = &self.state
+        else {
+            panic!("Only a partial SecurityCCCommandEncapsulation can be serialized");
+        };
 
         // FIXME: Typestate might avoid this. The nonce is technically the receiver's nonce
-        let receiver_nonce = self
-            .nonce
+        let receiver_nonce = nonce
             .as_ref()
             .expect("Nonce must be set before serializing a SecurityCCCommandEncapsulation");
-        let enc_key = self.enc_key.as_ref().expect(
+        let enc_key = enc_key.as_ref().expect(
             "Encryption key must be set before serializing a SecurityCCCommandEncapsulation",
         );
-        let auth_key = self.auth_key.as_ref().expect(
+        let auth_key = auth_key.as_ref().expect(
             "Authentication key must be set before serializing a SecurityCCCommandEncapsulation",
         );
 
-        let command = self.encapsulated.clone();
-        let payload = command.as_raw(ctx).as_bytes();
-
-        let plaintext = [
-            &[0u8], // TODO: Frame control / sequenced frames
-            &payload[..],
-        ]
-        .concat();
+        let mut plaintext = BytesMut::with_capacity(cc_slice.len() + 1);
+        bits(move |bo| {
+            let reserved = u2::new(0);
+            reserved.write(bo);
+            second_frame.write(bo);
+            sequenced.write(bo);
+            sequence_counter.write(bo);
+        })
+        .serialize(&mut plaintext);
+        slice(cc_slice).serialize(&mut plaintext);
 
         // Encrypt the plaintext
         let sender_nonce = S0Nonce::random();
@@ -332,8 +396,63 @@ impl SerializableWith<&CCEncodingContext> for SecurityCCCommandEncapsulation {
 
 impl ToLogPayload for SecurityCCCommandEncapsulation {
     fn to_log_payload(&self) -> LogPayload {
-        LogPayloadDict::new()
-            .with_nested(self.encapsulated.to_log_payload())
-            .into()
+        match &self.state {
+            SecurityCCCommandEncapsulationState::Complete { encapsulated } => LogPayloadDict::new()
+                .with_nested(encapsulated.to_log_payload())
+                .into(),
+            SecurityCCCommandEncapsulationState::Partial {
+                sequenced,
+                sequence_counter,
+                second_frame,
+                cc_slice,
+                ..
+            } => {
+                let mut ret = LogPayloadDict::new().with_entry("sequenced", *sequenced);
+                if *sequenced {
+                    ret = ret.with_entry("sequence counter", u8::from(*sequence_counter));
+                    ret = ret.with_entry("second frame", *second_frame);
+                }
+                ret = ret.with_entry("payload", hex::encode(cc_slice));
+
+                ret.into()
+            }
+        }
+    }
+}
+
+impl CCSession for SecurityCCCommandEncapsulation {
+    // FIXME: Implement support for sequenced commands
+    fn session_id(&self) -> Option<u32> {
+        None
+    }
+
+    fn is_session_complete(&self, other_ccs: &[CC]) -> bool {
+        true
+    }
+
+    fn merge_session(&mut self, ctx: &CCParsingContext, _other_ccs: Vec<CC>) -> ParseResult<()> {
+        // FIXME: Implement support for sequenced commands
+        // For now, we assume the CC is complete, so we simply translate it to a complete one
+        match self.state {
+            SecurityCCCommandEncapsulationState::Complete { .. } => {
+                // This should not happen, but we don't need to do anything with a complete CC
+                Ok(())
+            }
+
+            SecurityCCCommandEncapsulationState::Partial {
+                // sequenced,
+                // sequence_counter,
+                // second_frame,
+                ref mut cc_slice,
+                ..
+            } => {
+                let encapsulated_raw = CCRaw::parse(cc_slice)?;
+                let encapsulated = CC::try_from_raw(encapsulated_raw, ctx)?;
+                self.state = SecurityCCCommandEncapsulationState::Complete {
+                    encapsulated: Box::new(encapsulated),
+                };
+                Ok(())
+            }
+        }
     }
 }

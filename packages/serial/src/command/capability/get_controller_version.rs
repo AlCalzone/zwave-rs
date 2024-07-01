@@ -37,7 +37,7 @@ impl CommandRequest for GetControllerVersionRequest {
 }
 
 impl CommandParsable for GetControllerVersionRequest {
-    fn parse(_i: &mut Bytes, _ctx: &mut CommandParsingContext) -> ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandParsingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
@@ -78,7 +78,7 @@ impl CommandId for GetControllerVersionResponse {
 impl CommandBase for GetControllerVersionResponse {}
 
 impl CommandParsable for GetControllerVersionResponse {
-    fn parse(i: &mut Bytes, _ctx: &mut CommandParsingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CommandParsingContext) -> ParseResult<Self> {
         let version = map(take_while1(|b| b != 0), |b| {
             String::from_utf8_lossy(&b).to_string()
         })

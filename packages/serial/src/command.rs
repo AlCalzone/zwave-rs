@@ -41,7 +41,7 @@ pub trait CommandParsable
 where
     Self: Sized + CommandBase,
 {
-    fn parse(i: &mut Bytes, ctx: &mut CommandParsingContext) -> ParseResult<Self>;
+    fn parse(i: &mut Bytes, ctx: &CommandParsingContext) -> ParseResult<Self>;
 }
 
 #[enum_dispatch(Command)]

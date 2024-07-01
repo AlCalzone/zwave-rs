@@ -35,7 +35,7 @@ impl CommandRequest for GetNodeProtocolInfoRequest {
 }
 
 impl CommandParsable for GetNodeProtocolInfoRequest {
-    fn parse(i: &mut Bytes, ctx: &mut CommandParsingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, ctx: &CommandParsingContext) -> ParseResult<Self> {
         let node_id = NodeId::parse(i, ctx.node_id_type)?;
         Ok(Self { node_id })
     }
@@ -77,7 +77,7 @@ impl CommandId for GetNodeProtocolInfoResponse {
 impl CommandBase for GetNodeProtocolInfoResponse {}
 
 impl CommandParsable for GetNodeProtocolInfoResponse {
-    fn parse(i: &mut Bytes, _ctx: &mut CommandParsingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CommandParsingContext) -> ParseResult<Self> {
         let protocol_info = NodeInformationProtocolData::parse(i)?;
         Ok(Self { protocol_info })
     }

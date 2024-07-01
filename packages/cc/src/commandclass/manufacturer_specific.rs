@@ -175,7 +175,7 @@ impl CCId for ManufacturerSpecificCCGet {
 }
 
 impl CCParsable for ManufacturerSpecificCCGet {
-    fn parse(_i: &mut Bytes, _ctx: &mut CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
@@ -216,7 +216,7 @@ impl CCId for ManufacturerSpecificCCReport {
 }
 
 impl CCParsable for ManufacturerSpecificCCReport {
-    fn parse(i: &mut Bytes, _ctx: &mut CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let manufacturer_id = be_u16(i)?;
         let product_type = be_u16(i)?;
         let product_id = be_u16(i)?;
@@ -286,7 +286,7 @@ impl CCId for ManufacturerSpecificCCDeviceSpecificGet {
 }
 
 impl CCParsable for ManufacturerSpecificCCDeviceSpecificGet {
-    fn parse(i: &mut Bytes, _ctx: &mut CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let (_reserved73, device_id_type) = bits::bits((
             u5::parse,
             map_res(bits::take(3usize), |x: u8| DeviceIdType::try_from(x)),
@@ -347,7 +347,7 @@ impl CCId for ManufacturerSpecificCCDeviceSpecificReport {
 }
 
 impl CCParsable for ManufacturerSpecificCCDeviceSpecificReport {
-    fn parse(i: &mut Bytes, _ctx: &mut CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let (_reserved73, device_id_type) = bits::bits((
             u5::parse,
             map_res(bits::take(3usize), |x: u8| DeviceIdType::try_from(x)),

@@ -44,7 +44,7 @@ impl CommandRequest for GetSerialApiCapabilitiesRequest {
 }
 
 impl CommandParsable for GetSerialApiCapabilitiesRequest {
-    fn parse(_i: &mut Bytes, _ctx: &mut CommandParsingContext) -> ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: &CommandParsingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
@@ -91,7 +91,7 @@ impl CommandId for GetSerialApiCapabilitiesResponse {
 impl CommandBase for GetSerialApiCapabilitiesResponse {}
 
 impl CommandParsable for GetSerialApiCapabilitiesResponse {
-    fn parse(i: &mut Bytes, _ctx: &mut CommandParsingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: &CommandParsingContext) -> ParseResult<Self> {
         let firmware_version = map((be_u8, be_u8), |(major, minor)| Version {
             major,
             minor,
