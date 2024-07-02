@@ -1,10 +1,8 @@
+use self::cache::EndpointValueCache;
+use crate::{driver_api::DriverApi, ControllerCommandResult, ExecNodeCommandError, Ready};
 use zwave_cc::commandclass::{CCAddressable, NoOperationCC};
 use zwave_core::{definitions::*, submodule};
 use zwave_logging::loggers::node::NodeLogger;
-
-use crate::{ControllerCommandResult, Driver, ExecNodeCommandError, Ready};
-
-use self::cache::EndpointValueCache;
 
 submodule!(interview);
 submodule!(storage);
@@ -83,7 +81,7 @@ macro_rules! write_endpoint_locked {
 pub struct Node<'a> {
     id: NodeId,
     protocol_data: NodeInformationProtocolData,
-    driver: &'a Driver<Ready>,
+    driver: &'a DriverApi<Ready>,
 }
 
 pub trait EndpointLike<'a> {
@@ -110,7 +108,7 @@ impl<'a> Node<'a> {
     pub fn new(
         id: NodeId,
         protocol_data: NodeInformationProtocolData,
-        driver: &'a Driver<Ready>,
+        driver: &'a DriverApi<Ready>,
     ) -> Self {
         Self {
             id,
@@ -119,7 +117,7 @@ impl<'a> Node<'a> {
         }
     }
 
-    pub fn driver(&self) -> &Driver<Ready> {
+    pub fn driver(&self) -> &DriverApi<Ready> {
         self.driver
     }
 
@@ -161,7 +159,6 @@ impl<'a> Node<'a> {
             Err(ExecNodeCommandError::NodeTimeout) => panic!("NoOperation CC should not time out"),
         }
     }
-
 }
 
 impl<'a> EndpointLike<'a> for Node<'a> {
@@ -240,17 +237,16 @@ impl<'a> EndpointLike<'a> for Node<'a> {
     fn logger(&self) -> NodeLogger {
         self.driver.node_log(self.node_id(), self.index())
     }
-
 }
 
 pub struct Endpoint<'a> {
     node: &'a Node<'a>,
     index: u8,
-    driver: &'a Driver<Ready>,
+    driver: &'a DriverApi<Ready>,
 }
 
 impl<'a> Endpoint<'a> {
-    pub fn new(node: &'a Node<'a>, index: u8, driver: &'a Driver<Ready>) -> Self {
+    pub fn new(node: &'a Node<'a>, index: u8, driver: &'a DriverApi<Ready>) -> Self {
         Self {
             node,
             index,
@@ -258,7 +254,7 @@ impl<'a> Endpoint<'a> {
         }
     }
 
-    pub fn driver(&self) -> &Driver<Ready> {
+    pub fn driver(&self) -> &DriverApi<Ready> {
         self.driver
     }
 }
@@ -339,9 +335,7 @@ impl<'a> EndpointLike<'a> for Endpoint<'a> {
             .flatten()
     }
 
-
     fn logger(&self) -> NodeLogger {
         self.driver.node_log(self.node_id(), self.index())
     }
-
 }

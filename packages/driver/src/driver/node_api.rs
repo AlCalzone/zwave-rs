@@ -1,9 +1,9 @@
 use super::Ready;
-use crate::{Driver, EndpointStorage, Node, NodeStorage};
+use crate::{driver_api::DriverApi, EndpointStorage, Node, NodeStorage};
 use zwave_core::definitions::*;
 
 // API for node instances
-impl Driver<Ready> {
+impl DriverApi<Ready> {
     pub fn get_node(&self, node_id: &NodeId) -> Option<Node> {
         // Do not return a node API for the Serial API controller
         if node_id == &self.controller().own_node_id() {

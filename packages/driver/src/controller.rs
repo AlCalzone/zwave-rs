@@ -1,31 +1,25 @@
-use std::sync::atomic::Ordering;
+use crate::{driver_api::DriverApi, Ready};
+use std::sync::{atomic::Ordering, Arc};
 use zwave_core::{definitions::*, submodule};
 use zwave_serial::command::SerialApiSetupCommand;
-
-use crate::{Driver, Ready};
 
 submodule!(storage);
 
 macro_rules! read {
     ($self:ident, $field:ident) => {
-        $self.driver.get_controller_storage().$field
+        $self.storage.$field
     };
 }
 
 macro_rules! read_locked {
     ($self:ident, $field:ident) => {
-        *$self.driver.get_controller_storage().$field.read().unwrap()
+        *$self.storage.$field.read().unwrap()
     };
 }
 
 macro_rules! write_locked {
     ($self:ident, $field:ident, $value:expr) => {
-        *$self
-            .driver
-            .get_controller_storage()
-            .$field
-            .write()
-            .unwrap() = $value;
+        *$self.storage.$field.write().unwrap() = $value;
     };
 }
 
@@ -41,14 +35,21 @@ macro_rules! write_atomic {
     };
 }
 
-// #[derive(Debug)]
-pub struct Controller<'a> {
-    driver: &'a Driver<Ready>,
+// API access for the controller instance
+impl DriverApi<Ready> {
+    pub fn controller(&self) -> Controller {
+        Controller::new(self.state.controller.clone())
+    }
 }
 
-impl<'a> Controller<'a> {
-    pub fn new(driver: &'a Driver<Ready>) -> Self {
-        Self { driver }
+// #[derive(Debug)]
+pub struct Controller {
+    storage: Arc<ControllerStorage>,
+}
+
+impl Controller {
+    pub fn new(storage: Arc<ControllerStorage>) -> Self {
+        Self { storage }
     }
 
     /// Checks whether a given Z-Wave function type is supported by the controller.

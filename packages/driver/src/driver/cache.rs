@@ -1,20 +1,17 @@
+use super::storage::DriverStorage;
+use crate::{driver_api::DriverApi, Ready};
 use std::sync::Arc;
-
 use zwave_core::{
     cache::{Cache, CacheValue},
     value_id::EndpointValueId,
 };
 
-use crate::{Driver, Ready};
-
-use super::storage::DriverStorageShared;
-
 pub struct ValueCache<'a> {
-    storage: &'a Arc<DriverStorageShared>,
+    storage: &'a Arc<DriverStorage>,
 }
 
 impl<'a> ValueCache<'a> {
-    pub(crate) fn new(storage: &'a Arc<DriverStorageShared>) -> Self {
+    pub(crate) fn new(storage: &'a Arc<DriverStorage>) -> Self {
         Self { storage }
     }
 }
@@ -37,8 +34,8 @@ impl Cache<EndpointValueId> for ValueCache<'_> {
     }
 }
 
-impl Driver<Ready> {
+impl DriverApi<Ready> {
     pub fn value_cache(&self) -> ValueCache<'_> {
-        ValueCache::new(&self.shared_storage)
+        ValueCache::new(&self.storage)
     }
 }

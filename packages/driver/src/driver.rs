@@ -1,33 +1,29 @@
 use self::awaited::{AwaitedRef, AwaitedRegistry, Predicate};
 use self::cache::ValueCache;
-use self::serial_api_machine::{
-    SerialApiMachine, SerialApiMachineCondition, SerialApiMachineInput, SerialApiMachineState,
-};
-use self::storage::{DriverStorage, DriverStorageShared};
-use crate::error::{Error, Result};
+use self::storage::DriverStorage;
+use crate::error::Result;
+use driver_api::DriverApi;
+use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, oneshot, Notify};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
-use zwave_cc::commandclass::{CCBase, CCParsingContext, CCSession, CCValues, WithAddress, CC};
+use zwave_cc::commandclass::{CCParsingContext, CCSession, CCValues, WithAddress, CC};
 use zwave_core::cache::Cache;
 use zwave_core::log::Loglevel;
-use zwave_core::security::{SecurityManager, SecurityManagerOptions, NETWORK_KEY_SIZE};
-use zwave_core::state_machine::{StateMachine, StateMachineTransition};
+use zwave_core::security::{SecurityManager, SecurityManagerOptions};
 use zwave_core::util::now;
 use zwave_core::value_id::EndpointValueId;
 use zwave_core::wrapping_counter::WrappingCounter;
 use zwave_core::{prelude::*, submodule};
-use zwave_logging::loggers::node;
 use zwave_logging::loggers::{
     base::BaseLogger, controller::ControllerLogger, driver::DriverLogger, node::NodeLogger,
     serial::SerialLogger,
 };
 use zwave_logging::{Direction, LogInfo, Logger};
 use zwave_serial::binding::SerialBinding;
-use zwave_serial::command::AsCommandRaw;
 use zwave_serial::frame::{ControlFlow, RawSerialFrame, SerialFrame};
 use zwave_serial::prelude::*;
 use zwave_serial::serialport::{SerialPort, TcpSocket, ZWavePort};
@@ -36,6 +32,7 @@ pub use serial_api_machine::SerialApiMachineResult;
 
 mod awaited;
 pub(crate) mod cache;
+pub(crate) mod driver_api;
 mod init_controller_and_nodes;
 mod interview_nodes;
 mod serial_api_machine;
@@ -45,7 +42,6 @@ submodule!(driver_state);
 submodule!(controller_commands);
 submodule!(node_commands);
 submodule!(node_api);
-submodule!(controller_api);
 submodule!(background_logger);
 
 type TaskCommandSender<T> = mpsc::Sender<T>;
@@ -56,10 +52,13 @@ type SerialListener = broadcast::Receiver<SerialFrame>;
 
 pub struct Driver<S: DriverState> {
     tasks: DriverTasks,
+    options: DriverOptionsStatic,
 
     state: S,
-    storage: DriverStorage,
-    shared_storage: Arc<DriverStorageShared>,
+    storage: Arc<DriverStorage>,
+
+    /// The own API instance used by the driver
+    api: DriverApi<S>,
 }
 
 #[allow(dead_code)]
@@ -142,7 +141,6 @@ impl Driver<Init> {
         let bg_logger = Arc::new(BackgroundLogger::new(log_cmd_tx.clone(), loglevel));
         let serial_logger = SerialLogger::new(bg_logger.clone());
         let driver_logger = DriverLogger::new(bg_logger.clone());
-        let controller_logger = ControllerLogger::new(bg_logger.clone());
 
         // Start the background thread for logging immediately, so we can log before opening the serial port
         let log_thread = thread::spawn(move || log_loop(log_cmd_rx, loglevel));
@@ -169,8 +167,7 @@ impl Driver<Init> {
             }
         };
 
-        let storage = DriverStorage::new(options.into(), driver_logger, controller_logger);
-        let shared_storage = Arc::new(DriverStorageShared::new(bg_logger, NodeIdType::NodeId8Bit));
+        let driver_storage = Arc::new(DriverStorage::new(bg_logger, NodeIdType::NodeId8Bit));
 
         // Start the background task for the main logic
         let main_task = tokio::spawn(main_loop(
@@ -178,7 +175,7 @@ impl Driver<Init> {
             main_task_shutdown2,
             main_serial_cmd,
             main_serial_listener,
-            shared_storage.clone(),
+            driver_storage.clone(),
         ));
 
         // Start the background task for the serial port communication
@@ -202,11 +199,21 @@ impl Driver<Init> {
             log_thread,
         };
 
+        let state = Init;
+
+        let api = DriverApi::new(
+            state.clone(),
+            tasks.main_cmd.clone(),
+            tasks.serial_cmd.clone(),
+            driver_storage.clone(),
+        );
+
         Ok(Self {
             tasks,
             state: Init,
-            storage,
-            shared_storage,
+            options: options.into(),
+            storage: driver_storage,
+            api,
         })
     }
 
@@ -224,21 +231,28 @@ impl Driver<Init> {
         let ready = self.interview_controller().await?;
 
         // Store our node ID so other tasks have access too
-        self.shared_storage
-            .set_own_node_id(ready.controller.own_node_id);
+        self.storage.set_own_node_id(ready.controller.own_node_id);
 
         // Initialize security managers
         dispatch_async!(
             self.tasks.main_cmd,
             MainTaskCommand::InitSecurity,
-            self.storage.options().security_keys.clone()
+            self.options.security_keys.clone()
         )?;
 
-        let mut this = Driver::<Ready> {
+        let ready_api = DriverApi::new(
+            ready.clone(),
+            self.tasks.main_cmd.clone(),
+            self.tasks.serial_cmd.clone(),
+            self.storage.clone(),
+        );
+
+        let this = Driver::<Ready> {
             tasks: self.tasks,
             state: ready,
+            options: self.options,
             storage: self.storage,
-            shared_storage: self.shared_storage,
+            api: ready_api,
         };
 
         this.configure_controller().await?;
@@ -247,256 +261,15 @@ impl Driver<Init> {
     }
 }
 
-impl<S> Driver<S>
+// TODO: Consider not exposing the entire API to the outside
+impl<S> Deref for Driver<S>
 where
     S: DriverState,
 {
-    /// Write a frame to the serial port, returning a reference to the awaited ACK frame
-    pub async fn write_serial(&self, frame: RawSerialFrame) -> Result<AwaitedRef<ControlFlow>> {
-        // Register an awaiter for the ACK frame
-        let ret = self
-            .await_control_flow_frame(Box::new(|_| true), Some(Duration::from_millis(1600)))
-            .await;
-        // ...then send the frame
-        dispatch_async!(&self.tasks.serial_cmd, SerialTaskCommand::SendFrame, frame)??;
+    type Target = DriverApi<S>;
 
-        ret
-    }
-
-    async fn await_control_flow_frame(
-        &self,
-        predicate: Predicate<ControlFlow>,
-        timeout: Option<Duration>,
-    ) -> Result<AwaitedRef<ControlFlow>> {
-        dispatch_async!(
-            self.tasks.main_cmd,
-            MainTaskCommand::RegisterAwaitedControlFlowFrame,
-            predicate,
-            timeout
-        )
-    }
-
-    pub async fn await_command(
-        &self,
-        predicate: Predicate<Command>,
-        timeout: Option<Duration>,
-    ) -> Result<AwaitedRef<Command>> {
-        dispatch_async!(
-            self.tasks.main_cmd,
-            MainTaskCommand::RegisterAwaitedCommand,
-            predicate,
-            timeout
-        )
-    }
-
-    pub async fn await_cc(
-        &self,
-        predicate: Predicate<WithAddress<CC>>,
-        timeout: Option<Duration>,
-    ) -> Result<AwaitedRef<WithAddress<CC>>> {
-        dispatch_async!(
-            self.tasks.main_cmd,
-            MainTaskCommand::RegisterAwaitedCC,
-            predicate,
-            timeout
-        )
-    }
-
-    pub async fn get_next_callback_id(&self) -> Result<u8> {
-        dispatch_async!(self.tasks.main_cmd, MainTaskCommand::GetNextCallbackId)
-    }
-
-    pub async fn execute_serial_api_command<C>(
-        &self,
-        mut command: C,
-    ) -> Result<SerialApiMachineResult>
-    where
-        C: CommandRequest + AsCommandRaw + Into<Command> + Clone + 'static,
-    {
-        // Set up state machine and interpreter
-        let mut state_machine = SerialApiMachine::new();
-
-        // Give the command a callback ID if it needs one
-        if command.needs_callback_id() {
-            command.set_callback_id(Some(self.get_next_callback_id().await?));
-        }
-
-        let expects_response = command.expects_response();
-        let expects_callback = command.expects_callback();
-        let evaluate_condition =
-            Box::new(
-                move |condition: SerialApiMachineCondition| match condition {
-                    SerialApiMachineCondition::ExpectsResponse => expects_response,
-                    SerialApiMachineCondition::ExpectsCallback => expects_callback,
-                },
-            );
-
-        // Handle all transitions/events from the state machine
-        let mut next_input: Option<SerialApiMachineInput> = Some(SerialApiMachineInput::Start);
-
-        // With multiple tasks involved, setting up the awaiters is very timing-sensitive and
-        // prone to race conditions when set up just in time. Unless something is going horribly wrong,
-        // setting up all awaiters before sending the command should be safe.
-        let mut awaited_response: Option<AwaitedRef<Command>> = {
-            let command = command.clone();
-            Some(
-                self.await_command(
-                    Box::new(move |cmd| command.test_response(cmd)),
-                    Some(Duration::from_millis(10000)),
-                )
-                .await?,
-            )
-        };
-        let mut awaited_callback: Option<AwaitedRef<Command>> = {
-            let command = command.clone();
-            Some(
-                self.await_command(
-                    Box::new(move |cmd| command.test_callback(cmd)),
-                    Some(Duration::from_millis(30000)),
-                )
-                .await?,
-            )
-        };
-        // The ACK awaiter is returned by the call to `write_serial()`
-        let mut awaited_ack: Option<AwaitedRef<ControlFlow>> = None;
-
-        while !state_machine.done() {
-            if let Some(input) = next_input.take() {
-                if let Some(transition) = state_machine.next(input, &evaluate_condition) {
-                    let new_state = transition.new_state();
-
-                    // Transition to the new state
-                    state_machine.transition(new_state);
-
-                    // Now check what needs to be done in the new state
-                    match state_machine.state() {
-                        SerialApiMachineState::Initial => (),
-                        SerialApiMachineState::Sending => {
-                            let ctx = CommandEncodingContext::builder()
-                                .own_node_id(self.shared_storage.own_node_id())
-                                .node_id_type(self.shared_storage.node_id_type())
-                                .sdk_version(self.shared_storage.sdk_version())
-                                .build();
-
-                            let raw = command.as_raw(&ctx);
-                            let frame = SerialFrame::Command(raw);
-                            // Send the command to the controller
-                            awaited_ack = Some(self.write_serial(frame.into()).await?);
-                            // and notify the state machine
-                            next_input = Some(SerialApiMachineInput::FrameSent);
-
-                            // And log the command information if this was a command
-                            let node_id = match Into::<Command>::into(command.clone()) {
-                                // FIXME: Extract the endpoint index aswell
-                                Command::SendDataRequest(cmd) => Some(cmd.node_id),
-                                _ => None,
-                            };
-
-                            if let Some(node_id) = node_id {
-                                self.node_log(node_id, EndpointIndex::Root)
-                                    .command(&command, Direction::Outbound);
-                            } else {
-                                self.storage
-                                    .controller_logger()
-                                    .command(&command, Direction::Outbound);
-                            }
-                        }
-                        SerialApiMachineState::WaitingForACK => {
-                            // Wait for ACK, but also accept CAN and NAK
-                            match awaited_ack
-                                .take()
-                                .expect("ACK awaiter already consumed")
-                                .try_await()
-                                .await
-                            {
-                                Ok(frame) => {
-                                    next_input = Some(match frame {
-                                        ControlFlow::ACK => SerialApiMachineInput::ACK,
-                                        ControlFlow::NAK => SerialApiMachineInput::NAK,
-                                        ControlFlow::CAN => SerialApiMachineInput::CAN,
-                                    });
-                                }
-                                Err(Error::Timeout) => {
-                                    next_input = Some(SerialApiMachineInput::Timeout);
-                                }
-                                Err(_) => {
-                                    panic!("Unexpected internal error while waiting for ACK");
-                                }
-                            }
-                        }
-                        SerialApiMachineState::WaitingForResponse => {
-                            match awaited_response
-                                .take()
-                                .expect("Response awaiter already consumed")
-                                .try_await()
-                                .await
-                            {
-                                Ok(response) if response.is_ok() => {
-                                    next_input = Some(SerialApiMachineInput::Response(response));
-                                }
-                                Ok(response) => {
-                                    next_input = Some(SerialApiMachineInput::ResponseNOK(response));
-                                }
-                                Err(Error::Timeout) => {
-                                    next_input = Some(SerialApiMachineInput::Timeout);
-                                }
-                                Err(_) => {
-                                    panic!("Unexpected internal error while waiting for response");
-                                }
-                            }
-                        }
-                        SerialApiMachineState::WaitingForCallback => {
-                            match awaited_callback
-                                .take()
-                                .expect("Callback awaiter already consumed")
-                                .try_await()
-                                .await
-                            {
-                                Ok(callback) if callback.is_ok() => {
-                                    next_input = Some(SerialApiMachineInput::Callback(callback));
-                                }
-                                Ok(callback) => {
-                                    next_input = Some(SerialApiMachineInput::CallbackNOK(callback));
-                                }
-                                Err(Error::Timeout) => {
-                                    next_input = Some(SerialApiMachineInput::Timeout);
-                                }
-                                Err(_) => {
-                                    panic!("Unexpected internal error while waiting for callback");
-                                }
-                            }
-                        }
-                        SerialApiMachineState::Done(_) => (),
-                    }
-                }
-            } else {
-                println!("WARN: IDLE in Serial API machine - no input");
-                tokio::time::sleep(Duration::from_millis(10)).await;
-            }
-        }
-
-        // Wait for the machine to finish
-        let final_state = state_machine.state();
-
-        match final_state {
-            serial_api_machine::SerialApiMachineState::Done(s) => Ok(s.clone()),
-            _ => panic!(
-                "Serial API machine finished with invalid state {:?}",
-                final_state
-            ),
-        }
-    }
-
-    pub fn log(&self) -> &DriverLogger {
-        self.storage.driver_logger()
-    }
-
-    pub fn controller_log(&self) -> &ControllerLogger {
-        self.storage.controller_logger()
-    }
-
-    pub fn node_log(&self, node_id: NodeId, endpoint: EndpointIndex) -> NodeLogger {
-        NodeLogger::new(self.shared_storage.logger().clone(), node_id, endpoint)
+    fn deref(&self) -> &Self::Target {
+        &self.api
     }
 }
 
@@ -682,9 +455,9 @@ async fn main_loop(
     shutdown: Arc<Notify>,
     serial_cmd: SerialTaskCommandSender,
     mut serial_listener: SerialListener,
-    shared_storage: Arc<DriverStorageShared>,
+    driver_storage: Arc<DriverStorage>,
 ) {
-    let bg_logger = shared_storage.logger().clone();
+    let bg_logger = driver_storage.logger().clone();
     let driver_logger = DriverLogger::new(bg_logger.clone());
     let controller_logger = ControllerLogger::new(bg_logger.clone());
 
@@ -709,10 +482,10 @@ async fn main_loop(
             _ = shutdown.notified() => break,
 
             // We received a command from the outside
-            Some(cmd) = cmd_rx.recv() => main_loop_handle_command(&mut storage, cmd, &serial_cmd, &shared_storage).await,
+            Some(cmd) = cmd_rx.recv() => main_loop_handle_command(&mut storage, cmd, &serial_cmd, &driver_storage).await,
 
             // The serial port emitted a frame
-            Ok(frame) = serial_listener.recv() => main_loop_handle_frame(&storage, frame, &serial_cmd, &shared_storage).await
+            Ok(frame) = serial_listener.recv() => main_loop_handle_frame(&storage, frame, &serial_cmd, &driver_storage).await
         }
     }
 }
@@ -721,7 +494,7 @@ async fn main_loop_handle_command(
     storage: &mut MainLoopStorage,
     cmd: MainTaskCommand,
     _serial_cmd: &SerialTaskCommandSender,
-    shared_storage: &Arc<DriverStorageShared>,
+    driver_storage: &Arc<DriverStorage>,
 ) {
     match cmd {
         MainTaskCommand::RegisterAwaitedControlFlowFrame(ctrl) => {
@@ -760,7 +533,7 @@ async fn main_loop_handle_command(
                     .driver_logger
                     .info(|| "Network key for S0 configured, enabling S0 security manager...");
                 let security_manager = SecurityManager::new(SecurityManagerOptions {
-                    own_node_id: shared_storage.own_node_id(),
+                    own_node_id: driver_storage.own_node_id(),
                     network_key: s0_key,
                 });
 
@@ -793,7 +566,7 @@ async fn main_loop_handle_frame(
     storage: &MainLoopStorage,
     frame: SerialFrame,
     _serial_cmd: &SerialTaskCommandSender,
-    shared_storage: &Arc<DriverStorageShared>,
+    driver_storage: &Arc<DriverStorage>,
 ) {
     match frame {
         SerialFrame::ControlFlow(cf) => {
@@ -810,9 +583,9 @@ async fn main_loop_handle_frame(
         SerialFrame::Command(raw) => {
             // Try to convert it into an actual command
             let mut ctx = CommandParsingContext::builder()
-                .own_node_id(shared_storage.own_node_id())
-                .node_id_type(shared_storage.node_id_type())
-                .sdk_version(shared_storage.sdk_version())
+                .own_node_id(driver_storage.own_node_id())
+                .node_id_type(driver_storage.node_id_type())
+                .sdk_version(driver_storage.sdk_version())
                 .security_manager(storage.security_manager.clone())
                 .build();
             let cmd = match zwave_serial::command::Command::try_from_raw(raw, &ctx) {
@@ -856,13 +629,13 @@ async fn main_loop_handle_frame(
                 Command::ApplicationCommandRequest(cmd) => {
                     let ctx = cmd.get_cc_parsing_context(&ctx);
                     let cc = cmd.command;
-                    main_loop_handle_cc(storage, cc, ctx, shared_storage);
+                    main_loop_handle_cc(storage, cc, ctx, driver_storage);
                     return;
                 }
                 Command::BridgeApplicationCommandRequest(cmd) => {
                     let ctx = cmd.get_cc_parsing_context(&ctx);
                     let cc = cmd.command;
-                    main_loop_handle_cc(storage, cc, ctx, shared_storage);
+                    main_loop_handle_cc(storage, cc, ctx, driver_storage);
                     return;
                 }
 
@@ -880,7 +653,7 @@ fn main_loop_handle_cc(
     storage: &MainLoopStorage,
     mut cc: WithAddress<CC>,
     ctx: CCParsingContext,
-    shared_storage: &Arc<DriverStorageShared>,
+    driver_storage: &Arc<DriverStorage>,
 ) {
     let node_logger = NodeLogger::new(
         storage.bg_logger.clone(),
@@ -900,7 +673,7 @@ fn main_loop_handle_cc(
     // FIXME: Check if low-security command needs to be discarded
 
     // Persist CC values. TODO: test first if we should
-    let mut cache = ValueCache::new(shared_storage);
+    let mut cache = ValueCache::new(driver_storage);
     persist_cc_values(&cc, &mut cache);
 
     // If the awaited CC registry has a matching awaiter,

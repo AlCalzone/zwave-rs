@@ -1,5 +1,4 @@
-use crate::dispatch_async;
-use crate::Driver;
+use crate::driver_api::DriverApi;
 use crate::Ready;
 use crate::SerialApiMachineResult;
 
@@ -20,13 +19,11 @@ use zwave_serial::command::{
     GetSucNodeIdRequest, SerialApiSetupCommand, SerialApiSetupRequest,
     SerialApiSetupResponsePayload, SetSucNodeIdRequest,
 };
-use zwave_serial::command_raw::CommandRaw;
-use zwave_serial::frame::SerialFrame;
 
 // FIXME: Having a wrapper for this with the correct command options set would be nicer API-wise
 
 // Define the commands that can be executed in any phase
-impl<S> Driver<S>
+impl<S> DriverApi<S>
 where
     S: DriverState,
 {
@@ -164,8 +161,7 @@ where
         }
 
         // Remember the protocol version
-        self.shared_storage
-            .set_sdk_version(protocol_version.version);
+        self.storage.set_sdk_version(protocol_version.version);
 
         Ok(protocol_version)
     }
@@ -250,7 +246,7 @@ where
 
         // Remember the node ID type
         if success {
-            self.shared_storage.set_node_id_type(node_id_type);
+            self.storage.set_node_id_type(node_id_type);
         }
 
         Ok(success)
@@ -280,7 +276,7 @@ where
 }
 
 // Define the commands that require the driver to be ready
-impl Driver<Ready> {
+impl DriverApi<Ready> {
     pub async fn get_rf_region(
         &self,
         options: Option<&ExecControllerCommandOptions>,
@@ -442,7 +438,7 @@ impl Driver<Ready> {
     }
 }
 
-impl<S> Driver<S>
+impl<S> DriverApi<S>
 where
     S: DriverState,
 {

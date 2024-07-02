@@ -1,12 +1,14 @@
 use super::{Init, Ready};
-use crate::{driver::ControllerCommandError, ControllerCommandResult, Driver};
+use crate::driver_api::DriverApi;
+use crate::{driver::ControllerCommandError, ControllerCommandResult};
 use crate::{ControllerStorage, ExecControllerCommandOptions, NodeStorage};
 use std::collections::BTreeMap;
+use std::sync::Arc;
 use zwave_core::definitions::*;
 use zwave_core::log::Loglevel;
 use zwave_serial::command::SerialApiSetupCommand;
 
-impl Driver<Init> {
+impl DriverApi<Init> {
     pub(crate) async fn interview_controller(&self) -> ControllerCommandResult<Ready> {
         // We execute some of these commands before knowing the controller capabilities, so
         // we disable enforcing that the controller supports the commands.
@@ -66,6 +68,7 @@ impl Driver<Init> {
             let storage = NodeStorage::new(protocol_info);
             nodes.insert(*node_id, storage);
         }
+        let nodes = Arc::new(nodes);
 
         let controller = ControllerStorage::builder()
             .home_id(ids.home_id)
@@ -91,13 +94,14 @@ impl Driver<Init> {
             .supported_serial_api_setup_commands(supported_serial_api_setup_commands)
             .supports_timers(init_data.supports_timers)
             .build();
+        let controller = Arc::new(controller);
 
         Ok(Ready { controller, nodes })
     }
 }
 
-impl Driver<Ready> {
-    pub(crate) async fn configure_controller(&mut self) -> ControllerCommandResult<()> {
+impl DriverApi<Ready> {
+    pub(crate) async fn configure_controller(&self) -> ControllerCommandResult<()> {
         // Get the currently configured RF region and remember it.
         // If it differs from the desired region, change it afterwards.
         if self
