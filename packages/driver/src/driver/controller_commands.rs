@@ -1,7 +1,5 @@
 use crate::driver_api::DriverApi;
 use crate::Ready;
-use crate::SerialApiMachineResult;
-
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 use zwave_core::log::Loglevel;
@@ -468,9 +466,10 @@ where
         match result {
             Ok(SerialApiMachineResult::Success(command)) => Ok(command),
             Ok(result) => Err(result.into()),
-            _ => Err(ExecControllerCommandError::Unexpected(
-                "unexpected error".to_string(),
-            )),
+            Err(e) => Err(ExecControllerCommandError::Unexpected(format!(
+                "unexpected error in execute_serial_api_command: {:?}",
+                e
+            ))),
         }
     }
 }
@@ -596,4 +595,5 @@ macro_rules! expect_serial_api_setup_result {
 }
 pub(crate) use expect_serial_api_setup_result;
 
+use super::serial_api_machine::SerialApiMachineResult;
 use super::DriverState;

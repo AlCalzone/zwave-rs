@@ -1,7 +1,7 @@
 use crate::driver_api::DriverApi;
 use crate::error::Error;
 use crate::ControllerCommandError;
-use crate::Ready;
+use crate::DriverState;
 use std::time::Duration;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
@@ -47,7 +47,10 @@ where
     }
 }
 
-impl DriverApi<Ready> {
+impl<S> DriverApi<S>
+where
+    S: DriverState,
+{
     pub async fn exec_node_command<C>(
         &self,
         cc: &WithAddress<C>,

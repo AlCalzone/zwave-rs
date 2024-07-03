@@ -21,18 +21,18 @@ async fn main() {
             ..Default::default()
         })
         .build();
-    let driver = zwave_driver::Driver::new(options).unwrap();
+    let driver = zwave_driver::Driver::new(options).expect("Failed to create driver");
 
-    let driver = driver.init().await.unwrap();
+    let driver = driver.init().await.expect("Failed to initialize driver");
 
-    driver.interview_nodes().await.unwrap();
+    driver.interview_nodes().await.expect("Failed to interview nodes");
     driver.log().info(|| "all nodes interviewed");
 
     // node2.ping().await.unwrap();
 
-    // let node = driver.get_node(&NodeId::new(3u8)).unwrap();
-    // let nonce = node.cc_api().security().get_nonce().await.unwrap();
-    // println!("nonce: {:#?}", &nonce);
+    let node = driver.get_node(&NodeId::new(2u8)).expect("Node not found");
+    let nonce = node.cc_api().security().get_nonce().await.unwrap();
+    println!("nonce: {:#?}", &nonce);
 
     // node.cc_api().basic().set(LevelSet::Off).await.unwrap();
 

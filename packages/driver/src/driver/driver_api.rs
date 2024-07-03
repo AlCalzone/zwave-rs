@@ -1,22 +1,21 @@
 use super::{
     awaited::{AwaitedRef, Predicate},
-    serial_api_machine,
+    serial_api_machine::{
+        SerialApiMachine, SerialApiMachineCondition, SerialApiMachineInput, SerialApiMachineResult,
+        SerialApiMachineState,
+    },
     storage::DriverStorage,
-    MainTaskCommandSender, SerialTaskCommandSender,
+    Driver, MainTaskCommandSender, SerialTaskCommandSender,
 };
-pub use crate::driver::serial_api_machine::SerialApiMachineResult;
 use crate::error::{Error, Result};
 use crate::{dispatch_async, DriverState};
-use crate::{
-    driver::serial_api_machine::{
-        SerialApiMachine, SerialApiMachineCondition, SerialApiMachineInput, SerialApiMachineState,
-    },
-    Driver,
+use std::{
+    sync::{Arc, RwLock},
+    time::Duration,
 };
-use std::{sync::Arc, time::Duration};
 use zwave_cc::commandclass::{WithAddress, CC};
-use zwave_core::prelude::*;
 use zwave_core::state_machine::{StateMachine, StateMachineTransition};
+use zwave_core::{prelude::*, security::SecurityManager};
 use zwave_logging::{
     loggers::{controller::ControllerLogger, driver::DriverLogger, node::NodeLogger},
     Direction,
@@ -26,6 +25,16 @@ use zwave_serial::{
     frame::{ControlFlow, RawSerialFrame, SerialFrame},
     prelude::*,
 };
+
+pub trait DriverApiImpl: Sync + Send {
+    fn storage(&self) -> &Arc<DriverStorage>;
+
+    fn security_manager(&self) -> Option<Arc<RwLock<SecurityManager>>>;
+
+    fn log(&self) -> DriverLogger;
+    fn controller_log(&self) -> ControllerLogger;
+    fn node_log(&self, node_id: NodeId, endpoint: EndpointIndex) -> NodeLogger;
+}
 
 #[derive(Clone)]
 pub struct DriverApi<S: DriverState> {
@@ -82,8 +91,13 @@ where
             .await_control_flow_frame(Box::new(|_| true), Some(Duration::from_millis(1600)))
             .await;
         // ...then send the frame
-        dispatch_async!(&self.serial_task_cmd, SerialTaskCommand::SendFrame, frame)??;
+        let send_frame_result =
+            dispatch_async!(&self.serial_task_cmd, SerialTaskCommand::SendFrame, frame)
+                .expect("SerialTaskCommand::SendFrame failed");
+        // Ensure it worked
+        send_frame_result?;
 
+        // Then return the awaiter
         ret
     }
 
@@ -168,7 +182,8 @@ where
                     Box::new(move |cmd| command.test_response(cmd)),
                     Some(Duration::from_millis(10000)),
                 )
-                .await?,
+                .await
+                .expect("await_command (response) failed"),
             )
         };
         let mut awaited_callback: Option<AwaitedRef<Command>> = {
@@ -178,7 +193,8 @@ where
                     Box::new(move |cmd| command.test_callback(cmd)),
                     Some(Duration::from_millis(30000)),
                 )
-                .await?,
+                .await
+                .expect("await_command (callback) failed"),
             )
         };
         // The ACK awaiter is returned by the call to `write_serial()`
@@ -205,7 +221,11 @@ where
                             let raw = command.as_raw(&ctx);
                             let frame = SerialFrame::Command(raw);
                             // Send the command to the controller
-                            awaited_ack = Some(self.write_serial(frame.into()).await?);
+                            awaited_ack = Some(
+                                self.write_serial(frame.into())
+                                    .await
+                                    .expect("write_serial failed"),
+                            );
                             // and notify the state machine
                             next_input = Some(SerialApiMachineInput::FrameSent);
 
@@ -304,7 +324,7 @@ where
         let final_state = state_machine.state();
 
         match final_state {
-            serial_api_machine::SerialApiMachineState::Done(s) => Ok(s.clone()),
+            SerialApiMachineState::Done(s) => Ok(s.clone()),
             _ => panic!(
                 "Serial API machine finished with invalid state {:?}",
                 final_state
@@ -322,5 +342,30 @@ where
 
     pub fn node_log(&self, node_id: NodeId, endpoint: EndpointIndex) -> NodeLogger {
         NodeLogger::new(self.storage.logger().clone(), node_id, endpoint)
+    }
+}
+
+impl<S> DriverApiImpl for DriverApi<S>
+where
+    S: DriverState,
+{
+    fn storage(&self) -> &Arc<DriverStorage> {
+        &self.storage
+    }
+
+    fn security_manager(&self) -> Option<Arc<RwLock<SecurityManager>>> {
+        self.state.security_manager()
+    }
+
+    fn log(&self) -> DriverLogger {
+        self.log()
+    }
+
+    fn controller_log(&self) -> ControllerLogger {
+        self.controller_log()
+    }
+
+    fn node_log(&self, node_id: NodeId, endpoint: EndpointIndex) -> NodeLogger {
+        self.node_log(node_id, endpoint)
     }
 }

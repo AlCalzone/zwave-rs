@@ -96,7 +96,11 @@ impl DriverApi<Init> {
             .build();
         let controller = Arc::new(controller);
 
-        Ok(Ready { controller, nodes })
+        Ok(Ready {
+            controller,
+            nodes,
+            security_manager: None,
+        })
     }
 }
 

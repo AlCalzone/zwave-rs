@@ -1,40 +1,31 @@
-use self::awaited::{AwaitedRef, AwaitedRegistry, Predicate};
-use self::cache::ValueCache;
 use self::storage::DriverStorage;
 use crate::error::Result;
 use driver_api::DriverApi;
+use main_loop::{MainLoop, MainTaskCommand, MainTaskCommandSender};
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use std::thread;
-use std::time::Duration;
-use tokio::sync::{broadcast, mpsc, oneshot, Notify};
+use tokio::sync::{broadcast, mpsc, Notify};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
-use zwave_cc::commandclass::{CCParsingContext, CCSession, CCValues, WithAddress, CC};
-use zwave_core::cache::Cache;
 use zwave_core::log::Loglevel;
 use zwave_core::security::{SecurityManager, SecurityManagerOptions};
 use zwave_core::util::now;
-use zwave_core::value_id::EndpointValueId;
-use zwave_core::wrapping_counter::WrappingCounter;
 use zwave_core::{prelude::*, submodule};
-use zwave_logging::loggers::{
-    base::BaseLogger, controller::ControllerLogger, driver::DriverLogger, node::NodeLogger,
-    serial::SerialLogger,
-};
+use zwave_logging::loggers::{base::BaseLogger, driver::DriverLogger, serial::SerialLogger};
 use zwave_logging::{Direction, LogInfo, Logger};
 use zwave_serial::binding::SerialBinding;
 use zwave_serial::frame::{ControlFlow, RawSerialFrame, SerialFrame};
 use zwave_serial::prelude::*;
 use zwave_serial::serialport::{SerialPort, TcpSocket, ZWavePort};
 
-pub use serial_api_machine::SerialApiMachineResult;
-
 mod awaited;
 pub(crate) mod cache;
 pub(crate) mod driver_api;
 mod init_controller_and_nodes;
 mod interview_nodes;
+mod main_loop;
+pub(crate) use main_loop::*;
 mod serial_api_machine;
 mod storage;
 
@@ -130,10 +121,8 @@ impl Driver<Init> {
         // The main logic happens in another task that owns the internal state.
         // To control it, we need another channel.
         let (main_cmd_tx, main_cmd_rx) = mpsc::channel::<MainTaskCommand>(100);
-        let main_serial_cmd = serial_cmd_tx.clone();
-        let main_serial_listener = serial_listener_tx.subscribe();
         let main_task_shutdown = Arc::new(Notify::new());
-        let main_task_shutdown2 = main_task_shutdown.clone();
+        let main_serial_listener = serial_listener_tx.subscribe();
 
         // Logging happens in a separate **thread** in order to not interfere with the main logic.
         let loglevel = options.loglevel; // FIXME: Add a way to change this at runtime
@@ -169,14 +158,25 @@ impl Driver<Init> {
 
         let driver_storage = Arc::new(DriverStorage::new(bg_logger, NodeIdType::NodeId8Bit));
 
-        // Start the background task for the main logic
-        let main_task = tokio::spawn(main_loop(
-            main_cmd_rx,
-            main_task_shutdown2,
-            main_serial_cmd,
-            main_serial_listener,
+        let state = Init;
+
+        let api = DriverApi::new(
+            state.clone(),
+            main_cmd_tx.clone(),
+            serial_cmd_tx.clone(),
             driver_storage.clone(),
-        ));
+        );
+
+        // Start the background task for the main logic
+        let mut main_loop = MainLoop::new(
+            Box::new(api.clone()),
+            main_task_shutdown.clone(),
+            main_cmd_rx,
+            main_serial_listener,
+        );
+        let main_task = tokio::spawn(async move {
+            main_loop.run().await;
+        });
 
         // Start the background task for the serial port communication
         let serial_task = tokio::spawn(serial_loop(
@@ -199,15 +199,6 @@ impl Driver<Init> {
             log_thread,
         };
 
-        let state = Init;
-
-        let api = DriverApi::new(
-            state.clone(),
-            tasks.main_cmd.clone(),
-            tasks.serial_cmd.clone(),
-            driver_storage.clone(),
-        );
-
         Ok(Self {
             tasks,
             state: Init,
@@ -228,17 +219,22 @@ impl Driver<Init> {
             RawSerialFrame::ControlFlow(ControlFlow::NAK)
         )??;
 
-        let ready = self.interview_controller().await?;
+        let mut ready = self.interview_controller().await?;
 
         // Store our node ID so other tasks have access too
         self.storage.set_own_node_id(ready.controller.own_node_id);
 
         // Initialize security managers
-        dispatch_async!(
-            self.tasks.main_cmd,
-            MainTaskCommand::InitSecurity,
-            self.options.security_keys.clone()
-        )?;
+        if let Some(s0_key) = &self.options.security_keys.s0_legacy {
+            logger.info(|| "Network key for S0 configured, enabling S0 security manager...");
+            let security_manager = SecurityManager::new(SecurityManagerOptions {
+                own_node_id: ready.controller.own_node_id,
+                network_key: s0_key.clone(),
+            });
+            ready.security_manager = Some(Arc::new(RwLock::new(security_manager)));
+        } else {
+            logger.warn(|| "No network key for S0 configured, communication with secure (S0) devices won't work!");
+        }
 
         let ready_api = DriverApi::new(
             ready.clone(),
@@ -246,6 +242,13 @@ impl Driver<Init> {
             self.tasks.serial_cmd.clone(),
             self.storage.clone(),
         );
+
+        // Replace the main loop's driver API with the new one
+        dispatch_async!(
+            self.tasks.main_cmd,
+            MainTaskCommand::SetDriverApi,
+            Box::new(ready_api.clone())
+        )?;
 
         let this = Driver::<Ready> {
             tasks: self.tasks,
@@ -273,6 +276,10 @@ where
     }
 }
 
+pub(crate) trait BackgroundTask {
+    async fn run(&mut self);
+}
+
 macro_rules! define_async_task_commands {
     (
         $enum_name:ident$(<$($enum_lt:lifetime),+ $(,)?>)? {
@@ -281,7 +288,7 @@ macro_rules! define_async_task_commands {
             } ),* $(,)?
         }
     ) => {
-        enum $enum_name$(<$($enum_lt),+>)? {
+        pub(crate) enum $enum_name$(<$($enum_lt),+>)? {
             $(
                 $cmd_name($cmd_name$(<$($lt),+>)?),
             )*
@@ -301,18 +308,18 @@ macro_rules! define_async_task_commands {
             $( $field_name:ident : $field_type:ty ),* $(,)?
         }
     ) => {
-        struct $cmd_name<$($lt),+> {
+        pub(crate) struct $cmd_name<$($lt),+> {
             // The callback of every async task must be used, otherwise the caller will panic
             #[forbid(dead_code)]
-            pub callback: oneshot::Sender<$cmd_result>,
+            pub callback: tokio::sync::oneshot::Sender<$cmd_result>,
             $( pub $field_name: $field_type ),*,
         }
 
         impl<$($lt),+> $cmd_name<$($lt),+> {
             pub fn new(
                 $( $field_name: $field_type ),*
-            ) -> (Self, oneshot::Receiver<$cmd_result>) {
-                let (tx, rx) = oneshot::channel::<$cmd_result>();
+            ) -> (Self, tokio::sync::oneshot::Receiver<$cmd_result>) {
+                let (tx, rx) = tokio::sync::oneshot::channel::<$cmd_result>();
                 (
                     Self {
                         $( $field_name ),*,
@@ -329,18 +336,18 @@ macro_rules! define_async_task_commands {
             $( $field_name:ident : $field_type:ty ),* $(,)?
         }
     ) => {
-        struct $cmd_name {
+        pub(crate) struct $cmd_name {
             // The callback of every async task must be used, otherwise the caller will panic
             #[forbid(dead_code)]
-            pub callback: oneshot::Sender<$cmd_result>,
+            pub callback: tokio::sync::oneshot::Sender<$cmd_result>,
             $( pub $field_name: $field_type ),*
         }
 
         impl $cmd_name {
             pub fn new(
                 $( $field_name: $field_type ),*
-            ) -> (Self, oneshot::Receiver<$cmd_result>) {
-                let (tx, rx) = oneshot::channel::<$cmd_result>();
+            ) -> (Self, tokio::sync::oneshot::Receiver<$cmd_result>) {
+                let (tx, rx) = tokio::sync::oneshot::channel::<$cmd_result>();
                 (
                     Self {
                         callback: tx,
@@ -352,6 +359,7 @@ macro_rules! define_async_task_commands {
         }
     }
 }
+pub(crate) use define_async_task_commands;
 
 macro_rules! define_oneshot_task_commands {
     (
@@ -361,7 +369,7 @@ macro_rules! define_oneshot_task_commands {
             } ),* $(,)?
         }
     ) => {
-        enum $enum_name$(<$($enum_lt),+>)? {
+        pub(crate) enum $enum_name$(<$($enum_lt),+>)? {
             $(
                 $cmd_name($cmd_name$(<$($lt),+>)?),
             )*
@@ -381,7 +389,7 @@ macro_rules! define_oneshot_task_commands {
             $( $field_name:ident : $field_type:ty ),* $(,)?
         }
     ) => {
-        struct $cmd_name<$($lt),+> {
+        pub(crate) struct $cmd_name<$($lt),+> {
             $( pub $field_name: $field_type ),*,
         }
 
@@ -401,7 +409,7 @@ macro_rules! define_oneshot_task_commands {
             $( $field_name:ident : $field_type:ty ),* $(,)?
         }
     ) => {
-        struct $cmd_name {
+        pub(crate) struct $cmd_name {
             $( pub $field_name: $field_type ),*
         }
 
@@ -416,277 +424,7 @@ macro_rules! define_oneshot_task_commands {
         }
     }
 }
-
-define_async_task_commands!(MainTaskCommand {
-    RegisterAwaitedCC -> AwaitedRef<WithAddress<CC>> {
-        predicate: Predicate<WithAddress<CC>>,
-        timeout: Option<Duration>
-    },
-    RegisterAwaitedCommand -> AwaitedRef<Command> {
-        predicate: Predicate<Command>,
-        timeout: Option<Duration>
-    },
-    RegisterAwaitedControlFlowFrame -> AwaitedRef<ControlFlow> {
-        predicate: Predicate<ControlFlow>,
-        timeout: Option<Duration>
-    },
-    GetNextCallbackId -> u8 {},
-    InitSecurity -> () {
-        security_keys: SecurityKeys,
-    },
-});
-
-type MainTaskCommandSender = TaskCommandSender<MainTaskCommand>;
-type MainTaskCommandReceiver = TaskCommandReceiver<MainTaskCommand>;
-
-struct MainLoopStorage {
-    awaited_control_flow_frames: Arc<AwaitedRegistry<ControlFlow>>,
-    awaited_commands: Arc<AwaitedRegistry<Command>>,
-    awaited_ccs: Arc<AwaitedRegistry<WithAddress<CC>>>,
-    callback_id_gen: WrappingCounter<u8>,
-    bg_logger: Arc<BackgroundLogger>,
-    driver_logger: DriverLogger,
-    controller_logger: ControllerLogger,
-    security_manager: Option<Arc<RwLock<SecurityManager>>>,
-}
-
-async fn main_loop(
-    mut cmd_rx: MainTaskCommandReceiver,
-    shutdown: Arc<Notify>,
-    serial_cmd: SerialTaskCommandSender,
-    mut serial_listener: SerialListener,
-    driver_storage: Arc<DriverStorage>,
-) {
-    let bg_logger = driver_storage.logger().clone();
-    let driver_logger = DriverLogger::new(bg_logger.clone());
-    let controller_logger = ControllerLogger::new(bg_logger.clone());
-
-    let mut storage = MainLoopStorage {
-        awaited_control_flow_frames: Arc::new(AwaitedRegistry::default()),
-        awaited_commands: Arc::new(AwaitedRegistry::default()),
-        awaited_ccs: Arc::new(AwaitedRegistry::default()),
-        callback_id_gen: WrappingCounter::new(),
-        bg_logger,
-        driver_logger,
-        controller_logger,
-        security_manager: None,
-    };
-
-    loop {
-        tokio::select! {
-            // Make sure we don't read from the serial port if there is a potential command
-            // waiting to set up a frame handler
-            biased;
-
-            // We received a shutdown signal
-            _ = shutdown.notified() => break,
-
-            // We received a command from the outside
-            Some(cmd) = cmd_rx.recv() => main_loop_handle_command(&mut storage, cmd, &serial_cmd, &driver_storage).await,
-
-            // The serial port emitted a frame
-            Ok(frame) = serial_listener.recv() => main_loop_handle_frame(&storage, frame, &serial_cmd, &driver_storage).await
-        }
-    }
-}
-
-async fn main_loop_handle_command(
-    storage: &mut MainLoopStorage,
-    cmd: MainTaskCommand,
-    _serial_cmd: &SerialTaskCommandSender,
-    driver_storage: &Arc<DriverStorage>,
-) {
-    match cmd {
-        MainTaskCommand::RegisterAwaitedControlFlowFrame(ctrl) => {
-            let result = storage
-                .awaited_control_flow_frames
-                .add(ctrl.predicate, ctrl.timeout);
-            ctrl.callback
-                .send(result)
-                .expect("invoking the callback of a MainTaskCommand should not fail");
-        }
-
-        MainTaskCommand::RegisterAwaitedCommand(cmd) => {
-            let result = storage.awaited_commands.add(cmd.predicate, cmd.timeout);
-            cmd.callback
-                .send(result)
-                .expect("invoking the callback of a MainTaskCommand should not fail");
-        }
-
-        MainTaskCommand::RegisterAwaitedCC(cc) => {
-            let result = storage.awaited_ccs.add(cc.predicate, cc.timeout);
-            cc.callback
-                .send(result)
-                .expect("invoking the callback of a MainTaskCommand should not fail");
-        }
-
-        MainTaskCommand::GetNextCallbackId(cmd) => {
-            let id = storage.callback_id_gen.increment();
-            cmd.callback
-                .send(id)
-                .expect("invoking the callback of a MainTaskCommand should not fail");
-        }
-
-        MainTaskCommand::InitSecurity(cmd) => {
-            if let Some(s0_key) = cmd.security_keys.s0_legacy {
-                storage
-                    .driver_logger
-                    .info(|| "Network key for S0 configured, enabling S0 security manager...");
-                let security_manager = SecurityManager::new(SecurityManagerOptions {
-                    own_node_id: driver_storage.own_node_id(),
-                    network_key: s0_key,
-                });
-
-                storage.security_manager = Some(Arc::new(RwLock::new(security_manager)));
-            } else {
-                storage.driver_logger.warn(|| "No network key for S0 configured, communication with secure (S0) devices won't work!");
-            }
-
-            cmd.callback
-                .send(())
-                .expect("invoking the callback of a MainTaskCommand should not fail");
-        }
-    }
-}
-
-fn persist_cc_values(cc: &WithAddress<CC>, cache: &mut ValueCache) {
-    // FIXME: Recurse through encapsulation CCs
-    cache.write_many(cc.to_values().into_iter().map(|(value_id, value)| {
-        let value_id = EndpointValueId::new(
-            cc.address().source_node_id,
-            cc.address().endpoint_index,
-            value_id,
-        );
-        println!("Persisting {:?} = {:?}", value_id, value);
-        (value_id, value)
-    }));
-}
-
-async fn main_loop_handle_frame(
-    storage: &MainLoopStorage,
-    frame: SerialFrame,
-    _serial_cmd: &SerialTaskCommandSender,
-    driver_storage: &Arc<DriverStorage>,
-) {
-    match frame {
-        SerialFrame::ControlFlow(cf) => {
-            // If the awaited control-flow-frame registry has a matching awaiter,
-            // remove it and send the frame through its channel
-            if let Some(channel) = storage.awaited_control_flow_frames.take_matching(&cf) {
-                channel
-                    .send(cf)
-                    .expect("invoking the callback of an Awaited should not fail");
-                return;
-            }
-        }
-
-        SerialFrame::Command(raw) => {
-            // Try to convert it into an actual command
-            let mut ctx = CommandParsingContext::builder()
-                .own_node_id(driver_storage.own_node_id())
-                .node_id_type(driver_storage.node_id_type())
-                .sdk_version(driver_storage.sdk_version())
-                .security_manager(storage.security_manager.clone())
-                .build();
-            let cmd = match zwave_serial::command::Command::try_from_raw(raw, &ctx) {
-                Ok(cmd) => cmd,
-                Err(e) => {
-                    println!("{} failed to decode CommandRaw: {}", now(), e);
-                    // TODO: Handle misformatted frames
-                    return;
-                }
-            };
-
-            // Log the received command
-            let address = match &cmd {
-                Command::ApplicationCommandRequest(cmd) => Some(cmd.command.address()),
-                Command::BridgeApplicationCommandRequest(cmd) => Some(cmd.command.address()),
-                _ => None,
-            };
-
-            if let Some(address) = address {
-                let node_logger = NodeLogger::new(
-                    storage.bg_logger.clone(),
-                    address.source_node_id,
-                    address.endpoint_index,
-                );
-                node_logger.command(&cmd, Direction::Inbound);
-            } else {
-                storage.controller_logger.command(&cmd, Direction::Inbound);
-            }
-
-            // If the awaited command registry has a matching awaiter,
-            // remove it and send the command through its channel
-            if let Some(channel) = storage.awaited_commands.take_matching(&cmd) {
-                channel
-                    .send(cmd.clone())
-                    .expect("invoking the callback of an Awaited should not fail");
-                return;
-            }
-
-            match cmd {
-                // Handle the CC if there is one
-                Command::ApplicationCommandRequest(cmd) => {
-                    let ctx = cmd.get_cc_parsing_context(&ctx);
-                    let cc = cmd.command;
-                    main_loop_handle_cc(storage, cc, ctx, driver_storage);
-                    return;
-                }
-                Command::BridgeApplicationCommandRequest(cmd) => {
-                    let ctx = cmd.get_cc_parsing_context(&ctx);
-                    let cc = cmd.command;
-                    main_loop_handle_cc(storage, cc, ctx, driver_storage);
-                    return;
-                }
-
-                // Or handle all other commands
-                _ => {
-                    println!("TODO: Handle command {:?}", &cmd);
-                }
-            }
-        }
-        _ => {}
-    }
-}
-
-fn main_loop_handle_cc(
-    storage: &MainLoopStorage,
-    mut cc: WithAddress<CC>,
-    ctx: CCParsingContext,
-    driver_storage: &Arc<DriverStorage>,
-) {
-    let node_logger = NodeLogger::new(
-        storage.bg_logger.clone(),
-        cc.address().source_node_id,
-        cc.address().endpoint_index,
-    );
-
-    // Check if the CC is split across multiple partial CCs
-    if let Some(session_id) = cc.session_id() {
-        // If so, try to merge it
-        if let Err(e) = cc.merge_session(&ctx, vec![]) {
-            node_logger.error(|| format!("failed to merge partial CCs: {}", e));
-            return;
-        }
-    }
-
-    // FIXME: Check if low-security command needs to be discarded
-
-    // Persist CC values. TODO: test first if we should
-    let mut cache = ValueCache::new(driver_storage);
-    persist_cc_values(&cc, &mut cache);
-
-    // If the awaited CC registry has a matching awaiter,
-    // remove it and send the CC through its channel
-    if let Some(channel) = storage.awaited_ccs.take_matching(&cc) {
-        channel
-            .send(cc.clone())
-            .expect("invoking the callback of an Awaited should not fail");
-
-        return;
-    }
-}
-// tokio::time::sleep(Duration::from_millis(10)).await;
+pub(crate) use define_oneshot_task_commands;
 
 define_async_task_commands!(SerialTaskCommand {
     // Send the given frame to the serial port
