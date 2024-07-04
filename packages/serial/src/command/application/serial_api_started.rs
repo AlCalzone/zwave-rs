@@ -38,7 +38,7 @@ impl CommandId for SerialApiStartedRequest {
 impl CommandBase for SerialApiStartedRequest {}
 
 impl CommandParsable for SerialApiStartedRequest {
-    fn parse(i: &mut Bytes, _ctx: &CommandParsingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: CommandParsingContext) -> ParseResult<Self> {
         let wake_up_reason = SerialApiWakeUpReason::parse(i)?;
         let watchdog_enabled = map(be_u8, |x| x == 0x01).parse(i)?;
         let (is_listening, _reserved) = bits::bits((bool, u7::parse)).parse(i)?;

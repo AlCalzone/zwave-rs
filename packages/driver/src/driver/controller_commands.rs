@@ -20,11 +20,10 @@ use zwave_serial::command::{
 
 // FIXME: Having a wrapper for this with the correct command options set would be nicer API-wise
 
-// Define the commands that can be executed in any phase
-impl<S> DriverApi<S>
-where
-    S: DriverState,
-{
+// FIXME: We should have a wrapper to expose only supported commands to lib users
+
+// FIXME: The external API may always expose these commands
+impl DriverApi {
     pub async fn get_serial_api_capabilities(
         &self,
         options: Option<&ExecControllerCommandOptions>,
@@ -273,8 +272,9 @@ where
     }
 }
 
-// Define the commands that require the driver to be ready
-impl DriverApi<Ready> {
+// FIXME: The external API should only expose these commands when ready
+impl DriverApi {
+    // FIXME: Assert that the driver is ready for all these commands
     pub async fn get_rf_region(
         &self,
         options: Option<&ExecControllerCommandOptions>,
@@ -434,12 +434,8 @@ impl DriverApi<Ready> {
 
         Ok(application_data)
     }
-}
 
-impl<S> DriverApi<S>
-where
-    S: DriverState,
-{
+    // FIXME: Assert that the driver is ready for this command
     pub async fn exec_controller_command<C>(
         &self,
         command: C,
@@ -453,7 +449,7 @@ where
             None => Default::default(),
         };
 
-        let supported = self.state.supports_function(command.function_type());
+        let supported = self.supports_function(command.function_type());
         if options.enforce_support && !supported {
             return Err(ExecControllerCommandError::Unsupported(format!(
                 "{:?}",

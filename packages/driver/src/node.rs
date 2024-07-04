@@ -9,27 +9,31 @@ submodule!(storage);
 submodule!(cc_api);
 mod cache;
 
-macro_rules! read {
-    ($self:ident, $node_id:expr, $field:ident) => {
-        $self
-            .driver
-            .get_node_storage($node_id)
-            .map(|storage| storage.$field)
-    };
-}
+// macro_rules! read {
+//     ($self:ident, $node_id:expr, $field:ident) => {
+//         $self
+//             .driver
+//             .get_node_storage($node_id)
+//             .map(|storage| storage.$field)
+//     };
+// }
 
 macro_rules! read_locked {
     ($self:ident, $node_id:expr, $field:ident; deref) => {
         $self
             .driver
-            .get_node_storage($node_id)
-            .map(|storage| *storage.$field.read().unwrap())
+            .storage
+            .nodes()
+            .get($node_id)
+            .map(|storage| *storage.$field)
     };
     ($self:ident, $node_id:expr, $field:ident) => {
         $self
             .driver
-            .get_node_storage($node_id)
-            .map(|storage| storage.$field.read().unwrap())
+            .storage
+            .nodes()
+            .get($node_id)
+            .map(|storage| storage.$field)
     };
 }
 
@@ -37,23 +41,29 @@ macro_rules! write_locked {
     ($self:ident, $node_id:expr, $field:ident) => {
         $self
             .driver
-            .get_node_storage($node_id)
-            .map(|storage| storage.$field.write().unwrap())
+            .storage
+            .nodes_mut()
+            .get_mut($node_id)
+            .map(|storage| &mut storage.$field)
     };
 }
 
 macro_rules! read_endpoint_locked {
-    ($self:ident, $node_id:expr, $endpoint_index:expr, $field:ident; deref) => {
-        $self
-            .driver
-            .get_endpoint_storage($node_id, $endpoint_index)
-            .map(|storage| *storage.$field.read().unwrap())
-    };
+    // ($self:ident, $node_id:expr, $endpoint_index:expr, $field:ident; deref) => {
+    //     $self
+    //         .driver
+    //         .storage
+    //         .endpoints()
+    //         .get(&(*$node_id, *$endpoint_index))
+    //         .map(|storage| *storage.$field)
+    // };
     ($self:ident, $node_id:expr, $endpoint_index:expr, $field:ident) => {
         $self
             .driver
-            .get_endpoint_storage($node_id, $endpoint_index)
-            .map(|storage| storage.$field.read().unwrap())
+            .storage
+            .endpoints()
+            .get(&(*$node_id, *$endpoint_index))
+            .map(|storage| &storage.$field)
     };
 }
 
@@ -61,8 +71,10 @@ macro_rules! write_endpoint_locked {
     ($self:ident, $node_id:expr, $endpoint_index:expr, $field:ident) => {
         $self
             .driver
-            .get_endpoint_storage($node_id, $endpoint_index)
-            .map(|storage| storage.$field.write().unwrap())
+            .storage
+            .endpoints_mut()
+            .get_mut(&(*$node_id, *$endpoint_index))
+            .map(|storage| &mut storage.$field)
     };
 }
 
@@ -81,7 +93,7 @@ macro_rules! write_endpoint_locked {
 pub struct Node<'a> {
     id: NodeId,
     protocol_data: NodeInformationProtocolData,
-    driver: &'a DriverApi<Ready>,
+    driver: &'a DriverApi,
 }
 
 pub trait EndpointLike<'a> {
@@ -108,7 +120,7 @@ impl<'a> Node<'a> {
     pub fn new(
         id: NodeId,
         protocol_data: NodeInformationProtocolData,
-        driver: &'a DriverApi<Ready>,
+        driver: &'a DriverApi,
     ) -> Self {
         Self {
             id,
@@ -117,7 +129,7 @@ impl<'a> Node<'a> {
         }
     }
 
-    pub fn driver(&self) -> &DriverApi<Ready> {
+    pub fn driver(&self) -> &DriverApi {
         self.driver
     }
 
@@ -130,11 +142,11 @@ impl<'a> Node<'a> {
     }
 
     pub fn interview_stage(&self) -> InterviewStage {
-        read_locked!(self, &self.id, interview_stage; deref).unwrap_or(InterviewStage::None)
+        read_locked!(self, &self.id, interview_stage).unwrap_or(InterviewStage::None)
     }
 
     pub fn set_interview_stage(&self, interview_stage: InterviewStage) {
-        if let Some(mut handle) = write_locked!(self, &self.id, interview_stage) {
+        if let Some(handle) = write_locked!(self, &self.id, interview_stage) {
             *handle = interview_stage;
         }
     }
@@ -180,7 +192,7 @@ impl<'a> EndpointLike<'a> for Node<'a> {
     }
 
     fn modify_cc_info(&self, cc: CommandClasses, info: &PartialCommandClassInfo) {
-        if let Some(mut cc_info) = write_endpoint_locked!(self, &self.id, &self.index(), cc_info) {
+        if let Some(cc_info) = write_endpoint_locked!(self, &self.id, &self.index(), cc_info) {
             cc_info
                 .entry(cc)
                 .and_modify(|cc_info| cc_info.merge(info))
@@ -189,7 +201,7 @@ impl<'a> EndpointLike<'a> for Node<'a> {
     }
 
     fn remove_cc(&self, cc: CommandClasses) {
-        if let Some(mut cc_info) = write_endpoint_locked!(self, &self.id, &self.index(), cc_info) {
+        if let Some(cc_info) = write_endpoint_locked!(self, &self.id, &self.index(), cc_info) {
             cc_info.remove(&cc);
         }
     }
@@ -242,11 +254,11 @@ impl<'a> EndpointLike<'a> for Node<'a> {
 pub struct Endpoint<'a> {
     node: &'a Node<'a>,
     index: u8,
-    driver: &'a DriverApi<Ready>,
+    driver: &'a DriverApi,
 }
 
 impl<'a> Endpoint<'a> {
-    pub fn new(node: &'a Node<'a>, index: u8, driver: &'a DriverApi<Ready>) -> Self {
+    pub fn new(node: &'a Node<'a>, index: u8, driver: &'a DriverApi) -> Self {
         Self {
             node,
             index,
@@ -254,7 +266,7 @@ impl<'a> Endpoint<'a> {
         }
     }
 
-    pub fn driver(&self) -> &DriverApi<Ready> {
+    pub fn driver(&self) -> &DriverApi {
         self.driver
     }
 }
@@ -277,8 +289,7 @@ impl<'a> EndpointLike<'a> for Endpoint<'a> {
     }
 
     fn modify_cc_info(&self, cc: CommandClasses, info: &PartialCommandClassInfo) {
-        if let Some(mut cc_info) =
-            write_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
+        if let Some(cc_info) = write_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
         {
             cc_info
                 .entry(cc)
@@ -288,8 +299,7 @@ impl<'a> EndpointLike<'a> for Endpoint<'a> {
     }
 
     fn remove_cc(&self, cc: CommandClasses) {
-        if let Some(mut cc_info) =
-            write_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
+        if let Some(cc_info) = write_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
         {
             cc_info.remove(&cc);
         }

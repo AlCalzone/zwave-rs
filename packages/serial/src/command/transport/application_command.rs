@@ -20,12 +20,15 @@ pub struct ApplicationCommandRequest {
 }
 
 impl ApplicationCommandRequest {
-    pub fn get_cc_parsing_context(&self, cmd_ctx: &CommandParsingContext) -> CCParsingContext {
+    pub fn get_cc_parsing_context<'a>(
+        &self,
+        cmd_ctx: CommandParsingContext<'a>,
+    ) -> CCParsingContext<'a> {
         CCParsingContext::builder()
             .source_node_id(self.address.source_node_id)
             .frame_addressing(self.frame_info.frame_addressing)
             .own_node_id(cmd_ctx.own_node_id)
-            .security_manager(cmd_ctx.security_manager.clone())
+            .security_manager(cmd_ctx.security_manager)
             .build()
     }
 }
@@ -47,19 +50,19 @@ impl CommandId for ApplicationCommandRequest {
 impl CommandBase for ApplicationCommandRequest {}
 
 impl CommandParsable for ApplicationCommandRequest {
-    fn parse(i: &mut Bytes, ctx: &CommandParsingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, ctx: CommandParsingContext) -> ParseResult<Self> {
         let frame_info = FrameInfo::parse(i)?;
         let source_node_id = NodeId::parse(i, ctx.node_id_type)?;
-        let cc = map_res(length_value(be_u8, CCRaw::parse), |raw| {
-            let mut ctx = CCParsingContext::builder()
-                .source_node_id(source_node_id)
-                .frame_addressing(frame_info.frame_addressing)
-                .own_node_id(ctx.own_node_id)
-                .security_manager(ctx.security_manager.clone())
-                .build();
-            CC::try_from_raw(raw, &ctx)
-        })
-        .parse(i)?;
+
+        let cc_raw = length_value(be_u8, CCRaw::parse).parse(i)?;
+        let cc_ctx = CCParsingContext::builder()
+            .source_node_id(source_node_id)
+            .frame_addressing(frame_info.frame_addressing)
+            .own_node_id(ctx.own_node_id)
+            .security_manager(ctx.security_manager)
+            .build();
+        let cc = CC::try_from_raw(cc_raw, cc_ctx)?;
+
         let rssi = opt(RSSI::parse).parse(i)?;
 
         let destination = match frame_info.frame_addressing {

@@ -9,7 +9,7 @@ use tokio::sync::{broadcast, mpsc, Notify};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 use zwave_core::log::Loglevel;
-use zwave_core::security::{SecurityManager, SecurityManagerOptions};
+use zwave_core::security::SecurityManager;
 use zwave_core::util::now;
 use zwave_core::{prelude::*, submodule};
 use zwave_logging::loggers::{base::BaseLogger, driver::DriverLogger, serial::SerialLogger};
@@ -49,7 +49,7 @@ pub struct Driver<S: DriverState> {
     storage: Arc<DriverStorage>,
 
     /// The own API instance used by the driver
-    api: DriverApi<S>,
+    api: DriverApi,
 }
 
 #[allow(dead_code)]
@@ -91,11 +91,11 @@ struct DriverOptionsStatic {
     pub security_keys: SecurityKeys,
 }
 
-impl From<DriverOptions<'_>> for DriverOptionsStatic {
-    fn from(options: DriverOptions) -> Self {
+impl From<&DriverOptions<'_>> for DriverOptionsStatic {
+    fn from(options: &DriverOptions) -> Self {
         Self {
             loglevel: options.loglevel,
-            security_keys: options.security_keys,
+            security_keys: options.security_keys.clone(),
         }
     }
 }
@@ -158,10 +158,7 @@ impl Driver<Init> {
 
         let driver_storage = Arc::new(DriverStorage::new(bg_logger, NodeIdType::NodeId8Bit));
 
-        let state = Init;
-
         let api = DriverApi::new(
-            state.clone(),
             main_cmd_tx.clone(),
             serial_cmd_tx.clone(),
             driver_storage.clone(),
@@ -169,7 +166,8 @@ impl Driver<Init> {
 
         // Start the background task for the main logic
         let mut main_loop = MainLoop::new(
-            Box::new(api.clone()),
+            api.clone(),
+            (&options).into(),
             main_task_shutdown.clone(),
             main_cmd_rx,
             main_serial_listener,
@@ -202,7 +200,7 @@ impl Driver<Init> {
         Ok(Self {
             tasks,
             state: Init,
-            options: options.into(),
+            options: (&options).into(),
             storage: driver_storage,
             api,
         })
@@ -219,43 +217,27 @@ impl Driver<Init> {
             RawSerialFrame::ControlFlow(ControlFlow::NAK)
         )??;
 
-        let mut ready = self.interview_controller().await?;
-
-        // Store our node ID so other tasks have access too
-        self.storage.set_own_node_id(ready.controller.own_node_id);
+        self.interview_controller().await?;
 
         // Initialize security managers
         if let Some(s0_key) = &self.options.security_keys.s0_legacy {
             logger.info(|| "Network key for S0 configured, enabling S0 security manager...");
-            let security_manager = SecurityManager::new(SecurityManagerOptions {
-                own_node_id: ready.controller.own_node_id,
-                network_key: s0_key.clone(),
-            });
-            ready.security_manager = Some(Arc::new(RwLock::new(security_manager)));
+            dispatch_async!(
+                self.tasks.main_cmd,
+                MainTaskCommand::InitSecurityManager,
+                self.own_node_id(),
+                s0_key.clone()
+            )?;
         } else {
             logger.warn(|| "No network key for S0 configured, communication with secure (S0) devices won't work!");
         }
 
-        let ready_api = DriverApi::new(
-            ready.clone(),
-            self.tasks.main_cmd.clone(),
-            self.tasks.serial_cmd.clone(),
-            self.storage.clone(),
-        );
-
-        // Replace the main loop's driver API with the new one
-        dispatch_async!(
-            self.tasks.main_cmd,
-            MainTaskCommand::SetDriverApi,
-            Box::new(ready_api.clone())
-        )?;
-
-        let this = Driver::<Ready> {
+        let this = Driver {
+            state: Ready,
             tasks: self.tasks,
-            state: ready,
             options: self.options,
             storage: self.storage,
-            api: ready_api,
+            api: self.api,
         };
 
         this.configure_controller().await?;
@@ -269,7 +251,7 @@ impl<S> Deref for Driver<S>
 where
     S: DriverState,
 {
-    type Target = DriverApi<S>;
+    type Target = DriverApi;
 
     fn deref(&self) -> &Self::Target {
         &self.api

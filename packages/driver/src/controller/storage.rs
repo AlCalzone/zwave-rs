@@ -1,7 +1,6 @@
 use custom_debug_derive::Debug;
-use std::sync::{RwLock, atomic::AtomicBool};
-use zwave_core::prelude::*;
 use typed_builder::TypedBuilder;
+use zwave_core::prelude::*;
 use zwave_serial::command::SerialApiSetupCommand;
 
 #[derive(Debug, TypedBuilder)]
@@ -13,7 +12,7 @@ pub(crate) struct ControllerStorage {
     pub(crate) home_id: u32,
     pub(crate) own_node_id: NodeId,
     #[builder(setter(into))]
-    pub(crate) suc_node_id: RwLock<Option<NodeId>>,
+    pub(crate) suc_node_id: Option<NodeId>,
 
     pub(crate) fingerprint: DeviceFingerprint,
 
@@ -24,21 +23,21 @@ pub(crate) struct ControllerStorage {
 
     pub(crate) node_type: NodeType,
     #[builder(setter(into))]
-    pub(crate) role: RwLock<ControllerRole>,
+    pub(crate) role: ControllerRole,
     pub(crate) started_this_network: bool,
     #[builder(setter(into))]
-    pub(crate) sis_present: AtomicBool,
+    pub(crate) sis_present: bool,
     #[builder(setter(into))]
-    pub(crate) is_sis: AtomicBool,
+    pub(crate) is_sis: bool,
     #[builder(setter(into))]
-    pub(crate) is_suc: AtomicBool,
+    pub(crate) is_suc: bool,
 
     pub(crate) supported_function_types: Vec<FunctionType>,
     pub(crate) supported_serial_api_setup_commands: Vec<SerialApiSetupCommand>,
     pub(crate) supports_timers: bool,
 
     #[builder(setter(skip), default)]
-    pub(crate) rf_region: RwLock<Option<RfRegion>>,
+    pub(crate) rf_region: Option<RfRegion>,
     #[builder(setter(skip), default)]
-    pub(crate) powerlevel: RwLock<Option<Powerlevel>>,
+    pub(crate) powerlevel: Option<Powerlevel>,
 }

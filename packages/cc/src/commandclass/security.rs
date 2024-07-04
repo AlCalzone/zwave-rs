@@ -83,7 +83,7 @@ impl CCId for SecurityCCNonceGet {
 }
 
 impl CCParsable for SecurityCCNonceGet {
-    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
@@ -121,7 +121,7 @@ impl CCId for SecurityCCNonceReport {
 }
 
 impl CCParsable for SecurityCCNonceReport {
-    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let nonce = take(S0_HALF_NONCE_SIZE).parse(i)?;
         let nonce = S0Nonce::new(nonce);
         Ok(Self { nonce })
@@ -246,11 +246,11 @@ impl CCId for SecurityCCCommandEncapsulation {
 }
 
 impl CCParsable for SecurityCCCommandEncapsulation {
-    fn parse(i: &mut Bytes, ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(i: &mut Bytes, mut ctx: CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let source_node_id = ctx.source_node_id;
         let own_node_id = ctx.own_node_id;
 
-        let Some(mut sec_man) = ctx.security_manager_mut() else {
+        let Some(sec_man) = ctx.security_manager.as_mut() else {
             return fail_validation(
                 "Secure commands (S0) can only be decoded when the network key is set",
             );
@@ -306,9 +306,6 @@ impl CCParsable for SecurityCCCommandEncapsulation {
         let iv = [sender_nonce, nonce.get().clone()].concat();
         let mut frame_control_and_plaintext =
             Bytes::from(decrypt_aes_ofb(&ciphertext, sec_man.enc_key(), &iv));
-
-        // We no longer need the security manager, but we need access to the context later
-        drop(sec_man);
 
         let (_res76, second_frame, sequenced, sequence_counter) =
             bits::bits((u2::parse, bool, bool, u4::parse))
@@ -430,7 +427,7 @@ impl CCSession for SecurityCCCommandEncapsulation {
         true
     }
 
-    fn merge_session(&mut self, ctx: &CCParsingContext, _other_ccs: Vec<CC>) -> ParseResult<()> {
+    fn merge_session(&mut self, ctx: CCParsingContext, _other_ccs: Vec<CC>) -> ParseResult<()> {
         // FIXME: Implement support for sequenced commands
         // For now, we assume the CC is complete, so we simply translate it to a complete one
         match self.state {

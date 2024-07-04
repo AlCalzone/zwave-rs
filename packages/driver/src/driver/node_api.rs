@@ -1,16 +1,18 @@
-use super::Ready;
-use crate::{driver_api::DriverApi, EndpointStorage, Node, NodeStorage};
-use zwave_core::definitions::*;
+use crate::{driver_api::DriverApi, Node};
+use zwave_core::prelude::*;
+
+// FIXME: We should have a wrapper to expose only supported commands to lib users
 
 // API for node instances
-impl DriverApi<Ready> {
+impl DriverApi {
     pub fn get_node(&self, node_id: &NodeId) -> Option<Node> {
+        // FIXME: Assert that the driver is in the Ready state
         // Do not return a node API for the Serial API controller
-        if node_id == &self.controller().own_node_id() {
+        if node_id == &self.own_node_id() {
             return None;
         }
 
-        self.state.nodes.get(node_id).map(|storage| {
+        self.storage.nodes().get(node_id).map(|storage| {
             Node::new(
                 *node_id,
                 // We clone the protocol data from storage to avoid lots of node methods
@@ -22,23 +24,12 @@ impl DriverApi<Ready> {
         })
     }
 
-    pub fn nodes(&self) -> impl Iterator<Item = Node> {
-        self.state
-            .nodes
+    pub fn nodes(&self) -> Vec<Node> {
+        // FIXME: Assert that the driver is in the Ready state
+        self.storage
+            .nodes()
             .keys()
-            .filter_map(|node_id| self.get_node(node_id))
-    }
-
-    pub(crate) fn get_node_storage(&self, node_id: &NodeId) -> Option<&NodeStorage> {
-        self.state.nodes.get(node_id)
-    }
-
-    pub(crate) fn get_endpoint_storage(
-        &self,
-        node_id: &NodeId,
-        endpoint_index: &EndpointIndex,
-    ) -> Option<&EndpointStorage> {
-        self.get_node_storage(node_id)
-            .and_then(|storage| storage.endpoints.get(endpoint_index))
+            .filter_map(move |node_id| self.get_node(node_id))
+            .collect()
     }
 }

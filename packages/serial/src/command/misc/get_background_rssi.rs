@@ -33,7 +33,7 @@ impl CommandRequest for GetBackgroundRssiRequest {
 }
 
 impl CommandParsable for GetBackgroundRssiRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandParsingContext) -> ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: CommandParsingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
@@ -75,7 +75,7 @@ impl CommandId for GetBackgroundRssiResponse {
 impl CommandBase for GetBackgroundRssiResponse {}
 
 impl CommandParsable for GetBackgroundRssiResponse {
-    fn parse(i: &mut Bytes, _ctx: &CommandParsingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: CommandParsingContext) -> ParseResult<Self> {
         let rssi0 = RSSI::parse(i)?;
         let rssi1 = RSSI::parse(i)?;
         let rssi2 = opt(RSSI::parse).parse(i)?;

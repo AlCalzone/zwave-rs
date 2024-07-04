@@ -34,8 +34,8 @@ impl Cache<EndpointValueId> for ValueCache<'_> {
     }
 }
 
-impl DriverApi<Ready> {
-    pub fn value_cache(&self) -> ValueCache<'_> {
+impl DriverApi {
+    pub(crate) fn value_cache(&self) -> ValueCache<'_> {
         ValueCache::new(&self.storage)
     }
 }

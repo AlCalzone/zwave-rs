@@ -102,7 +102,7 @@ impl CCId for BasicCCSet {
 }
 
 impl CCParsable for BasicCCSet {
-    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let target_value = LevelSet::parse(i)?;
 
         Ok(Self { target_value })
@@ -147,7 +147,7 @@ impl CCId for BasicCCGet {
 }
 
 impl CCParsable for BasicCCGet {
-    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
@@ -188,7 +188,7 @@ impl CCId for BasicCCReport {
 }
 
 impl CCParsable for BasicCCReport {
-    fn parse(i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let current_value = LevelReport::parse(i)?;
         let (target_value, duration) = map(opt((LevelReport::parse, DurationReport::parse)), |x| {
             x.unzip()

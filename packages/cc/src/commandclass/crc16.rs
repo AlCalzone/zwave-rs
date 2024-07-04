@@ -57,7 +57,7 @@ impl CCId for Crc16CCCommandEncapsulation {
 }
 
 impl CCParsable for Crc16CCCommandEncapsulation {
-    fn parse(i: &mut Bytes, ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(i: &mut Bytes, ctx: CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let mut payload = take(i.len() - 2usize).parse(i)?;
         let checksum = be_u16(i)?;
 

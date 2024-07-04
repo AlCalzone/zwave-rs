@@ -21,7 +21,7 @@ impl CCId for NoOperationCC {
 }
 
 impl CCParsable for NoOperationCC {
-    fn parse(_i: &mut Bytes, _ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         // No payload
         Ok(Self {})
     }

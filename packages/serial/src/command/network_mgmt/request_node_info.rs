@@ -59,7 +59,7 @@ impl CommandRequest for RequestNodeInfoRequest {
 }
 
 impl CommandParsable for RequestNodeInfoRequest {
-    fn parse(i: &mut Bytes, ctx: &CommandParsingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, ctx: CommandParsingContext) -> ParseResult<Self> {
         let node_id = NodeId::parse(i, ctx.node_id_type)?;
         Ok(Self { node_id })
     }
@@ -104,7 +104,7 @@ impl CommandBase for RequestNodeInfoResponse {
 }
 
 impl CommandParsable for RequestNodeInfoResponse {
-    fn parse(i: &mut Bytes, _ctx: &CommandParsingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, _ctx: CommandParsingContext) -> ParseResult<Self> {
         let was_sent = map(be_u8, |x| x > 0).parse(i)?;
         Ok(Self { was_sent })
     }

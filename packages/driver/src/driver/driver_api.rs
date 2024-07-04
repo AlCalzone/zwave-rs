@@ -26,53 +26,20 @@ use zwave_serial::{
     prelude::*,
 };
 
-pub trait DriverApiImpl: Sync + Send {
-    fn storage(&self) -> &Arc<DriverStorage>;
-
-    fn security_manager(&self) -> Option<Arc<RwLock<SecurityManager>>>;
-
-    fn log(&self) -> DriverLogger;
-    fn controller_log(&self) -> ControllerLogger;
-    fn node_log(&self, node_id: NodeId, endpoint: EndpointIndex) -> NodeLogger;
-}
-
 #[derive(Clone)]
-pub struct DriverApi<S: DriverState> {
-    pub(crate) state: S,
-
+pub struct DriverApi {
     main_task_cmd: MainTaskCommandSender,
     serial_task_cmd: SerialTaskCommandSender,
 
     pub(crate) storage: Arc<DriverStorage>,
 }
 
-impl<S> DriverApi<S>
-where
-    S: DriverState,
-{
-    pub(crate) fn new(
-        state: S,
-        main_task_cmd: MainTaskCommandSender,
-        serial_task_cmd: SerialTaskCommandSender,
-        storage: Arc<DriverStorage>,
-    ) -> Self {
-        Self {
-            state,
-            main_task_cmd,
-            serial_task_cmd,
-            storage,
-        }
-    }
-}
-
 impl<S> Driver<S>
 where
     S: DriverState,
 {
-    pub fn api(&self) -> DriverApi<S> {
+    pub fn api(&self) -> DriverApi {
         DriverApi {
-            state: self.state.clone(),
-
             serial_task_cmd: self.tasks.serial_cmd.clone(),
             main_task_cmd: self.tasks.main_cmd.clone(),
             storage: self.storage.clone(),
@@ -80,10 +47,28 @@ where
     }
 }
 
-impl<S> DriverApi<S>
-where
-    S: DriverState,
-{
+impl DriverApi {
+    pub(crate) fn new(
+        main_task_cmd: MainTaskCommandSender,
+        serial_task_cmd: SerialTaskCommandSender,
+        storage: Arc<DriverStorage>,
+    ) -> Self {
+        Self {
+            main_task_cmd,
+            serial_task_cmd,
+            storage,
+        }
+    }
+
+    /// Whether the given function type is supported
+    pub fn supports_function(&self, function_type: FunctionType) -> bool {
+        self.storage
+            .controller()
+            .as_ref()
+            .map(|c| c.supported_function_types.contains(&function_type))
+            .unwrap_or(false)
+    }
+
     /// Write a frame to the serial port, returning a reference to the awaited ACK frame
     pub async fn write_serial(&self, frame: RawSerialFrame) -> Result<AwaitedRef<ControlFlow>> {
         // Register an awaiter for the ACK frame
@@ -213,7 +198,7 @@ where
                         SerialApiMachineState::Initial => (),
                         SerialApiMachineState::Sending => {
                             let ctx = CommandEncodingContext::builder()
-                                .own_node_id(self.storage.own_node_id())
+                                .own_node_id(self.own_node_id())
                                 .node_id_type(self.storage.node_id_type())
                                 .sdk_version(self.storage.sdk_version())
                                 .build();
@@ -342,30 +327,5 @@ where
 
     pub fn node_log(&self, node_id: NodeId, endpoint: EndpointIndex) -> NodeLogger {
         NodeLogger::new(self.storage.logger().clone(), node_id, endpoint)
-    }
-}
-
-impl<S> DriverApiImpl for DriverApi<S>
-where
-    S: DriverState,
-{
-    fn storage(&self) -> &Arc<DriverStorage> {
-        &self.storage
-    }
-
-    fn security_manager(&self) -> Option<Arc<RwLock<SecurityManager>>> {
-        self.state.security_manager()
-    }
-
-    fn log(&self) -> DriverLogger {
-        self.log()
-    }
-
-    fn controller_log(&self) -> ControllerLogger {
-        self.controller_log()
-    }
-
-    fn node_log(&self, node_id: NodeId, endpoint: EndpointIndex) -> NodeLogger {
-        self.node_log(node_id, endpoint)
     }
 }

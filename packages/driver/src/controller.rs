@@ -7,49 +7,52 @@ submodule!(storage);
 
 macro_rules! read {
     ($self:ident, $field:ident) => {
-        $self.storage.$field
+        $self
+            .driver
+            .storage
+            .controller()
+            .as_ref()
+            .expect("attempted to read controller storage before initialization")
+            .$field
     };
 }
 
-macro_rules! read_locked {
-    ($self:ident, $field:ident) => {
-        *$self.storage.$field.read().unwrap()
-    };
-}
-
-macro_rules! write_locked {
+macro_rules! write {
     ($self:ident, $field:ident, $value:expr) => {
-        *$self.storage.$field.write().unwrap() = $value;
-    };
-}
-
-macro_rules! read_atomic {
-    ($self:ident, $field:ident) => {
-        read!($self, $field).load(Ordering::Relaxed)
-    };
-}
-
-macro_rules! write_atomic {
-    ($self:ident, $field:ident, $value:expr) => {
-        read!($self, $field).store($value, Ordering::Relaxed);
+        $self
+            .driver
+            .storage
+            .controller_mut()
+            .as_mut()
+            .expect("attempted to read controller storage before initialization")
+            .$field = $value;
     };
 }
 
 // API access for the controller instance
-impl DriverApi<Ready> {
+impl DriverApi {
+    // FIXME: Assert that the driver is in the Ready state
     pub fn controller(&self) -> Controller {
-        Controller::new(self.state.controller.clone())
+        Controller::new(self)
+    }
+
+    pub fn own_node_id(&self) -> NodeId {
+        self.storage
+            .controller()
+            .as_ref()
+            .map(|c| c.own_node_id)
+            .unwrap_or(NodeId::unspecified())
     }
 }
 
 // #[derive(Debug)]
-pub struct Controller {
-    storage: Arc<ControllerStorage>,
+pub struct Controller<'a> {
+    driver: &'a DriverApi,
 }
 
-impl Controller {
-    pub fn new(storage: Arc<ControllerStorage>) -> Self {
-        Self { storage }
+impl<'a> Controller<'a> {
+    pub fn new(driver: &'a DriverApi) -> Self {
+        Self { driver }
     }
 
     /// Checks whether a given Z-Wave function type is supported by the controller.
@@ -66,63 +69,59 @@ impl Controller {
         read!(self, home_id)
     }
 
-    pub fn own_node_id(&self) -> NodeId {
-        read!(self, own_node_id)
-    }
-
     pub fn suc_node_id(&self) -> Option<NodeId> {
-        read_locked!(self, suc_node_id)
+        read!(self, suc_node_id)
     }
 
     pub(crate) fn set_suc_node_id(&mut self, suc_node_id: Option<NodeId>) {
-        write_locked!(self, suc_node_id, suc_node_id);
+        write!(self, suc_node_id, suc_node_id);
     }
 
     pub fn is_suc(&self) -> bool {
-        read_atomic!(self, is_suc)
+        read!(self, is_suc)
     }
 
     pub(crate) fn set_is_suc(&mut self, is_suc: bool) {
-        write_atomic!(self, is_suc, is_suc);
+        write!(self, is_suc, is_suc);
     }
 
     pub fn is_sis(&self) -> bool {
-        read_atomic!(self, is_sis)
+        read!(self, is_sis)
     }
 
     pub(crate) fn set_is_sis(&mut self, is_sis: bool) {
-        write_atomic!(self, is_sis, is_sis);
+        write!(self, is_sis, is_sis);
     }
 
     pub fn sis_present(&self) -> bool {
-        read_atomic!(self, sis_present)
+        read!(self, sis_present)
     }
 
     pub(crate) fn set_sis_present(&mut self, sis_present: bool) {
-        write_atomic!(self, sis_present, sis_present);
+        write!(self, sis_present, sis_present);
     }
 
     pub fn role(&self) -> ControllerRole {
-        read_locked!(self, role)
+        read!(self, role)
     }
 
     pub(crate) fn set_role(&mut self, role: ControllerRole) {
-        write_locked!(self, role, role);
+        write!(self, role, role);
     }
 
     pub fn rf_region(&self) -> Option<RfRegion> {
-        read_locked!(self, rf_region)
+        read!(self, rf_region)
     }
 
     pub(crate) fn set_rf_region(&mut self, region: Option<RfRegion>) {
-        write_locked!(self, rf_region, region);
+        write!(self, rf_region, region);
     }
 
     pub fn powerlevel(&self) -> Option<Powerlevel> {
-        read_locked!(self, powerlevel)
+        read!(self, powerlevel)
     }
 
     pub(crate) fn set_powerlevel(&mut self, powerlevel: Option<Powerlevel>) {
-        write_locked!(self, powerlevel, powerlevel);
+        write!(self, powerlevel, powerlevel);
     }
 }

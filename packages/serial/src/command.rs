@@ -28,20 +28,20 @@ pub struct CommandEncodingContext {
 
 #[derive(Default, TypedBuilder)]
 #[builder(field_defaults(default))]
-pub struct CommandParsingContext {
-    own_node_id: NodeId,
+pub struct CommandParsingContext<'a> {
+    pub own_node_id: NodeId,
     #[builder(default, setter(into))]
-    sdk_version: Option<Version>,
-    node_id_type: NodeIdType,
+    pub sdk_version: Option<Version>,
+    pub node_id_type: NodeIdType,
     #[builder(default, setter(into))]
-    security_manager: Option<Arc<RwLock<SecurityManager>>>,
+    pub security_manager: Option<&'a mut SecurityManager>,
 }
 
 pub trait CommandParsable
 where
     Self: Sized + CommandBase,
 {
-    fn parse(i: &mut Bytes, ctx: &CommandParsingContext) -> ParseResult<Self>;
+    fn parse(i: &mut Bytes, ctx: CommandParsingContext) -> ParseResult<Self>;
 }
 
 #[enum_dispatch(Command)]

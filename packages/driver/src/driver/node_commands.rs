@@ -47,10 +47,9 @@ where
     }
 }
 
-impl<S> DriverApi<S>
-where
-    S: DriverState,
-{
+impl DriverApi {
+    // FIXME: Assert that the driver is in the Ready state
+
     pub async fn exec_node_command<C>(
         &self,
         cc: &WithAddress<C>,

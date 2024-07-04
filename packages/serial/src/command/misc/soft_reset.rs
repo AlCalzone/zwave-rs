@@ -32,7 +32,7 @@ impl CommandRequest for SoftResetRequest {
 }
 
 impl CommandParsable for SoftResetRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandParsingContext) -> ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: CommandParsingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }

@@ -35,7 +35,7 @@ impl CommandRequest for GetControllerIdRequest {
 }
 
 impl CommandParsable for GetControllerIdRequest {
-    fn parse(_i: &mut Bytes, _ctx: &CommandParsingContext) -> ParseResult<Self> {
+    fn parse(_i: &mut Bytes, _ctx: CommandParsingContext) -> ParseResult<Self> {
         // No payload
         Ok(Self {})
     }
@@ -77,7 +77,7 @@ impl CommandId for GetControllerIdResponse {
 impl CommandBase for GetControllerIdResponse {}
 
 impl CommandParsable for GetControllerIdResponse {
-    fn parse(i: &mut Bytes, ctx: &CommandParsingContext) -> ParseResult<Self> {
+    fn parse(i: &mut Bytes, ctx: CommandParsingContext) -> ParseResult<Self> {
         let home_id = be_u32(i)?;
         let own_node_id = NodeId::parse(i, ctx.node_id_type)?;
 

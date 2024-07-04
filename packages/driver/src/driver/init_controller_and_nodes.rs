@@ -8,8 +8,10 @@ use zwave_core::definitions::*;
 use zwave_core::log::Loglevel;
 use zwave_serial::command::SerialApiSetupCommand;
 
-impl DriverApi<Init> {
-    pub(crate) async fn interview_controller(&self) -> ControllerCommandResult<Ready> {
+impl DriverApi {
+    pub(crate) async fn interview_controller(&self) -> ControllerCommandResult<()> {
+        // FIXME: Assert that the driver is in the Init state
+
         // We execute some of these commands before knowing the controller capabilities, so
         // we disable enforcing that the controller supports the commands.
         let command_options = ExecControllerCommandOptions::builder()
@@ -60,15 +62,15 @@ impl DriverApi<Init> {
 
         // Read the protocol info for each node and store it
         // FIXME: Read this from cache where possible when we have one
-        let mut nodes = BTreeMap::new();
-        for node_id in &init_data.node_ids {
-            let protocol_info = self
-                .get_node_protocol_info(node_id, command_options)
-                .await?;
-            let storage = NodeStorage::new(protocol_info);
-            nodes.insert(*node_id, storage);
+        {
+            for node_id in &init_data.node_ids {
+                let protocol_info = self
+                    .get_node_protocol_info(node_id, command_options)
+                    .await?;
+                let storage = NodeStorage::new(protocol_info);
+                self.storage.nodes_mut().insert(*node_id, storage);
+            }
         }
-        let nodes = Arc::new(nodes);
 
         let controller = ControllerStorage::builder()
             .home_id(ids.home_id)
@@ -94,18 +96,16 @@ impl DriverApi<Init> {
             .supported_serial_api_setup_commands(supported_serial_api_setup_commands)
             .supports_timers(init_data.supports_timers)
             .build();
-        let controller = Arc::new(controller);
+        self.storage.controller_mut().replace(controller);
 
-        Ok(Ready {
-            controller,
-            nodes,
-            security_manager: None,
-        })
+        Ok(())
     }
 }
 
-impl DriverApi<Ready> {
+impl DriverApi {
     pub(crate) async fn configure_controller(&self) -> ControllerCommandResult<()> {
+        // FIXME: Assert that the driver is in the Ready state
+
         // Get the currently configured RF region and remember it.
         // If it differs from the desired region, change it afterwards.
         if self
@@ -151,7 +151,7 @@ impl DriverApi<Ready> {
         if should_promote {
             self.controller_log()
                 .info(|| "there is no SUC/SIS in the network - promoting ourselves...");
-            let own_node_id = self.controller().own_node_id();
+            let own_node_id = self.own_node_id();
             match self
                 .set_suc_node_id(own_node_id, own_node_id, true, true, None)
                 .await

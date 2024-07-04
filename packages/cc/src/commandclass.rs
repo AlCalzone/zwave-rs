@@ -1,14 +1,12 @@
 use crate::commandclass_raw::CCRaw;
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 use enum_dispatch::enum_dispatch;
 use std::{
-    hash::Hash,
     marker::Sized,
     ops::{Deref, DerefMut},
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 use typed_builder::TypedBuilder;
-use zwave_core::{cache::CacheValue, serialize, value_id::ValueId};
+use zwave_core::{cache::CacheValue, value_id::ValueId};
 use zwave_core::{prelude::*, security::SecurityManager};
 
 #[derive(Default, TypedBuilder)]
@@ -20,34 +18,20 @@ pub struct CCEncodingContext {
 
 #[derive(Default, TypedBuilder)]
 #[builder(field_defaults(default))]
-pub struct CCParsingContext {
-    source_node_id: NodeId,
-    own_node_id: NodeId,
+pub struct CCParsingContext<'a> {
+    pub(crate) source_node_id: NodeId,
+    pub(crate) own_node_id: NodeId,
     #[builder(default, setter(into))]
-    frame_addressing: Option<FrameAddressing>,
+    pub(crate) frame_addressing: Option<FrameAddressing>,
     #[builder(default, setter(into))]
-    security_manager: Option<Arc<RwLock<SecurityManager>>>,
-}
-
-impl CCParsingContext {
-    pub fn security_manager(&self) -> Option<RwLockReadGuard<SecurityManager>> {
-        self.security_manager
-            .as_ref()
-            .map(|lock| lock.read().unwrap())
-    }
-
-    pub fn security_manager_mut(&self) -> Option<RwLockWriteGuard<SecurityManager>> {
-        self.security_manager
-            .as_ref()
-            .map(|lock: &Arc<RwLock<SecurityManager>>| lock.write().unwrap())
-    }
+    pub(crate) security_manager: Option<&'a mut SecurityManager>,
 }
 
 pub trait CCParsable
 where
     Self: Sized + CCBase,
 {
-    fn parse(i: &mut Bytes, ctx: &CCParsingContext) -> zwave_core::parse::ParseResult<Self>;
+    fn parse(i: &mut Bytes, ctx: CCParsingContext) -> zwave_core::parse::ParseResult<Self>;
 }
 
 // This auto-generates the CC enum by reading the files in the given directory
@@ -109,7 +93,7 @@ pub trait CCSession {
 
     /// If this CC can be split into multiple partial CCs, this function merges the
     /// current CC with the other CCs of the session into a complete CC.
-    fn merge_session(&mut self, ctx: &CCParsingContext, other_ccs: Vec<CC>) -> ParseResult<()>;
+    fn merge_session(&mut self, ctx: CCParsingContext, other_ccs: Vec<CC>) -> ParseResult<()>;
 }
 
 impl CCSession for CC {
@@ -129,7 +113,7 @@ impl CCSession for CC {
         }
     }
 
-    fn merge_session(&mut self, ctx: &CCParsingContext, other_ccs: Vec<CC>) -> ParseResult<()> {
+    fn merge_session(&mut self, ctx: CCParsingContext, other_ccs: Vec<CC>) -> ParseResult<()> {
         match self {
             CC::SecurityCCCommandEncapsulation(me) => me.merge_session(ctx, other_ccs)?,
             // By default we assume the CC is not part of a session, so it is already complete
@@ -323,6 +307,16 @@ impl_destination_conversions_for!(u16);
 impl_destination_conversions_for!(i32);
 impl_destination_conversions_for!(NodeId);
 
+impl From<&Destination> for FrameAddressing {
+    fn from(value: &Destination) -> Self {
+        match value {
+            Destination::Singlecast(_) => FrameAddressing::Singlecast,
+            Destination::Multicast(_) => FrameAddressing::Multicast,
+            Destination::Broadcast => FrameAddressing::Broadcast,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct NotImplemented {
     pub cc_id: CommandClasses,
@@ -361,8 +355,8 @@ fn test_cc_try_from_raw() {
         payload: Bytes::new(),
     };
 
-    let mut ctx = CCParsingContext::default();
-    let cc = CC::try_from_raw(raw, &ctx).unwrap();
+    let ctx = CCParsingContext::default();
+    let cc = CC::try_from_raw(raw, ctx).unwrap();
     assert_eq!(cc, CC::BasicCCGet(BasicCCGet::default()));
 }
 
