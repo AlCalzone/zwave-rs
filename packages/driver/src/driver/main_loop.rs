@@ -7,9 +7,12 @@ use crate::{
     cache::ValueCache, define_async_task_commands, driver_api::DriverApi, BackgroundTask,
     DriverOptions,
 };
-use std::{sync::Arc, time::Duration};
+use std::{ops::Deref, sync::Arc, time::Duration};
 use tokio::sync::Notify;
-use zwave_cc::commandclass::{CCAddress, CCParsingContext, CCSession, CCValues, WithAddress, CC};
+use zwave_cc::commandclass::{
+    CCAddress, CCAddressable, CCParsingContext, CCSession, CCValues, SecurityCCNonceGet,
+    SecurityCCNonceReport, WithAddress, CC,
+};
 use zwave_core::{
     cache::Cache,
     prelude::*,
@@ -38,10 +41,6 @@ define_async_task_commands!(MainTaskCommand {
         timeout: Option<Duration>
     },
     GetNextCallbackId -> u8 {},
-    InitSecurityManager -> () {
-        own_node_id: NodeId,
-        network_key: Vec<u8>,
-    }
 });
 
 pub(crate) type MainTaskCommandSender = TaskCommandSender<MainTaskCommand>;
@@ -59,8 +58,6 @@ pub(crate) struct MainLoop {
     awaited_commands: Arc<AwaitedRegistry<Command>>,
     awaited_ccs: Arc<AwaitedRegistry<WithAddress<CC>>>,
     callback_id_gen: WrappingCounter<u8>,
-
-    security_manager: Option<SecurityManager>,
 }
 
 impl MainLoop {
@@ -83,8 +80,6 @@ impl MainLoop {
             awaited_commands: Arc::new(AwaitedRegistry::default()),
             awaited_ccs: Arc::new(AwaitedRegistry::default()),
             callback_id_gen: WrappingCounter::new(),
-
-            security_manager: None,
         }
     }
 
@@ -119,17 +114,6 @@ impl MainLoop {
                     .send(id)
                     .expect("invoking the callback of a MainTaskCommand should not fail");
             }
-
-            MainTaskCommand::InitSecurityManager(cmd) => {
-                self.security_manager
-                    .replace(SecurityManager::new(SecurityManagerOptions {
-                        own_node_id: cmd.own_node_id,
-                        network_key: cmd.network_key,
-                    }));
-                cmd.callback
-                    .send(())
-                    .expect("invoking the callback of a MainTaskCommand should not fail");
-            }
         }
     }
 
@@ -138,7 +122,7 @@ impl MainLoop {
             .own_node_id(self.driver_api.own_node_id())
             .node_id_type(self.driver_api.storage.node_id_type())
             .sdk_version(self.driver_api.storage.sdk_version())
-            .security_manager(self.security_manager.as_mut())
+            .security_manager(self.driver_api.security_manager())
             .build()
     }
 
@@ -147,7 +131,7 @@ impl MainLoop {
             .source_node_id(address.source_node_id)
             .frame_addressing(Some((&address.destination).into()))
             .own_node_id(self.driver_api.own_node_id())
-            .security_manager(self.security_manager.as_mut())
+            .security_manager(self.driver_api.security_manager())
             .build()
     }
 
@@ -256,7 +240,42 @@ impl MainLoop {
             return;
         }
 
+        #[allow(clippy::single_match)]
+        match cc.deref() {
+            CC::SecurityCCNonceGet(nonce_get) => {
+                self.handle_security_cc_nonce_get(nonce_get, cc.address());
+            }
+            _ => {}
+        };
+
         // FIXME: Handle unsolicited CC
+    }
+
+    fn handle_security_cc_nonce_get(
+        &mut self,
+        _nonce_get: &SecurityCCNonceGet,
+        address: &CCAddress,
+    ) {
+        let Some(mut sec_man) = self.driver_api.security_manager() else {
+            return;
+        };
+
+        let node_id = address.source_node_id;
+
+        sec_man.delete_nonce_for_receiver(node_id);
+        let nonce = sec_man.generate_nonce(node_id);
+        let nonce_id = nonce.id();
+        let cc = SecurityCCNonceReport { nonce }.with_destination(node_id.into());
+
+        let driver = self.driver_api.clone();
+        tokio::spawn(async move {
+            // FIXME: Set options: ACK | AutoRoute, 1 send attempt, immediate priority, don't change node status
+            let send_result = driver.exec_node_command(&cc, None).await;
+            if send_result.is_err() {
+                // The nonce could not be sent, invalidate it
+                sec_man.delete_own_nonce(nonce_id);
+            }
+        });
     }
 }
 

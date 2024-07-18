@@ -28,13 +28,13 @@ pub struct CommandEncodingContext {
 
 #[derive(Default, TypedBuilder)]
 #[builder(field_defaults(default))]
-pub struct CommandParsingContext<'a> {
+pub struct CommandParsingContext {
     pub own_node_id: NodeId,
     #[builder(default, setter(into))]
     pub sdk_version: Option<Version>,
     pub node_id_type: NodeIdType,
     #[builder(default, setter(into))]
-    pub security_manager: Option<&'a mut SecurityManager>,
+    pub security_manager: Option<SecurityManager>,
 }
 
 pub trait CommandParsable

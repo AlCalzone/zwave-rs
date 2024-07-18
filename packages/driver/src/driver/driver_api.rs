@@ -4,11 +4,12 @@ use super::{
         SerialApiMachine, SerialApiMachineCondition, SerialApiMachineInput, SerialApiMachineResult,
         SerialApiMachineState,
     },
-    storage::DriverStorage,
+    storage::{self, DriverStorage},
     Driver, MainTaskCommandSender, SerialTaskCommandSender,
 };
 use crate::error::{Error, Result};
 use crate::{dispatch_async, DriverState};
+use core::panic;
 use std::{
     sync::{Arc, RwLock},
     time::Duration,
@@ -225,10 +226,7 @@ impl DriverApi {
                                 self.node_log(node_id, EndpointIndex::Root)
                                     .command(&command, Direction::Outbound);
                             } else {
-                                // FIXME: Re-enable this
-                                // self.storage
-                                //     .controller_logger()
-                                //     .command(&command, Direction::Outbound);
+                                self.controller_log().command(&command, Direction::Outbound);
                             }
                         }
                         SerialApiMachineState::WaitingForACK => {
@@ -327,5 +325,13 @@ impl DriverApi {
 
     pub fn node_log(&self, node_id: NodeId, endpoint: EndpointIndex) -> NodeLogger {
         NodeLogger::new(self.storage.logger().clone(), node_id, endpoint)
+    }
+
+    pub fn security_manager(&self) -> Option<SecurityManager> {
+        if let Some(storage) = self.storage.security_manager().as_ref() {
+            Some(SecurityManager::new(storage.clone()))
+        } else {
+            None
+        }
     }
 }

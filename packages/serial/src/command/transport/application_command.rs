@@ -22,8 +22,8 @@ pub struct ApplicationCommandRequest {
 impl ApplicationCommandRequest {
     pub fn get_cc_parsing_context<'a>(
         &self,
-        cmd_ctx: CommandParsingContext<'a>,
-    ) -> CCParsingContext<'a> {
+        cmd_ctx: CommandParsingContext,
+    ) -> CCParsingContext {
         CCParsingContext::builder()
             .source_node_id(self.address.source_node_id)
             .frame_addressing(self.frame_info.frame_addressing)

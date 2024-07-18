@@ -9,7 +9,7 @@ use tokio::sync::{broadcast, mpsc, Notify};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 use zwave_core::log::Loglevel;
-use zwave_core::security::SecurityManager;
+use zwave_core::security::{SecurityManager, SecurityManagerOptions, SecurityManagerStorage};
 use zwave_core::util::now;
 use zwave_core::{prelude::*, submodule};
 use zwave_logging::loggers::{base::BaseLogger, driver::DriverLogger, serial::SerialLogger};
@@ -222,12 +222,13 @@ impl Driver<Init> {
         // Initialize security managers
         if let Some(s0_key) = &self.options.security_keys.s0_legacy {
             logger.info(|| "Network key for S0 configured, enabling S0 security manager...");
-            dispatch_async!(
-                self.tasks.main_cmd,
-                MainTaskCommand::InitSecurityManager,
-                self.own_node_id(),
-                s0_key.clone()
-            )?;
+            let storage = SecurityManagerStorage::new(SecurityManagerOptions {
+                own_node_id: self.own_node_id().clone(),
+                network_key: s0_key.clone(),
+            });
+            self.storage
+                .security_manager_mut()
+                .replace(Arc::new(storage));
         } else {
             logger.warn(|| "No network key for S0 configured, communication with secure (S0) devices won't work!");
         }

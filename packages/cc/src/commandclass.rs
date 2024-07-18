@@ -18,13 +18,13 @@ pub struct CCEncodingContext {
 
 #[derive(Default, TypedBuilder)]
 #[builder(field_defaults(default))]
-pub struct CCParsingContext<'a> {
+pub struct CCParsingContext {
     pub(crate) source_node_id: NodeId,
     pub(crate) own_node_id: NodeId,
     #[builder(default, setter(into))]
     pub(crate) frame_addressing: Option<FrameAddressing>,
     #[builder(default, setter(into))]
-    pub(crate) security_manager: Option<&'a mut SecurityManager>,
+    pub(crate) security_manager: Option<SecurityManager>,
 }
 
 pub trait CCParsable

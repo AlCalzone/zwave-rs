@@ -4,7 +4,10 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 use zwave_core::{
-    cache::CacheValue, prelude::*, security::SecurityManager, value_id::EndpointValueId,
+    cache::CacheValue,
+    prelude::*,
+    security::{SecurityManager, SecurityManagerStorage},
+    value_id::EndpointValueId,
 };
 
 /// Internal storage for the driver instance and shared API instances.
@@ -25,10 +28,15 @@ pub(crate) struct DriverStorage {
     controller: RwLock<Option<ControllerStorage>>,
     nodes: RwLock<BTreeMap<NodeId, NodeStorage>>,
     endpoints: RwLock<BTreeMap<(NodeId, EndpointIndex), EndpointStorage>>,
+
+    security_manager: RwLock<Option<Arc<SecurityManagerStorage>>>,
 }
 
 impl DriverStorage {
-    pub fn new(logger: Arc<BackgroundLogger>, node_id_type: NodeIdType) -> Self {
+    pub fn new(
+        logger: Arc<BackgroundLogger>,
+        node_id_type: NodeIdType,
+    ) -> Self {
         Self {
             logger,
             value_cache: RwLock::new(HashMap::new()),
@@ -39,6 +47,8 @@ impl DriverStorage {
             controller: RwLock::new(None),
             nodes: RwLock::new(BTreeMap::new()),
             endpoints: RwLock::new(BTreeMap::new()),
+
+            security_manager: RwLock::new(None),
         }
     }
 
@@ -90,7 +100,9 @@ impl DriverStorage {
         self.endpoints.read().unwrap()
     }
 
-    pub fn endpoints_mut(&self) -> RwLockWriteGuard<BTreeMap<(NodeId, EndpointIndex), EndpointStorage>> {
+    pub fn endpoints_mut(
+        &self,
+    ) -> RwLockWriteGuard<BTreeMap<(NodeId, EndpointIndex), EndpointStorage>> {
         self.endpoints.write().unwrap()
     }
 
@@ -100,5 +112,13 @@ impl DriverStorage {
 
     pub fn controller_mut(&self) -> RwLockWriteGuard<Option<ControllerStorage>> {
         self.controller.write().unwrap()
+    }
+
+    pub fn security_manager(&self) -> RwLockReadGuard<Option<Arc<SecurityManagerStorage>>> {
+        self.security_manager.read().unwrap()
+    }
+
+    pub fn security_manager_mut(&self) -> RwLockWriteGuard<Option<Arc<SecurityManagerStorage>>> {
+        self.security_manager.write().unwrap()
     }
 }

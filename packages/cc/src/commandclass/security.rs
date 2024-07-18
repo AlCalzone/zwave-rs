@@ -258,14 +258,14 @@ impl CCParsable for SecurityCCCommandEncapsulation {
 
         // To parse this, we need at least:
         //   HALF_NONCE_SIZE bytes iv
-        // + 1 byte frame control
-        // + at least 1 CC byte
+        // + 1 byte frame control (encrypted)
+        // + at least 1 CC byte (encrypted)
         // + 1 byte nonce id
         // + 8 bytes auth code
 
         let min_length = S0_HALF_NONCE_SIZE + 1 + 1 + 1 + 8;
         validate(i.len() >= min_length, "Incomplete payload")?;
-        let ciphertext_len: usize = i.len() - S0_HALF_NONCE_SIZE - 1 - 1 - 8;
+        let ciphertext_len: usize = i.len() - S0_HALF_NONCE_SIZE - 1 - 8;
 
         // Parse the CC fields
         let (sender_nonce, ciphertext, nonce_id, auth_code) = (

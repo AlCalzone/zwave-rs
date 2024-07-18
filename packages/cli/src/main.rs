@@ -17,7 +17,10 @@ async fn main() {
         .path(PORT)
         // .loglevel(Loglevel::Silly)
         .security_keys(SecurityKeys {
-            s0_legacy: Some([0; 16].to_vec()),
+            s0_legacy: Some(vec![
+                0x01u8, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D,
+                0x0E, 0x0F, 0x10,
+            ]),
             ..Default::default()
         })
         .build();
@@ -25,14 +28,16 @@ async fn main() {
 
     let driver = driver.init().await.expect("Failed to initialize driver");
 
-    driver.interview_nodes().await.expect("Failed to interview nodes");
-    driver.log().info(|| "all nodes interviewed");
+    tokio::time::sleep(Duration::from_millis(15000)).await;
 
-    // node2.ping().await.unwrap();
+    // driver.interview_nodes().await.expect("Failed to interview nodes");
+    // driver.log().info(|| "all nodes interviewed");
 
-    let node = driver.get_node(&NodeId::new(2u8)).expect("Node not found");
-    let nonce = node.cc_api().security().get_nonce().await.unwrap();
-    println!("nonce: {:#?}", &nonce);
+    // // node2.ping().await.unwrap();
+
+    // let node = driver.get_node(&NodeId::new(2u8)).expect("Node not found");
+    // let nonce = node.cc_api().security().get_nonce().await.unwrap();
+    // println!("nonce: {:#?}", &nonce);
 
     // node.cc_api().basic().set(LevelSet::Off).await.unwrap();
 
