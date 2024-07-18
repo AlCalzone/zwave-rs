@@ -6,7 +6,7 @@ use ux::{u2, u4};
 use zwave_core::parse::bytes::rest;
 use zwave_core::prelude::*;
 use zwave_core::security::{compute_mac, decrypt_aes_ofb, S0Nonce, MAC_SIZE, S0_HALF_NONCE_SIZE};
-use zwave_core::serialize;
+use zwave_core::serialize::{self, DEFAULT_CAPACITY};
 use zwave_core::{
     parse::{
         bits::{self, bool},
@@ -420,14 +420,26 @@ impl ToLogPayload for SecurityCCCommandEncapsulation {
 impl CCSession for SecurityCCCommandEncapsulation {
     // FIXME: Implement support for sequenced commands
     fn session_id(&self) -> Option<u32> {
-        None
+        match self.state {
+            SecurityCCCommandEncapsulationState::Complete { .. } => None,
+            SecurityCCCommandEncapsulationState::Partial {
+                sequence_counter, ..
+            } => Some(sequence_counter.into()),
+        }
     }
 
     fn is_session_complete(&self, other_ccs: &[CC]) -> bool {
-        true
+        match self.state {
+            SecurityCCCommandEncapsulationState::Complete { .. } => true,
+            SecurityCCCommandEncapsulationState::Partial {
+                sequenced,
+                second_frame,
+                ..
+            } => !sequenced || second_frame,
+        }
     }
 
-    fn merge_session(&mut self, ctx: CCParsingContext, _other_ccs: Vec<CC>) -> ParseResult<()> {
+    fn merge_session(&mut self, ctx: CCParsingContext, other_ccs: Vec<CC>) -> ParseResult<()> {
         // FIXME: Implement support for sequenced commands
         // For now, we assume the CC is complete, so we simply translate it to a complete one
         match self.state {
@@ -443,7 +455,25 @@ impl CCSession for SecurityCCCommandEncapsulation {
                 ref mut cc_slice,
                 ..
             } => {
-                let encapsulated_raw = CCRaw::parse(cc_slice)?;
+                // Concat all slices into one Bytes instance. In practice this will be either a single slice or two.
+                let other_slices = other_ccs.iter().filter_map(|cc| {
+                    let CC::SecurityCCCommandEncapsulation(cc) = cc else {
+                        return None;
+                    };
+                    let SecurityCCCommandEncapsulationState::Partial { cc_slice, .. } = &cc.state
+                    else {
+                        return None;
+                    };
+                    Some(cc_slice)
+                });
+                let mut full_slice = BytesMut::with_capacity(DEFAULT_CAPACITY);
+                for slice in other_slices {
+                    full_slice.extend_from_slice(slice);
+                }
+                full_slice.extend_from_slice(cc_slice);
+                let mut full_slice = full_slice.freeze();
+
+                let encapsulated_raw = CCRaw::parse(&mut full_slice)?;
                 let encapsulated = CC::try_from_raw(encapsulated_raw, ctx)?;
                 self.state = SecurityCCCommandEncapsulationState::Complete {
                     encapsulated: Box::new(encapsulated),

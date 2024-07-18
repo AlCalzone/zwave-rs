@@ -150,7 +150,7 @@ impl MainLoop {
 
             SerialFrame::Command(raw) => {
                 // Try to convert it into an actual command
-                let cmd = {
+                let mut cmd = {
                     let ctx = self.get_command_parsing_context();
                     match zwave_serial::command::Command::try_from_raw(raw, ctx) {
                         Ok(cmd) => cmd,
@@ -162,22 +162,51 @@ impl MainLoop {
                     }
                 };
 
-                // Log the received command
-                let address = match &cmd {
-                    Command::ApplicationCommandRequest(cmd) => Some(cmd.command.address()),
-                    Command::BridgeApplicationCommandRequest(cmd) => Some(cmd.command.address()),
+                let cc = match &mut cmd {
+                    Command::ApplicationCommandRequest(cmd) => Some(&mut cmd.command),
+                    Command::BridgeApplicationCommandRequest(cmd) => Some(&mut cmd.command),
                     _ => None,
                 };
 
-                if let Some(address) = address {
-                    self.driver_api
-                        .node_log(address.source_node_id, address.endpoint_index)
-                        .command(&cmd, Direction::Inbound);
+                if let Some(cc) = cc {
+                    let node_logger = self
+                        .driver_api
+                        .node_log(cc.address().source_node_id, cc.address().endpoint_index);
+
+                    // Check if the CC is split across multiple partial CCs
+                    if let Some(session_id) = cc.session_id() {
+                        // FIXME: Look up other partial CCs and pass them to merge_session
+                        // If so, try to merge it
+                        let ctx = self.get_cc_parsing_context(cc.address());
+                        if let Err(e) = cc.merge_session(ctx, vec![]) {
+                            node_logger.error(|| format!("failed to merge partial CCs: {}", e));
+                            return;
+                        }
+                    }
+
+                    node_logger.command(&cmd, Direction::Inbound);
                 } else {
                     self.driver_api
                         .controller_log()
                         .command(&cmd, Direction::Inbound);
                 }
+
+                // // Log the received command
+                // let address = match &cmd {
+                //     Command::ApplicationCommandRequest(cmd) => Some(cmd.command.address()),
+                //     Command::BridgeApplicationCommandRequest(cmd) => Some(cmd.command.address()),
+                //     _ => None,
+                // };
+
+                // if let Some(address) = address {
+                //     self.driver_api
+                //         .node_log(address.source_node_id, address.endpoint_index)
+                //         .command(&cmd, Direction::Inbound);
+                // } else {
+                //     self.driver_api
+                //         .controller_log()
+                //         .command(&cmd, Direction::Inbound);
+                // }
 
                 // If the awaited command registry has a matching awaiter,
                 // remove it and send the command through its channel
@@ -213,16 +242,6 @@ impl MainLoop {
         let node_logger = self
             .driver_api
             .node_log(cc.address().source_node_id, cc.address().endpoint_index);
-
-        // Check if the CC is split across multiple partial CCs
-        if let Some(session_id) = cc.session_id() {
-            // If so, try to merge it
-            let ctx = self.get_cc_parsing_context(cc.address());
-            if let Err(e) = cc.merge_session(ctx, vec![]) {
-                node_logger.error(|| format!("failed to merge partial CCs: {}", e));
-                return;
-            }
-        }
 
         // FIXME: Check if low-security command needs to be discarded
 

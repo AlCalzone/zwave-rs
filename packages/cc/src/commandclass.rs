@@ -341,9 +341,12 @@ impl CCId for NotImplemented {
 
 impl ToLogPayload for NotImplemented {
     fn to_log_payload(&self) -> LogPayload {
-        LogPayloadDict::new()
-            .with_entry("payload", format!("0x{}", hex::encode(&self.payload)))
-            .into()
+        let mut ret = LogPayloadDict::new().with_entry("CC", self.cc_id.to_string());
+        if let Some(cc_command) = self.cc_command {
+            ret = ret.with_entry("command", format!("0x{:02x}", cc_command));
+        }
+        ret = ret.with_entry("payload", format!("0x{}", hex::encode(&self.payload)));
+        ret.into()
     }
 }
 
