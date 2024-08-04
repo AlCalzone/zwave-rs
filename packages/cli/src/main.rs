@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use zwave_cc::commandclass::{BasicCCSet, CCAddressable, SecurityCCCommandEncapsulation};
 use zwave_core::{definitions::NodeId, hex_literal, log::Loglevel};
 use zwave_driver::{DriverOptions, SecurityKeys};
 
@@ -28,7 +29,18 @@ async fn main() {
 
     let driver = driver.init().await.expect("Failed to initialize driver");
 
-    tokio::time::sleep(Duration::from_millis(15000)).await;
+    tokio::time::sleep(Duration::from_millis(1000)).await;
+
+    let cc = SecurityCCCommandEncapsulation::new(
+        BasicCCSet::builder()
+            .target_value(zwave_core::values::LevelSet::Level(55))
+            .build()
+            .into(),
+    )
+    .with_destination(2u8.into());
+    driver.exec_node_command(&cc.into(), None).await.unwrap();
+
+    tokio::time::sleep(Duration::from_millis(60000)).await;
 
     // driver.interview_nodes().await.expect("Failed to interview nodes");
     // driver.log().info(|| "all nodes interviewed");

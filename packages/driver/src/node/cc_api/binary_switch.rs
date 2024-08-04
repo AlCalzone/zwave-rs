@@ -57,7 +57,7 @@ impl BinarySwitchCCAPI<'_> {
         let node = self.endpoint.get_node();
         let driver = node.driver();
         let cc = BinarySwitchCCGet::default().with_destination(node.id().into());
-        let response = driver.exec_node_command(&cc, None).await;
+        let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, BinarySwitchCCReport);
 
         Ok(response)
@@ -71,7 +71,7 @@ impl BinarySwitchCCAPI<'_> {
             .duration(duration)
             .build()
             .with_destination(node.id().into());
-        driver.exec_node_command(&cc, None).await?;
+        driver.exec_node_command(&cc.into(), None).await?;
         Ok(())
     }
 }

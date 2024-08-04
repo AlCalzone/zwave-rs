@@ -16,7 +16,7 @@ use zwave_core::{
     security::encrypt_aes_ofb,
 };
 
-use super::CCSession;
+use super::{CCSequence, CCSession, IntoCCSequence};
 
 struct S0AuthData<'a> {
     sender_nonce: &'a [u8],
@@ -161,7 +161,7 @@ enum SecurityCCCommandEncapsulationState {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, TypedBuilder, CCValues)]
+#[derive(Debug, Clone, PartialEq, CCValues)]
 pub struct SecurityCCCommandEncapsulation {
     state: SecurityCCCommandEncapsulationState,
 }
@@ -188,6 +188,28 @@ impl SecurityCCCommandEncapsulation {
         match &self.state {
             SecurityCCCommandEncapsulationState::Partial { nonce, .. } => nonce.as_ref(),
             _ => None,
+        }
+    }
+
+    pub fn set_auth_key(&mut self, new_auth_key: Vec<u8>) {
+        match &mut self.state {
+            SecurityCCCommandEncapsulationState::Partial {
+                ref mut auth_key, ..
+            } => {
+                auth_key.replace(new_auth_key);
+            }
+            _ => panic!("Cannot set auth key on complete SecurityCCCommandEncapsulation"),
+        }
+    }
+
+    pub fn set_enc_key(&mut self, new_enc_key: Vec<u8>) {
+        match &mut self.state {
+            SecurityCCCommandEncapsulationState::Partial {
+                ref mut enc_key, ..
+            } => {
+                enc_key.replace(new_enc_key);
+            }
+            _ => panic!("Cannot set encryption key on complete SecurityCCCommandEncapsulation"),
         }
     }
 }
@@ -409,7 +431,7 @@ impl ToLogPayload for SecurityCCCommandEncapsulation {
                     ret = ret.with_entry("sequence counter", u8::from(*sequence_counter));
                     ret = ret.with_entry("second frame", *second_frame);
                 }
-                ret = ret.with_entry("payload", hex::encode(cc_slice));
+                ret = ret.with_entry("payload", format!("0x{}", hex::encode(cc_slice)));
 
                 ret.into()
             }
@@ -479,6 +501,93 @@ impl CCSession for SecurityCCCommandEncapsulation {
                     encapsulated: Box::new(encapsulated),
                 };
                 Ok(())
+            }
+        }
+    }
+}
+
+struct SecurityCCCommandEncapsulationSequence {
+    address: CCAddress,
+    encapsulated_cc: CC,
+    nonce: Option<S0Nonce>,
+    finished: bool,
+}
+
+impl CCSequence for SecurityCCCommandEncapsulationSequence {
+    fn reset(&mut self) {
+        self.nonce = None;
+        self.finished = false;
+    }
+
+    fn next(&mut self, own_node_id: NodeId) -> Option<WithAddress<CC>> {
+        if self.finished {
+            return None;
+        }
+
+        if self.nonce.is_none() {
+            return Some(
+                SecurityCCNonceGet::default()
+                    .with_address(self.address.clone())
+                    .into(),
+            );
+        }
+
+        let destination_node_id = match self.address.destination {
+            Destination::Singlecast(node_id) => node_id,
+            _ => panic!("Security S0 only supports singlecast!"),
+        };
+
+        let ctx = CCEncodingContext::builder()
+            .own_node_id(own_node_id)
+            .node_id(destination_node_id)
+            .build();
+
+        // FIXME: Handle splitting the CC into multiple frames
+        let cc_slice = self.encapsulated_cc.as_raw(&ctx).as_bytes();
+
+        let state = SecurityCCCommandEncapsulationState::Partial {
+            sequenced: false,
+            sequence_counter: u4::new(0),
+            second_frame: false,
+            cc_slice,
+            nonce: self.nonce.take(),
+            enc_key: None,
+            auth_key: None,
+        };
+
+        self.finished = true;
+        Some(
+            SecurityCCCommandEncapsulation { state }
+                .with_address(self.address.clone())
+                .into(),
+        )
+    }
+
+    fn is_finished(&self) -> bool {
+        self.finished
+    }
+
+    fn handle_response(&mut self, response: &CC) {
+        if let CC::SecurityCCNonceReport(report) = response {
+            self.nonce = Some(report.nonce.clone());
+        }
+    }
+}
+
+impl IntoCCSequence for WithAddress<SecurityCCCommandEncapsulation> {
+    fn into_cc_sequence(self) -> Box<dyn CCSequence + Sync + Send> {
+        let (address, cc) = self.split();
+        match cc.state {
+            SecurityCCCommandEncapsulationState::Complete { encapsulated } => {
+                Box::new(SecurityCCCommandEncapsulationSequence {
+                    address,
+                    encapsulated_cc: *encapsulated,
+                    nonce: None,
+                    finished: false,
+                })
+            }
+            SecurityCCCommandEncapsulationState::Partial { .. } => {
+                panic!("Cannot turn a partial SecurityCCCommandEncapsulation into a sequence")
             }
         }
     }

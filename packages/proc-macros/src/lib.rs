@@ -223,6 +223,18 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
         }
     });
 
+    let from_with_address_impls = ccs.iter().map(|c| {
+        let cc_name = c.cc_name;
+        quote! {
+            impl From<WithAddress<#cc_name>> for WithAddress<CC> {
+                fn from(val: WithAddress<#cc_name>) -> Self {
+                    let addr = val.address().clone();
+                    CC::#cc_name(val.unwrap()).with_address(addr)
+                }
+            }
+        }
+    });
+
     let tokens = quote! {
         // Import all CC modules, so we don't have to do it manually
         #(#submodule_imports)*
@@ -296,6 +308,10 @@ pub fn impl_cc_enum(input: TokenStream) -> TokenStream {
                 }
             }
         }
+
+        // Simplify conversions from WithAddress<Variant> to WithAddress<CC>
+        #(#from_with_address_impls)*
+
     };
 
     TokenStream::from(tokens)

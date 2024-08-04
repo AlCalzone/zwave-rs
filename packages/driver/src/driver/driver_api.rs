@@ -14,7 +14,7 @@ use std::{
     sync::{Arc, RwLock},
     time::Duration,
 };
-use zwave_cc::commandclass::{WithAddress, CC};
+use zwave_cc::commandclass::{CCEncodingContext, WithAddress, CC};
 use zwave_core::state_machine::{StateMachine, StateMachineTransition};
 use zwave_core::{prelude::*, security::SecurityManager};
 use zwave_logging::{

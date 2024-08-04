@@ -9,6 +9,8 @@ use typed_builder::TypedBuilder;
 use zwave_core::{cache::CacheValue, value_id::ValueId};
 use zwave_core::{prelude::*, security::SecurityManager};
 
+pub use crate::cc_sequence::*;
+
 #[derive(Default, TypedBuilder)]
 #[builder(field_defaults(default))]
 pub struct CCEncodingContext {
@@ -123,15 +125,17 @@ impl CCSession for CC {
     }
 }
 
+
+
 #[derive(Debug, Clone, PartialEq)]
-pub struct WithAddress<T: CCBase> {
+pub struct WithAddress<T> {
     address: CCAddress,
     command: T,
 }
 
 impl<T> WithAddress<T>
-where
-    T: CCBase,
+// where
+    // T: CCBase,
 {
     pub fn address(&self) -> &CCAddress {
         &self.address
@@ -165,6 +169,10 @@ where
     pub fn unwrap(self) -> T {
         self.command
     }
+
+    pub fn split(self) -> (CCAddress, T) {
+        (self.address, self.command)
+    }
 }
 
 impl<T> Deref for WithAddress<T>
@@ -183,6 +191,18 @@ where
     T: CCBase,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.command
+    }
+}
+
+impl AsRef<CC> for WithAddress<CC> {
+    fn as_ref(&self) -> &CC {
+        &self.command
+    }
+}
+
+impl AsMut<CC> for WithAddress<CC> {
+    fn as_mut(&mut self) -> &mut CC {
         &mut self.command
     }
 }

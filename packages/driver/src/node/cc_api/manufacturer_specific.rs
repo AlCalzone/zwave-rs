@@ -52,7 +52,7 @@ impl ManufacturerSpecificCCAPI<'_> {
         let node = self.endpoint.get_node();
         let driver = node.driver();
         let cc = ManufacturerSpecificCCGet::default().with_destination(node.id().into());
-        let response = driver.exec_node_command(&cc, None).await;
+        let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, ManufacturerSpecificCCReport);
 
         Ok(response)
@@ -74,7 +74,7 @@ impl ManufacturerSpecificCCAPI<'_> {
             .device_id_type(device_id_type)
             .build()
             .with_destination(node.id().into());
-        let response = driver.exec_node_command(&cc, None).await;
+        let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, ManufacturerSpecificCCDeviceSpecificReport);
 
         Ok(response.map(|r| r.device_id))

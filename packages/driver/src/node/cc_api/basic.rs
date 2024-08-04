@@ -69,7 +69,7 @@ impl BasicCCAPI<'_> {
             .target_value(value)
             .build()
             .with_destination(node.id().into());
-        driver.exec_node_command(&cc, None).await?;
+        driver.exec_node_command(&cc.into(), None).await?;
         Ok(())
     }
 
@@ -77,7 +77,7 @@ impl BasicCCAPI<'_> {
         let node = self.endpoint.get_node();
         let driver = node.driver();
         let cc = BasicCCGet::default().with_destination(node.id().into());
-        let response = driver.exec_node_command(&cc, None).await;
+        let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, BasicCCReport);
 
         Ok(response)

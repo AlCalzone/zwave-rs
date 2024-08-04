@@ -163,7 +163,7 @@ impl<'a> Node<'a> {
     pub async fn ping(&self) -> ControllerCommandResult<bool> {
         // ^ Although this is a node command, the only errors we want to surface are controller errors
         let cc = NoOperationCC {}.with_destination(self.id.into());
-        let result = self.driver.exec_node_command(&cc, None).await;
+        let result = self.driver.exec_node_command(&cc.into(), None).await;
         match result {
             Ok(_) => Ok(true),
             Err(ExecNodeCommandError::NodeNoAck) => Ok(false),

@@ -5,6 +5,7 @@ use crate::DriverState;
 use std::time::Duration;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
+use zwave_cc::commandclass::IntoCCSequence;
 use zwave_cc::commandclass::WithAddress;
 use zwave_cc::prelude::*;
 use zwave_core::prelude::*;
@@ -50,15 +51,50 @@ where
 impl DriverApi {
     // FIXME: Assert that the driver is in the Ready state
 
-    pub async fn exec_node_command<C>(
+    pub async fn exec_node_command(
         &self,
-        cc: &WithAddress<C>,
+        cc: &WithAddress<CC>,
         _options: Option<&ExecNodeCommandOptions>,
-    ) -> ExecNodeCommandResult<Option<CC>>
-    where
-        C: CCBase + CCId + Clone + Sized + 'static,
-        CC: From<C>,
-    {
+    ) -> ExecNodeCommandResult<Option<CC>> {
+        // Create a CC sequence in order to be able to handle CCs that require sequencing
+        let mut sequence = cc.clone().into_cc_sequence();
+
+        // For each CC in the sequence, send the CC and handle the reponse if needed
+        loop {
+            let Some(mut cc) = sequence.next(self.own_node_id()) else {
+                // We should not end up here, but if we do, return nothing
+                return Ok(None);
+            };
+
+            // TODO: Maybe there's a better way to set the auth and enc key, but I don't know what it is
+            #[allow(clippy::single_match)]
+            match cc.as_mut() {
+                CC::SecurityCCCommandEncapsulation(security_cc) => {
+                    if let Some(sec_man) = self.security_manager() {
+                        security_cc.set_auth_key(sec_man.auth_key().to_vec());
+                        security_cc.set_enc_key(sec_man.enc_key().to_vec());
+                    }
+                }
+                _ => {}
+            }
+
+            let partial_result = self.exec_node_command_internal(&cc, None).await?;
+
+            if sequence.is_finished() {
+                return Ok(partial_result);
+            }
+
+            if let Some(cc) = &partial_result {
+                sequence.handle_response(cc);
+            }
+        }
+    }
+
+    async fn exec_node_command_internal(
+        &self,
+        cc: &WithAddress<CC>,
+        _options: Option<&ExecNodeCommandOptions>,
+    ) -> ExecNodeCommandResult<Option<CC>> {
         // FIXME: In some cases, the nodes' responses are received BEFORE
         // the controller callback is received. We don't handle this case yet.
         let node_id = match cc.address().destination {

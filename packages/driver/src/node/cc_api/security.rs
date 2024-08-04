@@ -55,7 +55,7 @@ impl SecurityCCAPI<'_> {
         let node = self.endpoint.get_node();
         let driver = node.driver();
         let cc = SecurityCCNonceGet::default().with_destination(node.id().into());
-        let response = driver.exec_node_command(&cc, None).await;
+        let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, SecurityCCNonceReport);
 
         Ok(response.map(|r| r.nonce))

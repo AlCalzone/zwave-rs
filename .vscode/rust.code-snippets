@@ -898,7 +898,7 @@
             "        let node = self.endpoint.get_node();",
             "        let driver = node.driver();",
             "        let cc = ${2}CCGet::default().with_destination(node.id().into());",
-            "        let response = driver.exec_node_command(&cc, None).await;",
+            "        let response = driver.exec_node_command(&cc.into(), None).await;",
             "        let response = expect_cc_or_timeout!(response, ${2}CCReport);",
             "",
             "        Ok(response)",

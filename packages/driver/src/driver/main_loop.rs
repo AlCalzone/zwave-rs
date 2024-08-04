@@ -289,7 +289,7 @@ impl MainLoop {
         let driver = self.driver_api.clone();
         tokio::spawn(async move {
             // FIXME: Set options: ACK | AutoRoute, 1 send attempt, immediate priority, don't change node status
-            let send_result = driver.exec_node_command(&cc, None).await;
+            let send_result = driver.exec_node_command(&cc.into(), None).await;
             if send_result.is_err() {
                 // The nonce could not be sent, invalidate it
                 sec_man.delete_own_nonce(nonce_id);

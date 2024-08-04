@@ -105,10 +105,7 @@ impl<'a> CCAPI<'a> for VersionCCAPI<'a> {
 }
 
 impl VersionCCAPI<'_> {
-    async fn query_cc_version(
-        &self,
-        cc: CommandClasses,
-    ) -> CCAPIResult<()> {
+    async fn query_cc_version(&self, cc: CommandClasses) -> CCAPIResult<()> {
         let log = self.endpoint.logger();
 
         if get_implemented_version(cc).is_none() {
@@ -150,7 +147,7 @@ impl VersionCCAPI<'_> {
         let node = self.endpoint.get_node();
         let driver = node.driver();
         let cc = VersionCCGet::default().with_destination(node.id().into());
-        let response = driver.exec_node_command(&cc, None).await;
+        let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, VersionCCReport);
 
         Ok(response)
@@ -163,7 +160,7 @@ impl VersionCCAPI<'_> {
             .requested_cc(cc)
             .build()
             .with_destination(node.id().into());
-        let response = driver.exec_node_command(&cc, None).await;
+        let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, VersionCCCommandClassReport);
 
         Ok(response.map(|r| r.version))
@@ -179,7 +176,7 @@ impl VersionCCAPI<'_> {
         let node = self.endpoint.get_node();
         let driver = node.driver();
         let cc = VersionCCCapabilitiesGet::default().with_destination(node.id().into());
-        let response = driver.exec_node_command(&cc, None).await;
+        let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, VersionCCCapabilitiesReport);
 
         Ok(response)
@@ -195,7 +192,7 @@ impl VersionCCAPI<'_> {
         let node = self.endpoint.get_node();
         let driver = node.driver();
         let cc = VersionCCZWaveSoftwareGet::default().with_destination(node.id().into());
-        let response = driver.exec_node_command(&cc, None).await;
+        let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, VersionCCZWaveSoftwareReport);
 
         Ok(response)
