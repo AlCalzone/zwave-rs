@@ -141,7 +141,7 @@ impl DriverApi {
         let mut state_machine = SerialApiMachine::new();
 
         // Give the command a callback ID if it needs one
-        if command.needs_callback_id() {
+        if command.needs_callback_id() && command.callback_id().is_none() {
             command.set_callback_id(Some(self.get_next_callback_id().await?));
         }
 
