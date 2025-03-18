@@ -566,7 +566,7 @@ macro_rules! expect_controller_command_result {
         match $actual {
             Ok(Some(Command::$expected(result))) => result,
             Ok(_) => {
-                return Err(ControllerCommandError::Unexpected(
+                return Err($crate::ControllerCommandError::Unexpected(
                     concat!("expected ", stringify!($expected)).to_string(),
                 ))
             }

@@ -8,45 +8,25 @@ use std::{
 use bytes::BytesMut;
 use futures::{channel::mpsc, FutureExt, SinkExt};
 use serialport::TTYPort;
-use zwave_core::{log, prelude::Serializable};
+use zwave_core::{
+    log::{self, Loglevel},
+    prelude::Serializable,
+};
 use zwave_driver::{Driver2, DriverEvent, DriverInput, RuntimeAdapter};
-use zwave_logging::{loggers::base::BaseLogger, LogInfo, Logger};
+use zwave_logging::{
+    loggers::{base::BaseLogger, serial2::SerialLogger2},
+    LogInfo, Logger,
+};
 use zwave_serial::frame::RawSerialFrame;
 
 const BUFFER_SIZE: usize = 256;
-
-pub struct RuntimeStatic;
 
 pub struct Runtime {
     logger: BaseLogger,
     port: TTYPort,
     serial_in: mpsc::Sender<RawSerialFrame>,
     serial_out: mpsc::Receiver<RawSerialFrame>,
-    log_receiver: mpsc::Receiver<LogInfo>,
-}
-
-impl zwave_driver::Runtime for RuntimeStatic {
-    fn spawn(
-        &self,
-        future: futures::future::LocalBoxFuture<'static, ()>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        tokio::task::spawn_local(future);
-        Ok(())
-    }
-
-    fn sleep(&self, duration: std::time::Duration) -> futures::future::BoxFuture<'static, ()> {
-        tokio::time::sleep(duration).boxed()
-    }
-
-    // fn write_serial(&mut self, data: bytes::Bytes) {
-    //     self.port
-    //         .write_all(&data)
-    //         .expect("failed to write to serialport");
-    // }
-
-    // fn log(&self, log: zwave_logging::LogInfo, level: zwave_core::log::Loglevel) {
-    //     self.logger.log(log, level);
-    // }
+    log_receiver: mpsc::Receiver<(LogInfo, Loglevel)>,
 }
 
 impl Runtime {
@@ -110,8 +90,8 @@ impl Runtime {
             }
 
             // If there is something to be logged, do it
-            while let Ok(Some(log)) = self.log_receiver.try_next() {
-                self.logger.log(log, log::Loglevel::Debug);
+            while let Ok(Some((log, level))) = self.log_receiver.try_next() {
+                self.logger.log(log, level);
             }
             // while let Some(frame) = self.driver.poll_transmit() {
             //     self.port

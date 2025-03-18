@@ -11,7 +11,7 @@ use zwave_logging::{
 };
 
 mod rt;
-use rt::{Runtime, RuntimeStatic};
+use rt::Runtime;
 
 #[cfg(target_os = "linux")]
 const PORT: &str = "/dev/ttyUSB0";
@@ -19,35 +19,6 @@ const PORT: &str = "/dev/ttyUSB0";
 
 #[cfg(target_os = "windows")]
 const PORT: &str = "COM6";
-
-// struct Rt;
-// /* {
-//     pub serial: TTYPort,
-//     pub logger: BaseLogger,
-// }*/
-// impl zwave_driver::Runtime for Rt {
-//     fn spawn(
-//         &self,
-//         future: futures::future::LocalBoxFuture<'static, ()>,
-//     ) -> Result<(), Box<dyn std::error::Error>> {
-//         tokio::task::spawn_local(future);
-//         Ok(())
-//     }
-
-//     fn sleep(&self, duration: std::time::Duration) -> futures::future::BoxFuture<'static, ()> {
-//         tokio::time::sleep(duration).boxed()
-//     }
-
-//     // fn write_serial(&mut self, data: bytes::Bytes) {
-//     //     self.serial
-//     //         .write_all(&data)
-//     //         .expect("failed to write to serialport");
-//     // }
-
-//     // fn log(&self, log: zwave_logging::LogInfo, level: Loglevel) {
-//     //     self.logger.log(log, level);
-//     // }
-// }
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
@@ -63,7 +34,7 @@ async fn main() {
         })
         .build();
 
-    let mut logger = BaseLogger {
+    let logger = BaseLogger {
         level: Loglevel::Debug,
         writer: Box::new(termcolor::StandardStream::stdout(
             termcolor::ColorChoice::Auto,
@@ -72,23 +43,16 @@ async fn main() {
     };
 
     // FIXME:
-    // {
-    //     let mut driver_logger = DriverLogger2::new(&mut logger);
-    //     driver_logger.logo();
-    //     driver_logger.info(|| "version 0.0.1-alpha");
-    //     driver_logger.info(|| "");
     //     driver_logger.info(|| format!("opening serial port {}", PORT));
-    // }
 
     let port = serialport::new(PORT, 115_200)
         .open_native()
         .expect("failed to open port");
 
     let (mut runtime, adapter) = Runtime::with_adapter(logger, port);
+    let (mut driver, mut api) = zwave_driver::Driver2::with_api(adapter);
 
-    let mut driver = zwave_driver::Driver2::new(RuntimeStatic, adapter);
-    let mut api = Driver2Api::new(driver.input_sender());
-    // let mut inputs = driver.input_sender();
+    tokio::time::sleep(Duration::from_secs(1)).await;
 
     let local = task::LocalSet::new();
     local
@@ -99,13 +63,13 @@ async fn main() {
             let driver_future = task::spawn_local(async move {
                 driver.run().await;
             });
-            // inputs.send(zwave_driver::DriverInput::Test).await.unwrap();
 
-            let cmd = zwave_serial::command::GetControllerVersionRequest::default();
-            let result = api.execute_serial_api_command(cmd).await.unwrap();
+            // let cmd = zwave_serial::command::GetControllerVersionRequest::default();
+            // let result = api.execute_serial_api_command(cmd).await.unwrap();
+            let result = api.get_controller_version(None).await.unwrap();
             println!("result: {:?}", result);
 
-            tokio::time::sleep(Duration::from_secs(5)).await;
+            tokio::time::sleep(Duration::from_secs(8)).await;
             println!("Bye");
             main.abort();
             driver_future.abort();

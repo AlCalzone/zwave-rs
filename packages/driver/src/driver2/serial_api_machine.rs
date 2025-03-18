@@ -2,6 +2,8 @@ use zwave_core::state_machine;
 use zwave_core::state_machine::StateMachine;
 use zwave_serial::prelude::*;
 
+use crate::ExecControllerCommandError;
+
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum SerialApiMachineResult {
@@ -73,3 +75,23 @@ state_machine! { SerialApiMachine {
     Initial = Initial,
     Final = Done(_)
 } }
+
+
+impl From<SerialApiMachineResult> for ExecControllerCommandError {
+    fn from(result: SerialApiMachineResult) -> Self {
+        match result {
+            SerialApiMachineResult::ACKTimeout => ExecControllerCommandError::ACKTimeout,
+            SerialApiMachineResult::CAN => ExecControllerCommandError::CAN,
+            SerialApiMachineResult::NAK => ExecControllerCommandError::NAK,
+            SerialApiMachineResult::ResponseTimeout => ExecControllerCommandError::ResponseTimeout,
+            SerialApiMachineResult::ResponseNOK(command) => {
+                ExecControllerCommandError::ResponseNOK(command)
+            }
+            SerialApiMachineResult::CallbackTimeout => ExecControllerCommandError::CallbackTimeout,
+            SerialApiMachineResult::CallbackNOK(command) => {
+                ExecControllerCommandError::CallbackNOK(command)
+            }
+            _ => panic!("Serial API machine result is not an error: {:?}", result),
+        }
+    }
+}
