@@ -1,5 +1,4 @@
-use crate::{driver_api::DriverApi, Ready};
-use std::sync::{atomic::Ordering, Arc};
+use crate::driver_api::DriverApi;
 use zwave_core::{definitions::*, submodule};
 use zwave_serial::command::SerialApiSetupCommand;
 

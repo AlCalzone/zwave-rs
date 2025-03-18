@@ -1,3 +1,5 @@
+use super::{Init, Ready};
+use crate::driver_api::DriverApi;
 use crate::{driver::ControllerCommandError, ControllerCommandResult};
 use crate::{ControllerStorage, ExecControllerCommandOptions, NodeStorage};
 use std::collections::BTreeMap;
@@ -5,8 +7,6 @@ use std::sync::Arc;
 use zwave_core::definitions::*;
 use zwave_core::log::Loglevel;
 use zwave_serial::command::SerialApiSetupCommand;
-
-use super::driver_api::DriverApi;
 
 impl DriverApi {
     pub(crate) async fn interview_controller(&self) -> ControllerCommandResult<()> {

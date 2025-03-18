@@ -2,10 +2,10 @@ use crate::error::{Error, Result};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use tokio::sync::oneshot;
 use unique_id::sequence::SequenceGenerator;
 use unique_id::Generator;
 use zwave_core::util::MaybeSleep;
-use futures::channel::oneshot;
 
 pub type Predicate<T> = Box<dyn Fn(&T) -> bool + Sync + Send>;
 

@@ -12,7 +12,7 @@ use zwave_core::{
     log::{self, Loglevel},
     prelude::Serializable,
 };
-use zwave_driver::{Driver2, DriverEvent, DriverInput, RuntimeAdapter};
+use zwave_driver::{Driver, DriverEvent, DriverInput, RuntimeAdapter};
 use zwave_logging::{
     loggers::{base::BaseLogger, serial2::SerialLogger2},
     LogInfo, Logger,

@@ -1,8 +1,8 @@
 use self::cache::EndpointValueCache;
-use crate::{driver_api::DriverApi, ControllerCommandResult, ExecNodeCommandError, Ready};
+use crate::{driver_api::DriverApi, ControllerCommandResult, ExecNodeCommandError};
 use zwave_cc::commandclass::{CCAddressable, NoOperationCC};
 use zwave_core::{definitions::*, submodule};
-use zwave_logging::loggers::node::NodeLogger;
+use zwave_logging::loggers::{node::NodeLogger, node2::NodeLogger2};
 
 submodule!(interview);
 submodule!(storage);
@@ -111,7 +111,7 @@ pub trait EndpointLike<'a> {
     fn controls_cc(&self, cc: CommandClasses) -> bool;
     fn get_cc_version(&self, cc: CommandClasses) -> Option<u8>;
 
-    fn logger(&self) -> NodeLogger;
+    fn logger(&self) -> NodeLogger2;
 
     // TODO: Add the rest
 }
@@ -246,7 +246,7 @@ impl<'a> EndpointLike<'a> for Node<'a> {
             .flatten()
     }
 
-    fn logger(&self) -> NodeLogger {
+    fn logger(&self) -> NodeLogger2 {
         self.driver.node_log(self.node_id(), self.index())
     }
 }
@@ -345,7 +345,7 @@ impl<'a> EndpointLike<'a> for Endpoint<'a> {
             .flatten()
     }
 
-    fn logger(&self) -> NodeLogger {
+    fn logger(&self) -> NodeLogger2 {
         self.driver.node_log(self.node_id(), self.index())
     }
 }

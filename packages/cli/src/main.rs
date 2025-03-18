@@ -50,7 +50,7 @@ async fn main() {
         .expect("failed to open port");
 
     let (mut runtime, adapter) = Runtime::with_adapter(logger, port);
-    let (mut driver, mut api) = zwave_driver::Driver2::with_api(adapter);
+    let (mut driver, mut api) = zwave_driver::Driver::with_api(adapter);
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 

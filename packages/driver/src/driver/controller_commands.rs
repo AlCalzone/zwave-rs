@@ -1,5 +1,5 @@
-use crate::driver_api::DriverApi;
-use crate::Ready;
+use super::driver_api::DriverApi;
+use super::serial_api_machine::SerialApiMachineResult;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 use zwave_core::log::Loglevel;
@@ -434,40 +434,6 @@ impl DriverApi {
 
         Ok(application_data)
     }
-
-    // FIXME: Assert that the driver is ready for this command
-    pub async fn exec_controller_command<C>(
-        &self,
-        command: C,
-        options: Option<&ExecControllerCommandOptions>,
-    ) -> ExecControllerCommandResult<Option<Command>>
-    where
-        C: CommandRequest + AsCommandRaw + Into<Command> + Clone + 'static,
-    {
-        let options = match options {
-            Some(options) => options.clone(),
-            None => Default::default(),
-        };
-
-        let supported = self.supports_function(command.function_type());
-        if options.enforce_support && !supported {
-            return Err(ExecControllerCommandError::Unsupported(format!(
-                "{:?}",
-                command.function_type()
-            )));
-        }
-
-        let result = self.execute_serial_api_command(command).await;
-        // TODO: Handle retrying etc.
-        match result {
-            Ok(SerialApiMachineResult::Success(command)) => Ok(command),
-            Ok(result) => Err(result.into()),
-            Err(e) => Err(ExecControllerCommandError::Unexpected(format!(
-                "unexpected error in execute_serial_api_command: {:?}",
-                e
-            ))),
-        }
-    }
 }
 
 #[derive(TypedBuilder, Default, Clone)]
@@ -590,6 +556,3 @@ macro_rules! expect_serial_api_setup_result {
     };
 }
 pub(crate) use expect_serial_api_setup_result;
-
-use super::serial_api_machine::SerialApiMachineResult;
-use super::DriverState;

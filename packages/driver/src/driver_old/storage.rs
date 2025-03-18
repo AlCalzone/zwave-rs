@@ -1,10 +1,13 @@
-use crate::{ControllerStorage, EndpointStorage, NodeStorage};
+use crate::{BackgroundLogger, ControllerStorage, EndpointStorage, InterviewStage, NodeStorage};
 use std::{
     collections::{BTreeMap, HashMap},
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 use zwave_core::{
-    cache::CacheValue, prelude::*, security::SecurityManagerStorage, value_id::EndpointValueId,
+    cache::CacheValue,
+    prelude::*,
+    security::{SecurityManager, SecurityManagerStorage},
+    value_id::EndpointValueId,
 };
 
 /// Internal storage for the driver instance and shared API instances.
@@ -13,6 +16,9 @@ use zwave_core::{
 /// interior mutability to allow for concurrent access without requiring
 /// a mutable reference.
 pub(crate) struct DriverStorage {
+    // The shared logger used by all specific logger instances
+    logger: Arc<BackgroundLogger>,
+
     value_cache: RwLock<HashMap<EndpointValueId, CacheValue>>,
 
     // own_node_id: RwLock<NodeId>,
@@ -27,8 +33,12 @@ pub(crate) struct DriverStorage {
 }
 
 impl DriverStorage {
-    pub fn new(node_id_type: NodeIdType) -> Self {
+    pub fn new(
+        logger: Arc<BackgroundLogger>,
+        node_id_type: NodeIdType,
+    ) -> Self {
         Self {
+            logger,
             value_cache: RwLock::new(HashMap::new()),
             // own_node_id: RwLock::new(NodeId::unspecified()),
             node_id_type: RwLock::new(node_id_type),
@@ -48,6 +58,10 @@ impl DriverStorage {
 
     pub fn value_cache_mut(&self) -> RwLockWriteGuard<HashMap<EndpointValueId, CacheValue>> {
         self.value_cache.write().unwrap()
+    }
+
+    pub fn logger(&self) -> &Arc<BackgroundLogger> {
+        &self.logger
     }
 
     // pub fn own_node_id(&self) -> NodeId {

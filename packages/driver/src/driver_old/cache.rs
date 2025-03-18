@@ -1,5 +1,5 @@
 use super::storage::DriverStorage;
-use crate::driver_api::DriverApi;
+use crate::{driver_api::DriverApi, Ready};
 use std::sync::Arc;
 use zwave_core::{
     cache::{Cache, CacheValue},

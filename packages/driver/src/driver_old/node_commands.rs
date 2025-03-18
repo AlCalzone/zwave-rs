@@ -1,6 +1,7 @@
 use crate::driver_api::DriverApi;
 use crate::error::Error;
 use crate::ControllerCommandError;
+use crate::DriverState;
 use std::time::Duration;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
