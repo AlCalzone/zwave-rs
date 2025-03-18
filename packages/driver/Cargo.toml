@@ -21,3 +21,6 @@ zwave-cc.workspace = true
 zwave-core.workspace = true
 zwave-logging.workspace = true
 zwave-serial.workspace = true
+bytes.workspace = true
+hex.workspace = true
+futures.workspace = true

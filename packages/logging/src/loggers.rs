@@ -3,3 +3,7 @@ pub mod controller;
 pub mod driver;
 pub mod node;
 pub mod serial;
+pub mod controller2;
+pub mod driver2;
+pub mod node2;
+pub mod serial2;
