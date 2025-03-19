@@ -1,28 +1,21 @@
 use super::driver_api::DriverApi;
 use super::serial_api_machine::SerialApiMachineResult;
+use super::ExecutableCommand;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 use zwave_core::log::Loglevel;
 use zwave_core::prelude::*;
-use zwave_serial::command::ApplicationUpdateRequest;
-use zwave_serial::command::ApplicationUpdateRequestPayload;
-use zwave_serial::command::AsCommandRaw;
-use zwave_serial::command::RequestNodeInfoRequest;
 use zwave_serial::command::{
-    Command, CommandBase, CommandRequest, GetControllerCapabilitiesRequest,
-    GetControllerCapabilitiesResponse, GetControllerIdRequest, GetControllerIdResponse,
-    GetControllerVersionRequest, GetControllerVersionResponse, GetNodeProtocolInfoRequest,
-    GetProtocolVersionRequest, GetProtocolVersionResponse, GetSerialApiCapabilitiesRequest,
-    GetSerialApiCapabilitiesResponse, GetSerialApiInitDataRequest, GetSerialApiInitDataResponse,
-    GetSucNodeIdRequest, SerialApiSetupCommand, SerialApiSetupRequest,
-    SerialApiSetupResponsePayload, SetSucNodeIdRequest,
+    ApplicationUpdateRequest, ApplicationUpdateRequestPayload, Command, CommandBase,
+    GetControllerCapabilitiesRequest, GetControllerCapabilitiesResponse, GetControllerIdRequest,
+    GetControllerIdResponse, GetControllerVersionRequest, GetControllerVersionResponse,
+    GetNodeProtocolInfoRequest, GetProtocolVersionRequest, GetProtocolVersionResponse,
+    GetSerialApiCapabilitiesRequest, GetSerialApiCapabilitiesResponse, GetSerialApiInitDataRequest,
+    GetSerialApiInitDataResponse, GetSucNodeIdRequest, RequestNodeInfoRequest,
+    SerialApiSetupCommand, SerialApiSetupRequest, SerialApiSetupResponsePayload,
+    SetSucNodeIdRequest,
 };
 
-// FIXME: Having a wrapper for this with the correct command options set would be nicer API-wise
-
-// FIXME: We should have a wrapper to expose only supported commands to lib users
-
-// FIXME: The external API may always expose these commands
 impl DriverApi {
     pub async fn get_serial_api_capabilities(
         &self,
@@ -270,11 +263,7 @@ impl DriverApi {
 
         Ok(response.protocol_info)
     }
-}
 
-// FIXME: The external API should only expose these commands when ready
-impl DriverApi {
-    // FIXME: Assert that the driver is ready for all these commands
     pub async fn get_rf_region(
         &self,
         options: Option<&ExecControllerCommandOptions>,
@@ -291,7 +280,8 @@ impl DriverApi {
             SerialApiSetupResponsePayload::GetRFRegion { region } => region
         )?;
 
-        self.controller().set_rf_region(Some(rf_region));
+        // FIXME: Save result when called
+        // self.controller().set_rf_region(Some(rf_region));
 
         self.controller_log()
             .info(|| format!("the controller is using RF region {}", rf_region));
@@ -315,7 +305,8 @@ impl DriverApi {
             SerialApiSetupResponsePayload::GetPowerlevel { powerlevel } => powerlevel
         )?;
 
-        self.controller().set_powerlevel(Some(powerlevel));
+        // FIXME: Save result when called
+        // self.controller().set_powerlevel(Some(powerlevel));
 
         self.controller_log()
             .info(|| format!("the controller is using powerlevel {}", powerlevel));
@@ -386,14 +377,15 @@ impl DriverApi {
             Err(e) => return Err(e.into()),
         };
 
-        if success {
-            self.controller().set_suc_node_id(Some(node_id));
-            self.controller().set_is_sis(enable_sis);
-            self.controller().set_is_suc(enable_suc);
-            if enable_sis {
-                self.controller().set_sis_present(true);
-            }
-        }
+        // FIXME: Save result when called
+        // if success {
+        //     self.controller().set_suc_node_id(Some(node_id));
+        //     self.controller().set_is_sis(enable_sis);
+        //     self.controller().set_is_suc(enable_suc);
+        //     if enable_sis {
+        //         self.controller().set_sis_present(true);
+        //     }
+        // }
 
         Ok(success)
     }
@@ -434,14 +426,49 @@ impl DriverApi {
 
         Ok(application_data)
     }
+
+    // FIXME: Assert that the driver is ready for this command
+    pub async fn exec_controller_command<C>(
+        &self,
+        command: C,
+        options: Option<&ExecControllerCommandOptions>,
+    ) -> ExecControllerCommandResult<Option<Command>>
+    where
+        C: ExecutableCommand + 'static,
+    {
+        // FIXME:
+        // let options = match options {
+        //     Some(options) => options.clone(),
+        //     None => Default::default(),
+        // };
+
+        // let supported = self.supports_function(command.function_type());
+        // if options.enforce_support && !supported {
+        //     return Err(ExecControllerCommandError::Unsupported(format!(
+        //         "{:?}",
+        //         command.function_type()
+        //     )));
+        // }
+
+        let result = self.execute_serial_api_command(command).await;
+        // TODO: Handle retrying etc.
+        match result {
+            Ok(SerialApiMachineResult::Success(command)) => Ok(command),
+            Ok(result) => Err(result.into()),
+            Err(e) => Err(ExecControllerCommandError::Unexpected(format!(
+                "unexpected error in execute_serial_api_command: {:?}",
+                e
+            ))),
+        }
+    }
 }
 
 #[derive(TypedBuilder, Default, Clone)]
 pub struct ExecControllerCommandOptions {
-    /// If executing the command should fail when it is not supported by the controller.
-    /// Setting this to `false` is is useful if the capabilities haven't been determined yet. Default: `true`
-    #[builder(default = true)]
-    enforce_support: bool,
+    // /// If executing the command should fail when it is not supported by the controller.
+    // /// Setting this to `false` is is useful if the capabilities haven't been determined yet. Default: `true`
+    // #[builder(default = true)]
+    // enforce_support: bool,
 }
 
 /// The low-level result of a controller command execution.

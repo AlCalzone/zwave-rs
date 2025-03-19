@@ -1,14 +1,8 @@
-use std::{io::Write, sync::Arc, time::Duration};
-
-use futures::{task::LocalSpawn, FutureExt, SinkExt};
-use serialport::TTYPort;
+use std::time::Duration;
 use tokio::task;
 use zwave_core::log::Loglevel;
-use zwave_driver::{Driver2Api, DriverOptions, SecurityKeys};
-use zwave_logging::{
-    loggers::{base::BaseLogger, driver2::DriverLogger2},
-    Logger,
-};
+use zwave_driver::Controller;
+use zwave_logging::loggers::base::BaseLogger;
 
 mod rt;
 use rt::Runtime;
@@ -22,17 +16,17 @@ const PORT: &str = "COM6";
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let options = DriverOptions::builder()
-        .path(PORT)
-        // .loglevel(Loglevel::Silly)
-        .security_keys(SecurityKeys {
-            s0_legacy: Some(vec![
-                0x01u8, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D,
-                0x0E, 0x0F, 0x10,
-            ]),
-            ..Default::default()
-        })
-        .build();
+    // let options = DriverOptions::builder()
+    //     .path(PORT)
+    //     // .loglevel(Loglevel::Silly)
+    //     .security_keys(SecurityKeys {
+    //         s0_legacy: Some(vec![
+    //             0x01u8, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D,
+    //             0x0E, 0x0F, 0x10,
+    //         ]),
+    //         ..Default::default()
+    //     })
+    //     .build();
 
     let logger = BaseLogger {
         level: Loglevel::Debug,
@@ -64,12 +58,17 @@ async fn main() {
                 driver.run().await;
             });
 
-            // let cmd = zwave_serial::command::GetControllerVersionRequest::default();
-            // let result = api.execute_serial_api_command(cmd).await.unwrap();
-            let result = api.get_controller_version(None).await.unwrap();
-            println!("result: {:?}", result);
+            let mut controller = Controller::new(&api);
+            let mut controller = controller.interview().await.unwrap();
 
-            tokio::time::sleep(Duration::from_secs(8)).await;
+            println!("home ID: {:?}", controller.home_id());
+
+            // // let cmd = zwave_serial::command::GetControllerVersionRequest::default();
+            // // let result = api.execute_serial_api_command(cmd).await.unwrap();
+            // let result = api.get_controller_version(None).await.unwrap();
+            // println!("result: {:?}", result);
+
+            tokio::time::sleep(Duration::from_secs(3)).await;
             println!("Bye");
             main.abort();
             driver_future.abort();

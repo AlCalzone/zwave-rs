@@ -125,7 +125,20 @@ impl CCSession for CC {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum CcOrRaw {
+    CC(CC),
+    Raw(CCRaw),
+}
 
+impl CcOrRaw {
+    pub fn as_raw(&self, ctx: &CCEncodingContext) -> CCRaw {
+        match self {
+            CcOrRaw::CC(cc) => cc.as_raw(ctx),
+            CcOrRaw::Raw(raw) => raw.clone(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WithAddress<T> {
@@ -133,10 +146,7 @@ pub struct WithAddress<T> {
     command: T,
 }
 
-impl<T> WithAddress<T>
-// where
-    // T: CCBase,
-{
+impl<T> WithAddress<T> {
     pub fn address(&self) -> &CCAddress {
         &self.address
     }
@@ -175,10 +185,7 @@ impl<T> WithAddress<T>
     }
 }
 
-impl<T> Deref for WithAddress<T>
-where
-    T: CCBase,
-{
+impl<T> Deref for WithAddress<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -186,23 +193,20 @@ where
     }
 }
 
-impl<T> DerefMut for WithAddress<T>
-where
-    T: CCBase,
-{
+impl<T> DerefMut for WithAddress<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.command
     }
 }
 
-impl AsRef<CC> for WithAddress<CC> {
-    fn as_ref(&self) -> &CC {
+impl<T> AsRef<T> for WithAddress<T> {
+    fn as_ref(&self) -> &T {
         &self.command
     }
 }
 
-impl AsMut<CC> for WithAddress<CC> {
-    fn as_mut(&mut self) -> &mut CC {
+impl<T> AsMut<T> for WithAddress<T> {
+    fn as_mut(&mut self) -> &mut T {
         &mut self.command
     }
 }
@@ -229,7 +233,7 @@ where
 pub trait CCAddressable {
     fn with_address(self, address: CCAddress) -> WithAddress<Self>
     where
-        Self: Sized + CCBase,
+        Self: Sized,
     {
         WithAddress {
             address,
@@ -239,7 +243,7 @@ pub trait CCAddressable {
 
     fn with_destination(self, destination: Destination) -> WithAddress<Self>
     where
-        Self: Sized + CCBase,
+        Self: Sized,
     {
         self.with_address(CCAddress {
             destination,
@@ -249,7 +253,7 @@ pub trait CCAddressable {
 
     fn clone_with_address(&self, address: CCAddress) -> WithAddress<Self>
     where
-        Self: Sized + CCBase + Clone,
+        Self: Sized + Clone,
     {
         WithAddress {
             address,
@@ -269,6 +273,8 @@ pub trait CCAddressable {
 }
 
 impl<T> CCAddressable for T where T: CCBase {}
+impl CCAddressable for CCRaw {}
+impl CCAddressable for CcOrRaw {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CCAddress {

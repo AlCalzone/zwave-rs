@@ -13,7 +13,9 @@ use zwave_core::prelude::*;
 use zwave_core::state_machine::{StateMachine, StateMachineTransition};
 use zwave_core::submodule;
 use zwave_core::util::MaybeSleep;
+use zwave_core::wrapping_counter::WrappingCounter;
 use zwave_core::{log::Loglevel, parse::Parsable, util::now};
+use zwave_logging::loggers::controller2::ControllerLogger2;
 use zwave_logging::loggers::driver2::DriverLogger2;
 use zwave_logging::LocalImmutableLogger;
 use zwave_logging::{loggers::serial2::SerialLogger2, Direction, LogInfo};
@@ -21,15 +23,15 @@ use zwave_serial::frame::{ControlFlow, RawSerialFrame, SerialFrame};
 use zwave_serial::prelude::*;
 
 mod awaited;
-pub(crate) mod cache;
+// pub(crate) mod cache;
 pub(crate) mod driver_api;
-mod init_controller_and_nodes;
+// mod init_controller_and_nodes;
 mod serial_api_machine;
 mod storage;
 
 submodule!(controller_commands);
-submodule!(node_api);
-submodule!(node_commands);
+// submodule!(node_api);
+// submodule!(node_commands);
 
 pub struct RuntimeAdapter {
     pub serial_in: mpsc::Receiver<RawSerialFrame>,
@@ -49,22 +51,29 @@ struct SerialApiCommandState {
     callback: Option<oneshot::Sender<Result<SerialApiMachineResult>>>,
 }
 
-/// A runtime- and IO agnostic adapter for serial ports.
-/// Deals with parsing, serializing and logging serial frames,
-/// but has to be driven by a runtime.
+/// A low-level interface to the Serial API. Despite the name, this must be driven from the outside,
+/// meaning:
+/// - serial frames must be sent to and read from the driver
+/// - logs must be read from the driver and handled outside
+/// - inputs must be sent to the driver
+///
+/// It does not store any cached information about the network, except for what it needs to
+/// correctly serialize and deserialize commands. If any state needs to be kept aside from that,
+/// the relevant abstractions must handle this themselves.
 pub struct Driver {
     serial_in: mpsc::Receiver<RawSerialFrame>,
     serial_out: mpsc::Sender<RawSerialFrame>,
     log_queue: mpsc::Sender<(LogInfo, Loglevel)>,
+    input_tx: mpsc::Sender<DriverInput>,
+    input_rx: mpsc::Receiver<DriverInput>,
 
     /// The serial API command that's currently being executed
     serial_api_command: Option<SerialApiCommandState>,
 
-    input_tx: mpsc::Sender<DriverInput>,
-    input_rx: mpsc::Receiver<DriverInput>,
-
     /// Shared storage to be used by the driver and all API instances
     storage: Arc<DriverStorage>,
+
+    callback_id: WrappingCounter<u8>,
 }
 
 impl Driver {
@@ -82,6 +91,8 @@ impl Driver {
 
             serial_api_command: None,
             storage: storage.clone(),
+
+            callback_id: WrappingCounter::new(),
         };
 
         let api = DriverApi::new(input_tx, storage);
@@ -95,6 +106,10 @@ impl Driver {
 
     pub fn serial_log(&self) -> SerialLogger2 {
         SerialLogger2::new(self)
+    }
+
+    pub fn controller_log(&self) -> ControllerLogger2 {
+        ControllerLogger2::new(self)
     }
 
     /// Handles a frame that was written to the input buffer
@@ -206,24 +221,33 @@ impl Driver {
             DriverInput::Receive { frame } => {
                 self.handle_frame(frame);
             }
-            DriverInput::ExecCommand { command, callback } => {
+            DriverInput::ExecCommand {
+                mut command,
+                callback,
+            } => {
                 // FIXME: handle busy state
 
                 // Set up state machine and interpreter
                 let machine = SerialApiMachine::new();
 
-                // TODO:
-                // // Give the command a callback ID if it needs one
-                // if command.needs_callback_id() && command.callback_id().is_none() {
-                //     command.set_callback_id(Some(self.get_next_callback_id().await?));
-                // }
+                // Give the command a callback ID if it needs one
+                if command.needs_callback_id() && command.callback_id().is_none() {
+                    command.set_callback_id(Some(self.get_next_callback_id()));
+                }
 
                 let expects_response = command.expects_response();
                 let expects_callback = command.expects_callback();
 
-                let ctx = CommandEncodingContext::default();
+                let ctx = CommandEncodingContext::builder()
+                    .own_node_id(self.storage.own_node_id())
+                    .node_id_type(self.storage.node_id_type())
+                    .sdk_version(self.storage.sdk_version())
+                    .build();
                 let raw = command.as_raw(&ctx);
                 let frame = SerialFrame::Command(raw);
+
+                self.controller_log()
+                    .command(command.as_ref(), Direction::Outbound);
 
                 self.serial_api_command = Some(SerialApiCommandState {
                     command,
@@ -233,12 +257,9 @@ impl Driver {
                     machine,
                     callback: Some(callback),
                 });
-                // FIXME: This is unnecessary
-                self.try_advance_serial_api_machine(SerialApiMachineInput::Start);
-
                 self.queue_transmit(frame.into());
 
-                self.try_advance_serial_api_machine(SerialApiMachineInput::FrameSent);
+                self.try_advance_serial_api_machine(SerialApiMachineInput::Start);
             }
             DriverInput::Log { log, level } => {
                 self.log_queue
@@ -278,9 +299,11 @@ impl Driver {
             SerialFrame::Command(raw) => {
                 // Try to convert it into an actual command
                 let cmd = {
-                    // FIXME:
-                    // self.get_command_parsing_context();
-                    let ctx = CommandParsingContext::default();
+                    let ctx = CommandParsingContext::builder()
+                        .own_node_id(self.storage.own_node_id())
+                        .node_id_type(self.storage.node_id_type())
+                        .sdk_version(self.storage.sdk_version())
+                        .build();
                     match zwave_serial::command::Command::try_from_raw(raw, ctx) {
                         Ok(cmd) => cmd,
                         Err(e) => {
@@ -293,35 +316,40 @@ impl Driver {
 
                 // Check if this is an expected response or callback
                 if let Some(SerialApiCommandState {
-                    command, machine, ..
+                    command,
+                    ref machine,
+                    ..
                 }) = &self.serial_api_command
                 {
-                    match machine.state() {
+                    let input = match machine.state() {
                         SerialApiMachineState::WaitingForResponse
                             if command.test_response(&cmd) =>
                         {
-                            self.try_advance_serial_api_machine(if cmd.is_ok() {
-                                SerialApiMachineInput::Response(cmd)
+                            if cmd.is_ok() {
+                                Some(SerialApiMachineInput::Response(cmd.clone()))
                             } else {
-                                SerialApiMachineInput::ResponseNOK(cmd)
-                            });
-                            return;
+                                Some(SerialApiMachineInput::ResponseNOK(cmd.clone()))
+                            }
                         }
                         SerialApiMachineState::WaitingForCallback
                             if command.test_callback(&cmd) =>
                         {
-                            self.try_advance_serial_api_machine(if cmd.is_ok() {
-                                SerialApiMachineInput::Callback(cmd)
+                            if cmd.is_ok() {
+                                Some(SerialApiMachineInput::Callback(cmd.clone()))
                             } else {
-                                SerialApiMachineInput::CallbackNOK(cmd)
-                            });
-                            return;
+                                Some(SerialApiMachineInput::CallbackNOK(cmd.clone()))
+                            }
                         }
-                        _ => {}
+                        _ => None,
+                    };
+                    if let Some(input) = input {
+                        self.try_advance_serial_api_machine(input);
+                        return;
                     }
                 }
 
-                todo!("handle received command: {:?}", cmd);
+                // Not expected. Logging must happen upstream, so embedded CCs can be decoded
+                eprintln!("TODO: handle received command: {:?}", cmd);
             }
             // Not much we can do with a raw frame at this point
             _ => {
@@ -349,15 +377,14 @@ impl Driver {
             return false;
         }
 
-        let Some(transition) =
-            machine.next(
-                input,
-                |condition: SerialApiMachineCondition| match condition {
-                    SerialApiMachineCondition::ExpectsResponse => expects_response,
-                    SerialApiMachineCondition::ExpectsCallback => expects_callback,
-                },
-            )
-        else {
+        let Some(transition) = machine.next(
+            // We need to clone the input here, so we can use it for logging later
+            input.clone(),
+            |condition: SerialApiMachineCondition| match condition {
+                SerialApiMachineCondition::ExpectsResponse => expects_response,
+                SerialApiMachineCondition::ExpectsCallback => expects_callback,
+            },
+        ) else {
             return false;
         };
 
@@ -390,7 +417,17 @@ impl Driver {
             _ => {}
         }
 
+        // Ending up here means the machine performed a transition, which means it NOT an unsolicited
+        // command which could contain a CC. Log it here.
+        if let SerialApiMachineInput::Callback(cmd) | SerialApiMachineInput::Response(cmd) = input {
+            self.controller_log().command(&cmd, Direction::Inbound);
+        }
+
         true
+    }
+
+    fn get_next_callback_id(&mut self) -> u8 {
+        self.callback_id.increment()
     }
 
     // FIXME: Do we need this internally?

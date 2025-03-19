@@ -18,7 +18,6 @@ pub enum SerialApiMachineResult {
 state_machine! { SerialApiMachine {
     State = {
         Initial,
-        Sending,
         WaitingForACK,
         WaitingForResponse,
         WaitingForCallback, // TODO: needs another state for callback aborted
@@ -26,7 +25,6 @@ state_machine! { SerialApiMachine {
     },
     Input = {
         Start,
-        FrameSent,
         ACK,
         NAK,
         CAN,
@@ -43,10 +41,7 @@ state_machine! { SerialApiMachine {
     },
     Transitions = [
         [Initial => [
-            [Start => Sending],
-        ]],
-        [Sending => [
-            [FrameSent => WaitingForACK],
+            [Start => WaitingForACK],
         ]],
         [WaitingForACK => [
             [ACK if ExpectsResponse => WaitingForResponse],
@@ -57,7 +52,6 @@ state_machine! { SerialApiMachine {
             [Timeout => Done(SerialApiMachineResult::ACKTimeout)],
         ]],
         [WaitingForResponse => [
-            // TODO:
             [Response(_) if ExpectsCallback => WaitingForCallback],
             [Response(cmd) => Done(SerialApiMachineResult::Success(Some(cmd)))],
             [ResponseNOK(cmd)  => Done(SerialApiMachineResult::ResponseNOK(cmd))],

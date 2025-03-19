@@ -53,41 +53,6 @@ impl DriverApi {
 
         rx.await.expect("Failed to receive command result")
     }
-
-    // FIXME: Assert that the driver is ready for this command
-    pub async fn exec_controller_command<C>(
-        &self,
-        command: C,
-        options: Option<&ExecControllerCommandOptions>,
-    ) -> ExecControllerCommandResult<Option<Command>>
-    where
-        C: ExecutableCommand + 'static,
-    {
-        // FIXME:
-        // let options = match options {
-        //     Some(options) => options.clone(),
-        //     None => Default::default(),
-        // };
-
-        // let supported = self.supports_function(command.function_type());
-        // if options.enforce_support && !supported {
-        //     return Err(ExecControllerCommandError::Unsupported(format!(
-        //         "{:?}",
-        //         command.function_type()
-        //     )));
-        // }
-
-        let result = self.execute_serial_api_command(command).await;
-        // TODO: Handle retrying etc.
-        match result {
-            Ok(SerialApiMachineResult::Success(command)) => Ok(command),
-            Ok(result) => Err(result.into()),
-            Err(e) => Err(ExecControllerCommandError::Unexpected(format!(
-                "unexpected error in execute_serial_api_command: {:?}",
-                e
-            ))),
-        }
-    }
 }
 
 impl LocalImmutableLogger for DriverApi {

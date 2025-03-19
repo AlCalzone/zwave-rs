@@ -29,7 +29,7 @@ impl<'a> ControllerLogger2<'a> {
     }
 
     // FIXME: Remove duplication with DriverLogger
-    pub fn command(&self, command: &impl CommandId, direction: Direction) {
+    pub fn command(&self, command: &dyn CommandId, direction: Direction) {
         let level = Loglevel::Debug;
         if self.level() < level {
             return;
