@@ -1,6 +1,7 @@
 use crate::prelude::{Command, CommandEncodingContext, CommandRaw};
 use bytes::{Buf, Bytes, BytesMut};
 use proc_macros::TryFromRepr;
+use zwave_core::parse::Needed;
 use std::fmt::Display;
 use zwave_core::parse;
 use zwave_core::prelude::*;
@@ -99,6 +100,23 @@ impl RawSerialFrame {
                     None => i.split(),
                 };
                 Ok(Self::Garbage(garbage.freeze()))
+            }
+        }
+    }
+
+    pub fn parse_mut_or_reserve(i: &mut BytesMut) -> Option<Self> {
+        match Self::parse_mut(i) {
+            Ok(frame) => Some(frame),
+            Err(ParseError::Incomplete(n)) => {
+                // When expecting more bytes, reserve space for them
+                if let Needed::Size(n) = n {
+                    i.reserve(n);
+                }
+                None
+            }
+            Err(_) => {
+                // There was a problem parsing the frame, but the serial port doesn't care about that
+                None
             }
         }
     }

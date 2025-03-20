@@ -156,8 +156,6 @@ enum SecurityCCCommandEncapsulationState {
 
         // These are only needed for transmitting
         nonce: Option<S0Nonce>,
-        enc_key: Option<Vec<u8>>,
-        auth_key: Option<Vec<u8>>,
     },
 }
 
@@ -175,43 +173,43 @@ impl SecurityCCCommandEncapsulation {
         }
     }
 
-    pub fn set_nonce(&mut self, new_nonce: S0Nonce) {
-        match &mut self.state {
-            SecurityCCCommandEncapsulationState::Partial { ref mut nonce, .. } => {
-                nonce.replace(new_nonce);
-            }
-            _ => panic!("Cannot set nonce on complete SecurityCCCommandEncapsulation"),
-        }
-    }
+    // pub fn set_nonce(&mut self, new_nonce: S0Nonce) {
+    //     match &mut self.state {
+    //         SecurityCCCommandEncapsulationState::Partial { ref mut nonce, .. } => {
+    //             nonce.replace(new_nonce);
+    //         }
+    //         _ => panic!("Cannot set nonce on complete SecurityCCCommandEncapsulation"),
+    //     }
+    // }
 
-    pub fn nonce(&self) -> Option<&S0Nonce> {
-        match &self.state {
-            SecurityCCCommandEncapsulationState::Partial { nonce, .. } => nonce.as_ref(),
-            _ => None,
-        }
-    }
+    // pub fn nonce(&self) -> Option<&S0Nonce> {
+    //     match &self.state {
+    //         SecurityCCCommandEncapsulationState::Partial { nonce, .. } => nonce.as_ref(),
+    //         _ => None,
+    //     }
+    // }
 
-    pub fn set_auth_key(&mut self, new_auth_key: Vec<u8>) {
-        match &mut self.state {
-            SecurityCCCommandEncapsulationState::Partial {
-                ref mut auth_key, ..
-            } => {
-                auth_key.replace(new_auth_key);
-            }
-            _ => panic!("Cannot set auth key on complete SecurityCCCommandEncapsulation"),
-        }
-    }
+    // pub fn set_auth_key(&mut self, new_auth_key: Vec<u8>) {
+    //     match &mut self.state {
+    //         SecurityCCCommandEncapsulationState::Partial {
+    //             ref mut auth_key, ..
+    //         } => {
+    //             auth_key.replace(new_auth_key);
+    //         }
+    //         _ => panic!("Cannot set auth key on complete SecurityCCCommandEncapsulation"),
+    //     }
+    // }
 
-    pub fn set_enc_key(&mut self, new_enc_key: Vec<u8>) {
-        match &mut self.state {
-            SecurityCCCommandEncapsulationState::Partial {
-                ref mut enc_key, ..
-            } => {
-                enc_key.replace(new_enc_key);
-            }
-            _ => panic!("Cannot set encryption key on complete SecurityCCCommandEncapsulation"),
-        }
-    }
+    // pub fn set_enc_key(&mut self, new_enc_key: Vec<u8>) {
+    //     match &mut self.state {
+    //         SecurityCCCommandEncapsulationState::Partial {
+    //             ref mut enc_key, ..
+    //         } => {
+    //             enc_key.replace(new_enc_key);
+    //         }
+    //         _ => panic!("Cannot set encryption key on complete SecurityCCCommandEncapsulation"),
+    //     }
+    // }
 }
 
 impl CCBase for SecurityCCCommandEncapsulation {
@@ -340,9 +338,7 @@ impl CCParsable for SecurityCCCommandEncapsulation {
                 sequence_counter,
                 second_frame,
                 cc_slice,
-                nonce: None,
-                enc_key: None,
-                auth_key: None,
+                nonce: Some(nonce),
             },
         })
     }
@@ -358,23 +354,20 @@ impl SerializableWith<&CCEncodingContext> for SecurityCCCommandEncapsulation {
             second_frame,
             cc_slice,
             nonce,
-            enc_key,
-            auth_key,
         } = &self.state
         else {
             panic!("Only a partial SecurityCCCommandEncapsulation can be serialized");
         };
 
+        let sec_man = ctx
+            .security_manager
+            .as_ref()
+            .expect("Secure commands (S0) can only be serialized when the network key is set");
+
         // FIXME: Typestate might avoid this. The nonce is technically the receiver's nonce
         let receiver_nonce = nonce
             .as_ref()
             .expect("Nonce must be set before serializing a SecurityCCCommandEncapsulation");
-        let enc_key = enc_key.as_ref().expect(
-            "Encryption key must be set before serializing a SecurityCCCommandEncapsulation",
-        );
-        let auth_key = auth_key.as_ref().expect(
-            "Authentication key must be set before serializing a SecurityCCCommandEncapsulation",
-        );
 
         let mut plaintext = BytesMut::with_capacity(cc_slice.len() + 1);
         bits(move |bo| {
@@ -390,7 +383,7 @@ impl SerializableWith<&CCEncodingContext> for SecurityCCCommandEncapsulation {
         // Encrypt the plaintext
         let sender_nonce = S0Nonce::random();
         let iv = [sender_nonce.get().as_ref(), receiver_nonce.get().as_ref()].concat();
-        let ciphertext = encrypt_aes_ofb(&plaintext, enc_key, &iv);
+        let ciphertext = encrypt_aes_ofb(&plaintext, sec_man.enc_key(), &iv);
 
         // Authenticate the encrypted data
         let auth_data = S0AuthData {
@@ -401,7 +394,7 @@ impl SerializableWith<&CCEncodingContext> for SecurityCCCommandEncapsulation {
             receiving_node_id: ctx.node_id,
             ciphertext: &ciphertext,
         };
-        let auth_code = compute_mac(&auth_data.as_bytes(), auth_key);
+        let auth_code = compute_mac(&auth_data.as_bytes(), sec_man.auth_key());
 
         tuple((
             slice(sender_nonce.get()),
@@ -519,7 +512,7 @@ impl CCSequence for SecurityCCCommandEncapsulationSequence {
         self.finished = false;
     }
 
-    fn next(&mut self, own_node_id: NodeId) -> Option<WithAddress<CC>> {
+    fn next(&mut self, ctx: &CCEncodingContext) -> Option<WithAddress<CC>> {
         if self.finished {
             return None;
         }
@@ -532,15 +525,15 @@ impl CCSequence for SecurityCCCommandEncapsulationSequence {
             );
         }
 
-        let destination_node_id = match self.address.destination {
-            Destination::Singlecast(node_id) => node_id,
-            _ => panic!("Security S0 only supports singlecast!"),
-        };
+        // let destination_node_id = match self.address.destination {
+        //     Destination::Singlecast(node_id) => node_id,
+        //     _ => panic!("Security S0 only supports singlecast!"),
+        // };
 
-        let ctx = CCEncodingContext::builder()
-            .own_node_id(own_node_id)
-            .node_id(destination_node_id)
-            .build();
+        // let ctx = CCEncodingContext::builder()
+        //     .own_node_id(own_node_id)
+        //     .node_id(destination_node_id)
+        //     .build();
 
         // FIXME: Handle splitting the CC into multiple frames
         let cc_slice = self.encapsulated_cc.as_raw(&ctx).as_bytes();
@@ -551,8 +544,6 @@ impl CCSequence for SecurityCCCommandEncapsulationSequence {
             second_frame: false,
             cc_slice,
             nonce: self.nonce.take(),
-            enc_key: None,
-            auth_key: None,
         };
 
         self.finished = true;

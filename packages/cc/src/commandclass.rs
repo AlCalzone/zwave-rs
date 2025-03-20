@@ -16,6 +16,8 @@ pub use crate::cc_sequence::*;
 pub struct CCEncodingContext {
     node_id: NodeId,
     own_node_id: NodeId,
+    #[builder(default, setter(into))]
+    security_manager: Option<SecurityManager>,
 }
 
 #[derive(Default, TypedBuilder)]
@@ -125,7 +127,39 @@ impl CCSession for CC {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum CcOrRaw {
+    CC(CC),
+    Raw(CCRaw),
+}
 
+impl CcOrRaw {
+    pub fn as_raw(&self, ctx: &CCEncodingContext) -> CCRaw {
+        match self {
+            CcOrRaw::CC(cc) => cc.as_raw(ctx),
+            CcOrRaw::Raw(raw) => raw.clone(),
+        }
+    }
+
+    pub fn try_as_cc(self, ctx: CCParsingContext) -> ParseResult<CC> {
+        match self {
+            CcOrRaw::CC(cc) => Ok(cc),
+            CcOrRaw::Raw(raw) => CC::try_from_raw(raw, ctx),
+        }
+    }
+}
+
+impl From<CC> for CcOrRaw {
+    fn from(val: CC) -> Self {
+        Self::CC(val)
+    }
+}
+
+impl From<CCRaw> for CcOrRaw {
+    fn from(val: CCRaw) -> Self {
+        Self::Raw(val)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WithAddress<T> {
@@ -133,10 +167,7 @@ pub struct WithAddress<T> {
     command: T,
 }
 
-impl<T> WithAddress<T>
-// where
-    // T: CCBase,
-{
+impl<T> WithAddress<T> {
     pub fn address(&self) -> &CCAddress {
         &self.address
     }
@@ -170,15 +201,20 @@ impl<T> WithAddress<T>
         self.command
     }
 
+    pub fn as_parts(&self) -> (&CCAddress, &T) {
+        (&self.address, &self.command)
+    }
+
+    pub fn as_parts_mut(&mut self) -> (&mut CCAddress, &mut T) {
+        (&mut self.address, &mut self.command)
+    }
+
     pub fn split(self) -> (CCAddress, T) {
         (self.address, self.command)
     }
 }
 
-impl<T> Deref for WithAddress<T>
-where
-    T: CCBase,
-{
+impl<T> Deref for WithAddress<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -186,23 +222,20 @@ where
     }
 }
 
-impl<T> DerefMut for WithAddress<T>
-where
-    T: CCBase,
-{
+impl<T> DerefMut for WithAddress<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.command
     }
 }
 
-impl AsRef<CC> for WithAddress<CC> {
-    fn as_ref(&self) -> &CC {
+impl<T> AsRef<T> for WithAddress<T> {
+    fn as_ref(&self) -> &T {
         &self.command
     }
 }
 
-impl AsMut<CC> for WithAddress<CC> {
-    fn as_mut(&mut self) -> &mut CC {
+impl<T> AsMut<T> for WithAddress<T> {
+    fn as_mut(&mut self) -> &mut T {
         &mut self.command
     }
 }
@@ -211,6 +244,15 @@ impl<F> From<WithAddress<F>> for CC
 where
     CC: From<F>,
     F: CCBase,
+{
+    fn from(val: WithAddress<F>) -> Self {
+        Self::from(val.command)
+    }
+}
+
+impl<F> From<WithAddress<F>> for CcOrRaw
+where
+    CcOrRaw: From<F>,
 {
     fn from(val: WithAddress<F>) -> Self {
         Self::from(val.command)
@@ -229,7 +271,7 @@ where
 pub trait CCAddressable {
     fn with_address(self, address: CCAddress) -> WithAddress<Self>
     where
-        Self: Sized + CCBase,
+        Self: Sized,
     {
         WithAddress {
             address,
@@ -239,7 +281,7 @@ pub trait CCAddressable {
 
     fn with_destination(self, destination: Destination) -> WithAddress<Self>
     where
-        Self: Sized + CCBase,
+        Self: Sized,
     {
         self.with_address(CCAddress {
             destination,
@@ -249,7 +291,7 @@ pub trait CCAddressable {
 
     fn clone_with_address(&self, address: CCAddress) -> WithAddress<Self>
     where
-        Self: Sized + CCBase + Clone,
+        Self: Sized + Clone,
     {
         WithAddress {
             address,
@@ -269,6 +311,8 @@ pub trait CCAddressable {
 }
 
 impl<T> CCAddressable for T where T: CCBase {}
+impl CCAddressable for CCRaw {}
+impl CCAddressable for CcOrRaw {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CCAddress {

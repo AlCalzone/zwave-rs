@@ -1,4 +1,5 @@
-use crate::{driver::cache::ValueCache, EndpointLike};
+use super::EndpointLike;
+use crate::cache::ValueCache;
 use zwave_core::{
     cache::{Cache, CacheValue},
     value_id::{EndpointValueId, ValueId},

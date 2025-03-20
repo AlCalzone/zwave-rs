@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
-use zwave_cc::prelude::*;
+use zwave_cc::{commandclass::CcOrRaw, prelude::*};
 use zwave_core::parse::{
     bytes::be_u8,
     combinators::{map_res, opt},
@@ -15,23 +15,20 @@ pub struct ApplicationCommandRequest {
     pub address: CCAddress,
     // Saving the address on the CC and the command separately is a bit redundant.
     // Consider making address a getter and reading the CC field
-    pub command: WithAddress<CC>,
+    pub command: WithAddress<CcOrRaw>,
     pub rssi: Option<RSSI>,
 }
 
-impl ApplicationCommandRequest {
-    pub fn get_cc_parsing_context<'a>(
-        &self,
-        cmd_ctx: CommandParsingContext,
-    ) -> CCParsingContext {
-        CCParsingContext::builder()
-            .source_node_id(self.address.source_node_id)
-            .frame_addressing(self.frame_info.frame_addressing)
-            .own_node_id(cmd_ctx.own_node_id)
-            .security_manager(cmd_ctx.security_manager)
-            .build()
-    }
-}
+// impl ApplicationCommandRequest {
+//     pub fn get_cc_parsing_context<'a>(&self, cmd_ctx: CommandParsingContext) -> CCParsingContext {
+//         CCParsingContext::builder()
+//             .source_node_id(self.address.source_node_id)
+//             .frame_addressing(self.frame_info.frame_addressing)
+//             .own_node_id(cmd_ctx.own_node_id)
+//             .security_manager(cmd_ctx.security_manager)
+//             .build()
+//     }
+// }
 
 impl CommandId for ApplicationCommandRequest {
     fn command_type(&self) -> CommandType {
@@ -55,13 +52,13 @@ impl CommandParsable for ApplicationCommandRequest {
         let source_node_id = NodeId::parse(i, ctx.node_id_type)?;
 
         let cc_raw = length_value(be_u8, CCRaw::parse).parse(i)?;
-        let cc_ctx = CCParsingContext::builder()
-            .source_node_id(source_node_id)
-            .frame_addressing(frame_info.frame_addressing)
-            .own_node_id(ctx.own_node_id)
-            .security_manager(ctx.security_manager)
-            .build();
-        let cc = CC::try_from_raw(cc_raw, cc_ctx)?;
+        // let cc_ctx = CCParsingContext::builder()
+        //     .source_node_id(source_node_id)
+        //     .frame_addressing(frame_info.frame_addressing)
+        //     .own_node_id(ctx.own_node_id)
+        //     .security_manager(ctx.security_manager)
+        //     .build();
+        // let cc = CC::try_from_raw(cc_raw, cc_ctx)?;
 
         let rssi = opt(RSSI::parse).parse(i)?;
 
@@ -76,7 +73,7 @@ impl CommandParsable for ApplicationCommandRequest {
             endpoint_index: EndpointIndex::Root, // We don't know yet
         };
 
-        let cc = cc.with_address(address.clone());
+        let cc = CcOrRaw::Raw(cc_raw).with_address(address.clone());
 
         Ok(Self {
             frame_info,
@@ -116,7 +113,9 @@ impl ToLogPayload for ApplicationCommandRequest {
             ret = ret.with_entry("frame info", infos.join(", "))
         }
 
-        ret = ret.with_nested(self.command.to_log_payload());
+        if let CcOrRaw::CC(cc) = &self.command.as_ref() {
+            ret = ret.with_nested(cc.to_log_payload());
+        }
 
         ret.into()
     }

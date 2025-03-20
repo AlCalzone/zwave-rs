@@ -6,8 +6,14 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio.workspace = true
+serialport.workspace = true
 zwave-cc.workspace = true
 zwave-core.workspace = true
 zwave-driver.workspace = true
 zwave-serial.workspace = true
+bytes.workspace = true
+hex.workspace = true
+zwave-logging.workspace = true
+termcolor.workspace = true
+futures.workspace = true
+tokio.workspace = true

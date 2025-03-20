@@ -33,8 +33,8 @@ pub struct CommandParsingContext {
     #[builder(default, setter(into))]
     pub sdk_version: Option<Version>,
     pub node_id_type: NodeIdType,
-    #[builder(default, setter(into))]
-    pub security_manager: Option<SecurityManager>,
+    // #[builder(default, setter(into))]
+    // pub security_manager: Option<SecurityManager>,
 }
 
 pub trait CommandParsable

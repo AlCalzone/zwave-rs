@@ -1,19 +1,19 @@
-use crate::{Direction, ImmutableLogger, LogInfo};
-use std::{borrow::Cow, sync::Arc};
+use crate::{Direction, LocalImmutableLogger, LogInfo, Logger};
+use std::borrow::Cow;
 use zwave_core::{
     definitions::*,
-    log::{LogPayload, LogPayloadText, Loglevel, ToLogPayload},
+    log::{LogPayload, LogPayloadText, Loglevel},
 };
-use zwave_serial::command::{Command, CommandId};
+use zwave_serial::command::CommandId;
 
-pub struct NodeLogger {
+pub struct NodeLogger<'a> {
     node_id: NodeId,
     endpoint: EndpointIndex,
-    inner: Arc<dyn ImmutableLogger>,
+    inner: &'a dyn LocalImmutableLogger,
 }
 
-impl NodeLogger {
-    pub fn new(inner: Arc<dyn ImmutableLogger>, node_id: NodeId, endpoint: EndpointIndex) -> Self {
+impl<'a> NodeLogger<'a> {
+    pub fn new(inner: &'a dyn LocalImmutableLogger, node_id: NodeId, endpoint: EndpointIndex) -> Self {
         Self {
             inner,
             node_id,

@@ -1,9 +1,11 @@
+use std::path;
+
 use crate::binding::SerialBinding;
 use crate::error::*;
 use crate::frame::RawSerialFrame;
 use bytes::BytesMut;
 use futures::stream::{SplitSink, SplitStream};
-use futures::{SinkExt, StreamExt};
+use futures::{SinkExt, StreamExt, TryStreamExt};
 use tokio::net::TcpStream;
 use tokio_serial::{SerialPortBuilderExt, SerialStream};
 use tokio_util::codec::{Decoder, Encoder, Framed};
@@ -49,6 +51,7 @@ impl SerialPort {
             .expect("Unable to set serial port exclusive to false");
         let codec = SerialFrameCodec.framed(port);
         let (writer, reader) = codec.split();
+
         Ok(Self { writer, reader })
     }
 }

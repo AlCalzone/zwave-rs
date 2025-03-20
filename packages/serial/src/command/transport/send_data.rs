@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use typed_builder::TypedBuilder;
-use zwave_cc::prelude::*;
+use zwave_cc::{commandclass::CcOrRaw, prelude::*};
 use zwave_core::parse::{
     bytes::be_u8,
     combinators::{map, map_res},
@@ -14,7 +14,7 @@ use zwave_core::serialize;
 pub struct SendDataRequest {
     #[builder(setter(into))]
     pub node_id: NodeId,
-    pub command: CC,
+    pub command: CcOrRaw,
     #[builder(setter(skip), default)]
     pub callback_id: Option<u8>,
     #[builder(default)]
@@ -64,10 +64,10 @@ impl CommandParsable for SendDataRequest {
         let node_id = NodeId::parse(i, ctx.node_id_type)?;
 
         let cc_raw = length_value(be_u8, CCRaw::parse).parse(i)?;
-        let cc_ctx = CCParsingContext::builder()
-            .security_manager(ctx.security_manager)
-            .build();
-        let cc = CC::try_from_raw(cc_raw, cc_ctx)?;
+        // let cc_ctx = CCParsingContext::builder()
+        //     .security_manager(ctx.security_manager)
+        //     .build();
+        // let cc = CC::try_from_raw(cc_raw, cc_ctx)?;
 
         let transmit_options = TransmitOptions::parse(i)?;
         let callback_id = be_u8(i)?;
@@ -76,7 +76,7 @@ impl CommandParsable for SendDataRequest {
             node_id,
             callback_id: Some(callback_id),
             transmit_options,
-            command: cc,
+            command: CcOrRaw::Raw(cc_raw),
         })
     }
 }
@@ -88,12 +88,18 @@ impl SerializableWith<&CommandEncodingContext> for SendDataRequest {
         // TODO: Figure out if we should handle serialization errors elsewhere
         // let error_msg = format!("Serializing command {:?} should not fail", &self.command);
 
-        let command = self.command.clone();
-        let ccctx = CCEncodingContext::builder()
-            .own_node_id(ctx.own_node_id)
-            .node_id(self.node_id)
-            .build();
-        let payload = command.as_raw(&ccctx).as_bytes();
+        let CcOrRaw::Raw(cc_raw) = &self.command else {
+            panic!("Sending a SendDataRequest requires the CC to be serialized already");
+        };
+
+        // let command = self.command.clone();
+        // let ccctx = CCEncodingContext::builder()
+        //     .own_node_id(ctx.own_node_id)
+        //     .node_id(self.node_id)
+        //     .build();
+        // let payload = command.as_raw(&ccctx).as_bytes();
+
+        let payload = cc_raw.as_bytes();
 
         self.node_id.serialize(output, ctx.node_id_type);
         be_u8(payload.len() as u8).serialize(output);
@@ -111,7 +117,9 @@ impl ToLogPayload for SendDataRequest {
             ret = ret.with_entry("callback ID", callback_id);
         }
 
-        ret = ret.with_nested(self.command.to_log_payload());
+        if let CcOrRaw::CC(cc) = &self.command {
+            ret = ret.with_nested(cc.to_log_payload());
+        }
 
         ret.into()
     }

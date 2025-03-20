@@ -1,9 +1,9 @@
-use crate::{ImmutableLogger, LogInfo};
-use std::{borrow::Cow, sync::Arc};
+use crate::{LocalImmutableLogger, LogInfo, Logger};
+use std::borrow::Cow;
 use zwave_core::log::{LogPayload, Loglevel};
 
-pub struct DriverLogger {
-    inner: Arc<dyn ImmutableLogger>,
+pub struct DriverLogger<'a> {
+    inner: &'a dyn LocalImmutableLogger,
 }
 
 const LOGO: &str = "\
@@ -14,8 +14,8 @@ const LOGO: &str = "\
 🦀🦀🦀        🦀  🦀   🦀    🦀    🦀🦀    🦀🦀🦀       🦀    🦀   🦀🦀🦀\
 ";
 
-impl DriverLogger {
-    pub fn new(inner: Arc<dyn ImmutableLogger>) -> Self {
+impl<'a> DriverLogger<'a> {
+    pub fn new(inner: &'a dyn LocalImmutableLogger) -> Self {
         Self { inner }
     }
 
@@ -24,7 +24,11 @@ impl DriverLogger {
     }
 
     // FIXME: Remove duplication with ControllerLogger
-    pub fn message<L: Into<Cow<'static, str>>>(&self, message: impl Fn() -> L, level: Loglevel) {
+    pub fn message<L: Into<Cow<'static, str>>>(
+        &self,
+        message: impl Fn() -> L,
+        level: Loglevel,
+    ) {
         if self.level() < level {
             return;
         }

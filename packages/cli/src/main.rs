@@ -1,46 +1,143 @@
+use futures::future;
 use std::time::Duration;
+use tokio::task;
+use zwave_cc::{
+    commandclass::{BasicCCGet, NoOperationCC, SecurityCCCommandEncapsulation},
+    prelude::*,
+};
+use zwave_core::{log::Loglevel, values::LevelSet};
+use zwave_driver::{Controller, SecurityKeys};
+use zwave_logging::loggers::base::BaseLogger;
 
-use zwave_cc::commandclass::{BasicCCSet, CCAddressable, SecurityCCCommandEncapsulation};
-use zwave_core::{definitions::NodeId, hex_literal, log::Loglevel};
-use zwave_driver::{DriverOptions, SecurityKeys};
+mod rt;
+use rt::Runtime;
 
 #[cfg(target_os = "linux")]
-// const PORT: &str = "/dev/ttyUSB0";
-const PORT: &str = "/dev/serial/by-id/usb-Zooz_800_Z-Wave_Stick_533D004242-if00";
+const PORT: &str = "/dev/ttyUSB0";
 // const PORT: &str = "tcp://Z-Net-R2v2.local:2001";
 
 #[cfg(target_os = "windows")]
 const PORT: &str = "COM6";
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let options = DriverOptions::builder()
-        .path(PORT)
-        // .loglevel(Loglevel::Silly)
-        .security_keys(SecurityKeys {
-            s0_legacy: Some(vec![
-                0x01u8, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D,
-                0x0E, 0x0F, 0x10,
-            ]),
-            ..Default::default()
-        })
+    // let options = DriverOptions::builder()
+    //     .path(PORT)
+    //     // .loglevel(Loglevel::Silly)
+    //     .security_keys(SecurityKeys {
+    //         s0_legacy: Some(vec![
+    //             0x01u8, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D,
+    //             0x0E, 0x0F, 0x10,
+    //         ]),
+    //         ..Default::default()
+    //     })
+    //     .build();
+
+    let security_keys = SecurityKeys::builder()
+        .s0_legacy(Some(vec![
+            0x01u8, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+            0x0F, 0x10,
+        ]))
         .build();
-    let driver = zwave_driver::Driver::new(options).expect("Failed to create driver");
 
-    let driver = driver.init().await.expect("Failed to initialize driver");
+    let logger = BaseLogger {
+        level: Loglevel::Debug,
+        writer: Box::new(termcolor::StandardStream::stdout(
+            termcolor::ColorChoice::Auto,
+        )),
+        formatter: Box::new(zwave_logging::formatters::DefaultFormatter::new()),
+    };
 
-    tokio::time::sleep(Duration::from_millis(1000)).await;
+    // FIXME:
+    //     driver_logger.info(|| format!("opening serial port {}", PORT));
 
-    let cc = SecurityCCCommandEncapsulation::new(
-        BasicCCSet::builder()
-            .target_value(zwave_core::values::LevelSet::Level(55))
-            .build()
-            .into(),
-    )
-    .with_destination(2u8.into());
-    driver.exec_node_command(&cc.into(), None).await.unwrap();
+    let port = serialport::new(PORT, 115_200)
+        .open_native()
+        .expect("failed to open port");
 
-    tokio::time::sleep(Duration::from_millis(60000)).await;
+    let (log_tx, log_rx) = futures::channel::mpsc::channel(16);
+
+    let (mut serial_api, mut serial_api_actor, mut serial_api_adapter) =
+        zwave_driver::SerialApi::new(log_tx.clone());
+    let (mut driver, mut driver_actor, mut driver_adapter) =
+        zwave_driver::Driver::new(&serial_api, log_tx, security_keys);
+
+    let mut runtime = Runtime::new(
+        port,
+        logger,
+        log_rx,
+        driver_actor,
+        driver_adapter,
+        serial_api_actor,
+        serial_api_adapter,
+    );
+
+    let local = task::LocalSet::new();
+    local
+        .run_until(async move {
+            let main = task::spawn_local(async move {
+                runtime.run().await;
+            });
+
+            let mut controller = Controller::new(&driver);
+            let mut controller: Controller<'_, zwave_driver::Ready> =
+                controller.interview().await.unwrap();
+
+            tokio::time::sleep(Duration::from_secs(3)).await;
+
+            let node = controller.get_node(&6u8.into()).unwrap();
+
+            let cc: CC = BasicCCGet::default().into();
+            let cc: CC = SecurityCCCommandEncapsulation::new(cc).into();
+            let cc = cc.with_destination(node.id().into());
+            let result = driver.exec_node_command(&cc, None).await;
+            println!("result: {:?}", result);
+
+            // let ping_result = controller
+            //     .get_node(&4u8.into())
+            //     .unwrap()
+            //     .ping()
+            //     .await
+            //     .unwrap();
+            // tokio::time::sleep(Duration::from_millis(100)).await;
+
+            // println!("ping result: {:?}", ping_result);
+
+            // println!("home ID: {:?}", controller.home_id());
+
+            // let result = driver
+            //     .exec_node_command(&NoOperationCC {}.with_destination(3u8.into()).into(), None)
+            //     .await;
+            // println!("result: {:?}", result);
+
+            // // let cmd = zwave_serial::command::GetControllerVersionRequest::default();
+            // // let result = api.execute_serial_api_command(cmd).await.unwrap();
+            // let result = api.get_controller_version(None).await.unwrap();
+            // println!("result: {:?}", result);
+
+            tokio::time::sleep(Duration::from_secs(3)).await;
+            println!("Bye");
+            main.abort();
+            // driver_future.abort();
+        })
+        .await;
+
+    // let driver = zwave_driver::Driver::new(options).expect("Failed to create driver");
+
+    // let driver = driver.init().await.expect("Failed to initialize driver");
+
+    // tokio::time::sleep(Duration::from_millis(1000)).await;
+
+    // let cc = SecurityCCCommandEncapsulation::new(
+    //     BasicCCSet::builder()
+    //         .target_value(zwave_core::values::LevelSet::Level(55))
+    //         .build()
+    //         .into(),
+    // )
+    // .with_destination(2u8.into());
+    // driver.exec_node_command(&cc.into(), None).await.unwrap();
+
+    // tokio::time::sleep(Duration::from_millis(60000)).await;
 
     // driver.interview_nodes().await.expect("Failed to interview nodes");
     // driver.log().info(|| "all nodes interviewed");
@@ -154,8 +251,8 @@ async fn main() {
     // // let result = driver.execute_serial_api_command(cmd).await.unwrap();
     // println!("execute result: {:?}", result);
 
-    tokio::time::sleep(Duration::from_millis(1000)).await;
+    // tokio::time::sleep(Duration::from_millis(1000)).await;
 
-    drop(driver);
-    println!("driver stopped");
+    // drop(driver);
+    // println!("driver stopped");
 }

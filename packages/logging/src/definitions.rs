@@ -54,6 +54,15 @@ pub trait Logger {
 
 /// A variant of the [Logger] trait that does not require mutability. This is typically an abstraction
 /// over a message channel to another thread handling the actual logging.
+pub trait LocalImmutableLogger {
+    fn log(&self, log: LogInfo, level: Loglevel);
+
+    fn log_level(&self) -> Loglevel;
+    fn set_log_level(&self, level: Loglevel);
+}
+
+/// A variant of the [Logger] trait that does not require mutability. This is typically an abstraction
+/// over a message channel to another thread handling the actual logging.
 pub trait ImmutableLogger: Send + Sync {
     fn log(&self, log: LogInfo, level: Loglevel);
 

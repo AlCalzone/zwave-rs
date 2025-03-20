@@ -25,7 +25,7 @@ crc16 = "0.4.0"
 custom_debug_derive = "0.5.1"
 enum_dispatch = "0.3.12"
 enum-iterator = "1.4.1"
-futures = "0.3.29"
+futures = { version = "0.3.29", features = ["executor"] }
 getrandom = "0.2.15"
 hex = "0.4.3"
 num-traits = "0.2.17"
