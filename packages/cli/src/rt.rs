@@ -8,13 +8,16 @@ use std::{
 use bytes::BytesMut;
 use futures::{channel::mpsc, FutureExt, SinkExt};
 use serialport::TTYPort;
+use tokio::{join, task};
 use zwave_core::{
     log::{self, Loglevel},
     prelude::Serializable,
 };
-use zwave_driver::{Driver, DriverEvent, DriverInput, RuntimeAdapter};
+use zwave_driver::{
+    Driver, DriverActor, DriverAdapter, DriverEvent, DriverInput, SerialApiActor, SerialApiAdapter,
+};
 use zwave_logging::{
-    loggers::{base::BaseLogger, serial2::SerialLogger2},
+    loggers::{base::BaseLogger, serial::SerialLogger},
     LogInfo, Logger,
 };
 use zwave_serial::frame::RawSerialFrame;
@@ -24,44 +27,48 @@ const BUFFER_SIZE: usize = 256;
 pub struct Runtime {
     logger: BaseLogger,
     port: TTYPort,
-    serial_in: mpsc::Sender<RawSerialFrame>,
-    serial_out: mpsc::Receiver<RawSerialFrame>,
-    log_receiver: mpsc::Receiver<(LogInfo, Loglevel)>,
+    driver: DriverActor,
+    driver_adapter: DriverAdapter,
+    serial_api: SerialApiActor,
+    serial_api_adapter: SerialApiAdapter,
 }
 
 impl Runtime {
-    pub fn with_adapter(logger: BaseLogger, port: TTYPort) -> (Self, RuntimeAdapter) {
-        let (serial_in_tx, serial_in_rx) = mpsc::channel(16);
-        let (serial_out_tx, serial_out_rx) = mpsc::channel(16);
-        let (log_tx, log_rx) = mpsc::channel(16);
-
-        (
-            Self {
-                logger,
-                port,
-                serial_in: serial_in_tx,
-                serial_out: serial_out_rx,
-                log_receiver: log_rx,
-            },
-            RuntimeAdapter {
-                serial_in: serial_in_rx,
-                serial_out: serial_out_tx,
-                logs: log_tx,
-            },
-        )
+    pub fn new(
+        port: TTYPort,
+        logger: BaseLogger,
+        driver: DriverActor,
+        driver_adapter: DriverAdapter,
+        serial_api: SerialApiActor,
+        serial_api_adapter: SerialApiAdapter,
+    ) -> Self {
+        Self {
+            logger,
+            port,
+            driver,
+            driver_adapter,
+            serial_api,
+            serial_api_adapter,
+        }
     }
 
-    pub async fn run(&mut self) {
-        // let mut inputs: VecDeque<DriverInput> = VecDeque::new();
+    pub async fn run(mut self) {
         let mut serial_in_buffer = BytesMut::zeroed(BUFFER_SIZE);
-        // inputs.push_back(SerialAdapterInput::Transmit {
-        //     frame: zwave_serial::frame::SerialFrame::ControlFlow(
-        //         zwave_serial::frame::ControlFlow::NAK,
-        //     ),
-        // });
-        // inputs.push_back(DriverInput::Test);
+
+        let mut driver = self.driver;
+        let mut serial_api = self.serial_api;
+
+        // Start the driver and serial API actors
+        task::spawn_local(async move {
+            driver.run().await;
+        });
+        task::spawn_local(async move {
+            serial_api.run().await;
+        });
 
         loop {
+            // FIXME: Migrate to async serial port and select! macro
+
             // Read all the available data from the serial port and handle it immediately
             serial_in_buffer.resize(BUFFER_SIZE, 0);
             match self.port.read(&mut serial_in_buffer) {
@@ -72,55 +79,46 @@ impl Runtime {
                     while let Some(frame) =
                         RawSerialFrame::parse_mut_or_reserve(&mut serial_in_buffer)
                     {
-                        self.serial_in
-                            .send(frame)
-                            .await
+                        self.serial_api_adapter
+                            .serial_in
+                            .try_send(frame)
                             .expect("failed to forward frame to driver");
                     }
                 }
                 Err(e) => eprintln!("failed to read from serialport: {}", e),
             }
 
-            // If the driver has something to transmit, do that before handling events
-            while let Ok(Some(frame)) = self.serial_out.try_next() {
+            // If the serial API has something to transmit, do that before handling events
+            while let Ok(Some(frame)) = self.serial_api_adapter.serial_out.try_next() {
                 let data = frame.as_bytes();
                 self.port
                     .write_all(&data)
                     .expect("failed to write to serialport");
             }
 
+            // Pass pending events from the serial API to the driver
+            while let Ok(Some(event)) = self.serial_api_adapter.event_rx.try_next() {
+                match event {
+                    zwave_driver::SerialApiEvent::Unsolicited { command } => {
+                        // Forward unsolited commands to the driver
+                        self.driver_adapter
+                            .input_tx
+                            .try_send(DriverInput::Unsolicited { command })
+                            .expect("failed to forward unsolicited command to driver");
+                    }
+                }
+            }
+
             // If there is something to be logged, do it
-            while let Ok(Some((log, level))) = self.log_receiver.try_next() {
+            while let Ok(Some((log, level))) = self.serial_api_adapter.logs.try_next() {
                 self.logger.log(log, level);
             }
-            // while let Some(frame) = self.driver.poll_transmit() {
-            //     self.port
-            //         .write_all(&frame)
-            //         .expect("failed to write to serialport");
-            // }
-
-            // // Check if an event needs to be handled
-            // if let Some(event) = self.driver.poll_event() {
-            //     match event {
-            //         DriverEvent::Log { log, level } => {
-            //             self.logger.log(log, level);
-            //         }
-            //         DriverEvent::Input { input } => {
-            //             inputs.push_back(input);
-            //         }
-            //     }
-            //     continue;
-            // }
-
-            // // Pass queued events to the driver
-            // if let Some(input) = inputs.pop_front() {
-            //     self.driver.handle_input(input);
-            //     continue;
-            // }
+            while let Ok(Some((log, level))) = self.driver_adapter.logs.try_next() {
+                self.logger.log(log, level);
+            }
 
             // Event loop is empty, sleep for a bit
             tokio::time::sleep(Duration::from_millis(10)).await;
-            // thread::sleep(Duration::from_millis(10));
         }
     }
 }

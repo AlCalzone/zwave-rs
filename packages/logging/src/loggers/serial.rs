@@ -1,16 +1,15 @@
-use crate::{Direction, ImmutableLogger, LogInfo};
-use std::sync::Arc;
+use crate::{Direction, LocalImmutableLogger, LogInfo, Logger};
 use zwave_core::log::{LogPayload, Loglevel};
 use zwave_serial::frame::ControlFlow;
 
-pub struct SerialLogger {
-    inner: Arc<dyn ImmutableLogger>,
+pub struct SerialLogger<'a> {
+    inner: &'a dyn LocalImmutableLogger,
 }
 
 const SERIAL_LOGLEVEL: Loglevel = Loglevel::Debug;
 
-impl SerialLogger {
-    pub fn new(inner: Arc<dyn ImmutableLogger>) -> Self {
+impl<'a> SerialLogger<'a> {
+    pub fn new(inner: &'a dyn LocalImmutableLogger) -> Self {
         Self { inner }
     }
 
@@ -29,12 +28,12 @@ impl SerialLogger {
         self.inner.log(log, SERIAL_LOGLEVEL);
     }
 
-    pub fn control_flow(&self, byte: &ControlFlow, direction: Direction) {
+    pub fn control_flow(&self, byte: ControlFlow, direction: Direction) {
         if self.inner.log_level() < SERIAL_LOGLEVEL {
             return;
         }
 
-        let tag = format!("{:#04x}", *byte as u8).into();
+        let tag = format!("{:#04x}", byte as u8).into();
 
         let log = LogInfo::builder()
             .label("SERIAL")

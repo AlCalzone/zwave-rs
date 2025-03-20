@@ -16,6 +16,8 @@ pub use crate::cc_sequence::*;
 pub struct CCEncodingContext {
     node_id: NodeId,
     own_node_id: NodeId,
+    #[builder(default, setter(into))]
+    security_manager: Option<SecurityManager>,
 }
 
 #[derive(Default, TypedBuilder)]
@@ -138,6 +140,25 @@ impl CcOrRaw {
             CcOrRaw::Raw(raw) => raw.clone(),
         }
     }
+
+    pub fn try_as_cc(self, ctx: CCParsingContext) -> ParseResult<CC> {
+        match self {
+            CcOrRaw::CC(cc) => Ok(cc),
+            CcOrRaw::Raw(raw) => CC::try_from_raw(raw, ctx),
+        }
+    }
+}
+
+impl From<CC> for CcOrRaw {
+    fn from(val: CC) -> Self {
+        Self::CC(val)
+    }
+}
+
+impl From<CCRaw> for CcOrRaw {
+    fn from(val: CCRaw) -> Self {
+        Self::Raw(val)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -215,6 +236,15 @@ impl<F> From<WithAddress<F>> for CC
 where
     CC: From<F>,
     F: CCBase,
+{
+    fn from(val: WithAddress<F>) -> Self {
+        Self::from(val.command)
+    }
+}
+
+impl<F> From<WithAddress<F>> for CcOrRaw
+where
+    CcOrRaw: From<F>,
 {
     fn from(val: WithAddress<F>) -> Self {
         Self::from(val.command)

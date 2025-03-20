@@ -1,8 +1,8 @@
-use self::cache::EndpointValueCache;
-use crate::{driver_api::DriverApi, ControllerCommandResult, ExecNodeCommandError};
+use crate::{Controller, ControllerCommandResult, Driver, ExecNodeCommandError, Ready};
+use cache::EndpointValueCache;
 use zwave_cc::commandclass::{CCAddressable, NoOperationCC};
 use zwave_core::{definitions::*, submodule};
-use zwave_logging::loggers::{node::NodeLogger, node2::NodeLogger2};
+use zwave_logging::loggers::node::NodeLogger;
 
 submodule!(interview);
 submodule!(storage);
@@ -21,17 +21,15 @@ mod cache;
 macro_rules! read_locked {
     ($self:ident, $node_id:expr, $field:ident; deref) => {
         $self
-            .driver
-            .storage
-            .nodes()
+            .controller
+            .node_storage()
             .get($node_id)
             .map(|storage| *storage.$field)
     };
     ($self:ident, $node_id:expr, $field:ident) => {
         $self
-            .driver
-            .storage
-            .nodes()
+            .controller
+            .node_storage()
             .get($node_id)
             .map(|storage| storage.$field)
     };
@@ -40,9 +38,8 @@ macro_rules! read_locked {
 macro_rules! write_locked {
     ($self:ident, $node_id:expr, $field:ident) => {
         $self
-            .driver
-            .storage
-            .nodes_mut()
+            .controller
+            .node_storage_mut()
             .get_mut($node_id)
             .map(|storage| &mut storage.$field)
     };
@@ -59,9 +56,8 @@ macro_rules! read_endpoint_locked {
     // };
     ($self:ident, $node_id:expr, $endpoint_index:expr, $field:ident) => {
         $self
-            .driver
-            .storage
-            .endpoints()
+            .controller
+            .endpoint_storage()
             .get(&(*$node_id, *$endpoint_index))
             .map(|storage| &storage.$field)
     };
@@ -70,9 +66,8 @@ macro_rules! read_endpoint_locked {
 macro_rules! write_endpoint_locked {
     ($self:ident, $node_id:expr, $endpoint_index:expr, $field:ident) => {
         $self
-            .driver
-            .storage
-            .endpoints_mut()
+            .controller
+            .endpoint_storage_mut()
             .get_mut(&(*$node_id, *$endpoint_index))
             .map(|storage| &mut storage.$field)
     };
@@ -93,12 +88,12 @@ macro_rules! write_endpoint_locked {
 pub struct Node<'a> {
     id: NodeId,
     protocol_data: NodeInformationProtocolData,
-    driver: &'a DriverApi,
+    controller: &'a Controller<'a, Ready>,
 }
 
 pub trait EndpointLike<'a> {
     fn node_id(&self) -> NodeId;
-    fn get_node(&'a self) -> &Node<'a>;
+    fn get_node(&'a self) -> &'a Node<'a>;
     fn index(&self) -> EndpointIndex;
     fn value_cache(&'a self) -> EndpointValueCache<'a>;
 
@@ -111,7 +106,7 @@ pub trait EndpointLike<'a> {
     fn controls_cc(&self, cc: CommandClasses) -> bool;
     fn get_cc_version(&self, cc: CommandClasses) -> Option<u8>;
 
-    fn logger(&self) -> NodeLogger2;
+    fn logger(&self) -> NodeLogger;
 
     // TODO: Add the rest
 }
@@ -120,17 +115,21 @@ impl<'a> Node<'a> {
     pub fn new(
         id: NodeId,
         protocol_data: NodeInformationProtocolData,
-        driver: &'a DriverApi,
+        controller: &'a Controller<Ready>,
     ) -> Self {
         Self {
             id,
             protocol_data,
-            driver,
+            controller,
         }
     }
 
-    pub fn driver(&self) -> &DriverApi {
-        self.driver
+    pub(crate) fn controller(&self) -> &Controller<Ready> {
+        self.controller
+    }
+
+    pub(crate) fn driver(&self) -> &Driver {
+        self.controller.driver()
     }
 
     pub fn id(&self) -> NodeId {
@@ -138,7 +137,7 @@ impl<'a> Node<'a> {
     }
 
     pub fn get_endpoint(&self, index: u8) -> Endpoint {
-        Endpoint::new(self, index, self.driver)
+        Endpoint::new(self, index, self.controller)
     }
 
     pub fn interview_stage(&self) -> InterviewStage {
@@ -163,7 +162,7 @@ impl<'a> Node<'a> {
     pub async fn ping(&self) -> ControllerCommandResult<bool> {
         // ^ Although this is a node command, the only errors we want to surface are controller errors
         let cc = NoOperationCC {}.with_destination(self.id.into());
-        let result = self.driver.exec_node_command(&cc.into(), None).await;
+        let result = self.driver().exec_node_command(&cc.into(), None).await;
         match result {
             Ok(_) => Ok(true),
             Err(ExecNodeCommandError::NodeNoAck) => Ok(false),
@@ -178,7 +177,7 @@ impl<'a> EndpointLike<'a> for Node<'a> {
         self.id
     }
 
-    fn get_node(&'a self) -> &Node<'a> {
+    fn get_node(&self) -> &Node<'a> {
         // A node IS the root endpoint
         self
     }
@@ -188,7 +187,7 @@ impl<'a> EndpointLike<'a> for Node<'a> {
     }
 
     fn value_cache(&'a self) -> EndpointValueCache<'a> {
-        EndpointValueCache::new(self, self.driver.value_cache())
+        EndpointValueCache::new(self, self.driver().value_cache())
     }
 
     fn modify_cc_info(&self, cc: CommandClasses, info: &PartialCommandClassInfo) {
@@ -246,28 +245,30 @@ impl<'a> EndpointLike<'a> for Node<'a> {
             .flatten()
     }
 
-    fn logger(&self) -> NodeLogger2 {
-        self.driver.node_log(self.node_id(), self.index())
+    fn logger(&self) -> NodeLogger {
+        self.controller
+            .driver()
+            .node_log(self.node_id(), self.index())
     }
 }
 
 pub struct Endpoint<'a> {
     node: &'a Node<'a>,
     index: u8,
-    driver: &'a DriverApi,
+    controller: &'a Controller<'a, Ready>,
 }
 
 impl<'a> Endpoint<'a> {
-    pub fn new(node: &'a Node<'a>, index: u8, driver: &'a DriverApi) -> Self {
+    pub fn new(node: &'a Node<'a>, index: u8, controller: &'a Controller<Ready>) -> Self {
         Self {
             node,
             index,
-            driver,
+            controller,
         }
     }
 
-    pub fn driver(&self) -> &DriverApi {
-        self.driver
+    pub fn controller(&self) -> &Controller<Ready> {
+        self.controller
     }
 }
 
@@ -285,7 +286,7 @@ impl<'a> EndpointLike<'a> for Endpoint<'a> {
     }
 
     fn value_cache(&'a self) -> EndpointValueCache<'a> {
-        EndpointValueCache::new(self, self.driver.value_cache())
+        EndpointValueCache::new(self, self.get_node().driver().value_cache())
     }
 
     fn modify_cc_info(&self, cc: CommandClasses, info: &PartialCommandClassInfo) {
@@ -345,7 +346,9 @@ impl<'a> EndpointLike<'a> for Endpoint<'a> {
             .flatten()
     }
 
-    fn logger(&self) -> NodeLogger2 {
-        self.driver.node_log(self.node_id(), self.index())
+    fn logger(&self) -> NodeLogger {
+        self.controller
+            .driver()
+            .node_log(self.node_id(), self.index())
     }
 }

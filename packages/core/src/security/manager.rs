@@ -136,6 +136,7 @@ impl SecurityManagerStorage {
     }
 }
 
+#[derive(Clone)]
 pub struct SecurityManager {
     storage: Arc<SecurityManagerStorage>,
 }

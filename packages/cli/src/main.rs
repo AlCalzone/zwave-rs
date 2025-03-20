@@ -1,7 +1,8 @@
 use std::time::Duration;
 use tokio::task;
+use zwave_cc::{commandclass::NoOperationCC, prelude::CCAddressable};
 use zwave_core::log::Loglevel;
-use zwave_driver::Controller;
+use zwave_driver::{Controller, SecurityKeys};
 use zwave_logging::loggers::base::BaseLogger;
 
 mod rt;
@@ -28,6 +29,13 @@ async fn main() {
     //     })
     //     .build();
 
+    let security_keys = SecurityKeys::builder()
+        .s0_legacy(Some(vec![
+            0x01u8, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+            0x0F, 0x10,
+        ]))
+        .build();
+
     let logger = BaseLogger {
         level: Loglevel::Debug,
         writer: Box::new(termcolor::StandardStream::stdout(
@@ -43,10 +51,19 @@ async fn main() {
         .open_native()
         .expect("failed to open port");
 
-    let (mut runtime, adapter) = Runtime::with_adapter(logger, port);
-    let (mut driver, mut api) = zwave_driver::Driver::with_api(adapter);
+    let (mut serial_api, mut serial_api_actor, mut serial_api_adapter) =
+        zwave_driver::SerialApi::new();
+    let (mut driver, mut driver_actor, mut driver_adapter) =
+        zwave_driver::Driver::new(&serial_api, security_keys);
 
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    let mut runtime = Runtime::new(
+        port,
+        logger,
+        driver_actor,
+        driver_adapter,
+        serial_api_actor,
+        serial_api_adapter,
+    );
 
     let local = task::LocalSet::new();
     local
@@ -54,14 +71,29 @@ async fn main() {
             let main = task::spawn_local(async move {
                 runtime.run().await;
             });
-            let driver_future = task::spawn_local(async move {
-                driver.run().await;
-            });
 
-            let mut controller = Controller::new(&api);
-            let mut controller = controller.interview().await.unwrap();
+            let mut controller = Controller::new(&driver);
+            let mut controller: Controller<'_, zwave_driver::Ready> =
+                controller.interview().await.unwrap();
 
-            println!("home ID: {:?}", controller.home_id());
+            tokio::time::sleep(Duration::from_secs(3)).await;
+
+            // let ping_result = controller
+            //     .get_node(&4u8.into())
+            //     .unwrap()
+            //     .ping()
+            //     .await
+            //     .unwrap();
+            // tokio::time::sleep(Duration::from_millis(100)).await;
+
+            // println!("ping result: {:?}", ping_result);
+
+            // println!("home ID: {:?}", controller.home_id());
+
+            // let result = driver
+            //     .exec_node_command(&NoOperationCC {}.with_destination(3u8.into()).into(), None)
+            //     .await;
+            // println!("result: {:?}", result);
 
             // // let cmd = zwave_serial::command::GetControllerVersionRequest::default();
             // // let result = api.execute_serial_api_command(cmd).await.unwrap();
@@ -71,7 +103,7 @@ async fn main() {
             tokio::time::sleep(Duration::from_secs(3)).await;
             println!("Bye");
             main.abort();
-            driver_future.abort();
+            // driver_future.abort();
         })
         .await;
 

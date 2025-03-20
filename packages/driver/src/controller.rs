@@ -1,9 +1,16 @@
-use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use crate::{driver_api::DriverApi, ControllerCommandError, ControllerCommandResult};
+use crate::{
+    ControllerCommandError, ControllerCommandResult, Driver, EndpointStorage, NodeStorage,
+};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+};
 use zwave_core::{definitions::*, log::Loglevel, submodule};
 use zwave_serial::command::SerialApiSetupCommand;
 
 submodule!(storage);
+submodule!(node_api);
+// submodule!(node_commands);
 
 /// The controller API can be in one of multiple states, each of which has a different set of capabilities.
 pub trait ControllerState {}
@@ -16,17 +23,19 @@ impl ControllerState for Init {}
 #[derive(Clone)]
 pub struct Ready {
     storage: Arc<RwLock<ControllerStorage>>,
+    nodes: Arc<RwLock<BTreeMap<NodeId, NodeStorage>>>,
+    endpoints: Arc<RwLock<BTreeMap<(NodeId, EndpointIndex), EndpointStorage>>>,
 }
 impl ControllerState for Ready {}
 
 // #[derive(Debug)]
 pub struct Controller<'a, S: ControllerState> {
-    driver: &'a DriverApi,
+    driver: &'a Driver,
     state: S,
 }
 
 impl<'a> Controller<'a, Init> {
-    pub fn new(driver: &'a DriverApi) -> Self {
+    pub fn new(driver: &'a Driver) -> Self {
         Self {
             driver,
             state: Init,
@@ -64,8 +73,6 @@ impl<'a> Controller<'a, Init> {
             })?
         };
 
-        // FIXME: Update driver's sdk_version
-
         let supported_serial_api_setup_commands = if api_capabilities
             .supported_function_types
             .contains(&FunctionType::SerialApiSetup)
@@ -89,17 +96,24 @@ impl<'a> Controller<'a, Init> {
         let ids = driver.get_controller_id(command_options).await?;
         let suc_node_id = driver.get_suc_node_id(command_options).await?;
 
-        // // Read the protocol info for each node and store it
-        // // FIXME: Read this from cache where possible when we have one
-        // {
-        //     for node_id in &init_data.node_ids {
-        //         let protocol_info = self
-        //             .get_node_protocol_info(node_id, command_options)
-        //             .await?;
-        //         let storage = NodeStorage::new(protocol_info);
-        //         self.storage.nodes_mut().insert(*node_id, storage);
-        //     }
-        // }
+        let mut nodes = BTreeMap::new();
+        let endpoints = BTreeMap::new();
+
+        // Read the protocol info for each node and store it
+        // FIXME: Read this from cache where possible when we have one
+        {
+            for node_id in &init_data.node_ids {
+                let protocol_info = driver
+                    .get_node_protocol_info(node_id, command_options)
+                    .await?;
+                let storage = NodeStorage::new(protocol_info);
+                nodes.insert(*node_id, storage);
+            }
+        }
+
+        // Not the most logical spot to do this, but now we have everything we need to initialize
+        // the security managers
+        driver.init_security_managers();
 
         let controller = ControllerStorage::builder()
             .home_id(ids.home_id)
@@ -130,6 +144,8 @@ impl<'a> Controller<'a, Init> {
             driver,
             state: Ready {
                 storage: Arc::new(RwLock::new(controller)),
+                nodes: Arc::new(RwLock::new(nodes)),
+                endpoints: Arc::new(RwLock::new(endpoints)),
             },
         })
     }
@@ -212,6 +228,10 @@ impl Controller<'_, Ready> {
 }
 
 impl<'a> Controller<'a, Ready> {
+    pub fn driver(&self) -> &Driver {
+        self.driver
+    }
+
     fn storage(&self) -> RwLockReadGuard<'_, ControllerStorage> {
         self.state
             .storage
@@ -224,6 +244,38 @@ impl<'a> Controller<'a, Ready> {
             .storage
             .write()
             .expect("failed to lock controller storage for writing")
+    }
+
+    pub(crate) fn node_storage(&self) -> RwLockReadGuard<'_, BTreeMap<NodeId, NodeStorage>> {
+        self.state
+            .nodes
+            .read()
+            .expect("failed to lock node storage for reading")
+    }
+
+    pub(crate) fn node_storage_mut(&self) -> RwLockWriteGuard<'_, BTreeMap<NodeId, NodeStorage>> {
+        self.state
+            .nodes
+            .write()
+            .expect("failed to lock node storage for writing")
+    }
+
+    pub(crate) fn endpoint_storage(
+        &self,
+    ) -> RwLockReadGuard<'_, BTreeMap<(NodeId, EndpointIndex), EndpointStorage>> {
+        self.state
+            .endpoints
+            .read()
+            .expect("failed to lock endpoint storage for reading")
+    }
+
+    pub(crate) fn endpoint_storage_mut(
+        &self,
+    ) -> RwLockWriteGuard<'_, BTreeMap<(NodeId, EndpointIndex), EndpointStorage>> {
+        self.state
+            .endpoints
+            .write()
+            .expect("failed to lock endpoint storage for writing")
     }
 
     /// Checks whether a given Z-Wave function type is supported by the controller.

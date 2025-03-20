@@ -10,7 +10,7 @@ pub trait CCSequence {
     /// Resets the sequence so it can be iterated over again
     fn reset(&mut self);
     /// Returns the next CC in the sequence
-    fn next(&mut self, own_node_id: NodeId) -> Option<WithAddress<CC>>;
+    fn next(&mut self, ctx: &CCEncodingContext) -> Option<WithAddress<CC>>;
     /// Returns whether the sequence is finished
     fn is_finished(&self) -> bool;
     /// Used to pass the response to the previous CC back into the sequence
@@ -32,10 +32,11 @@ impl CCSequence for NonSequenced {
         self.finished = false;
     }
 
-    fn next(&mut self, _own_node_id: NodeId) -> Option<WithAddress<CC>> {
+    fn next(&mut self, _ctx: &CCEncodingContext) -> Option<WithAddress<CC>> {
         if self.finished {
             return None;
         }
+        self.finished = true;
 
         Some(self.cc.clone())
     }

@@ -1,17 +1,17 @@
-use crate::{Direction, ImmutableLogger, LogInfo};
-use std::{borrow::Cow, sync::Arc};
+use crate::{Direction, LocalImmutableLogger, LogInfo, Logger};
+use std::borrow::Cow;
 use zwave_core::{
     definitions::*,
-    log::{LogPayload, LogPayloadText, Loglevel, ToLogPayload},
+    log::{LogPayload, LogPayloadText, Loglevel},
 };
-use zwave_serial::command::{Command, CommandId};
+use zwave_serial::command::CommandId;
 
-pub struct ControllerLogger {
-    inner: Arc<dyn ImmutableLogger>,
+pub struct ControllerLogger<'a> {
+    inner: &'a dyn LocalImmutableLogger,
 }
 
-impl ControllerLogger {
-    pub fn new(inner: Arc<dyn ImmutableLogger>) -> Self {
+impl<'a> ControllerLogger<'a> {
+    pub fn new(inner: &'a dyn LocalImmutableLogger) -> Self {
         Self { inner }
     }
 
@@ -29,7 +29,7 @@ impl ControllerLogger {
     }
 
     // FIXME: Remove duplication with DriverLogger
-    pub fn command(&self, command: &impl CommandId, direction: Direction) {
+    pub fn command(&self, command: &dyn CommandId, direction: Direction) {
         let level = Loglevel::Debug;
         if self.level() < level {
             return;

@@ -35,7 +35,7 @@ impl<'a> Node<'a> {
 
         if self.interview_stage() == InterviewStage::NodeInfo {
             // Query the node info and save supported CCs
-            let node_info = self.driver.request_node_info(&self.id, None).await?;
+            let node_info = self.driver().request_node_info(&self.id, None).await?;
             for cc in node_info.supported_command_classes {
                 self.modify_cc_info(cc, &PartialCommandClassInfo::default().supported());
             }

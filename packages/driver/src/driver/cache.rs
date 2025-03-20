@@ -1,5 +1,4 @@
-use super::storage::DriverStorage;
-use crate::driver_api::DriverApi;
+use super::{storage::DriverStorage, Driver};
 use std::sync::Arc;
 use zwave_core::{
     cache::{Cache, CacheValue},
@@ -34,7 +33,7 @@ impl Cache<EndpointValueId> for ValueCache<'_> {
     }
 }
 
-impl DriverApi {
+impl Driver {
     pub(crate) fn value_cache(&self) -> ValueCache<'_> {
         ValueCache::new(&self.storage)
     }
