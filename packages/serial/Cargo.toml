@@ -13,7 +13,6 @@ enum_dispatch.workspace = true
 futures.workspace = true
 hex.workspace = true
 proc-macros.workspace = true
-serialport.workspace = true
 thiserror.workspace = true
 tokio-serial.workspace = true
 tokio-util.workspace = true

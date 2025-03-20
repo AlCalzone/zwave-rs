@@ -8,6 +8,7 @@ use zwave_cc::{
 use zwave_core::{log::Loglevel, values::LevelSet};
 use zwave_driver::{Controller, SecurityKeys};
 use zwave_logging::loggers::base::BaseLogger;
+use zwave_serial::serialport::{SerialPort, TcpSocket, ZWavePort};
 
 mod rt;
 use rt::Runtime;
@@ -20,7 +21,7 @@ const PORT: &str = "/dev/ttyUSB0";
 const PORT: &str = "COM6";
 
 #[tokio::main(flavor = "current_thread")]
-async fn main() {
+async fn main() -> Result<(), anyhow::Error> {
     // let options = DriverOptions::builder()
     //     .path(PORT)
     //     // .loglevel(Loglevel::Silly)
@@ -51,10 +52,6 @@ async fn main() {
     // FIXME:
     //     driver_logger.info(|| format!("opening serial port {}", PORT));
 
-    let port = serialport::new(PORT, 115_200)
-        .open_native()
-        .expect("failed to open port");
-
     let (log_tx, log_rx) = futures::channel::mpsc::channel(16);
 
     let (mut serial_api, mut serial_api_actor, mut serial_api_adapter) =
@@ -63,14 +60,14 @@ async fn main() {
         zwave_driver::Driver::new(&serial_api, log_tx, security_keys);
 
     let mut runtime = Runtime::new(
-        port,
+        PORT,
         logger,
         log_rx,
         driver_actor,
         driver_adapter,
         serial_api_actor,
         serial_api_adapter,
-    );
+    )?;
 
     let local = task::LocalSet::new();
     local
@@ -255,4 +252,5 @@ async fn main() {
 
     // drop(driver);
     // println!("driver stopped");
+    Ok(())
 }

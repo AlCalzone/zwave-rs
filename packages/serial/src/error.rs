@@ -1,10 +1,7 @@
-use custom_debug_derive::Debug;
-use thiserror::Error;
-
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Serialport(#[from] serialport::Error),
+    Serialport(#[from] tokio_serial::Error),
     #[error(transparent)]
     IO(#[from] tokio::io::Error),
 }
