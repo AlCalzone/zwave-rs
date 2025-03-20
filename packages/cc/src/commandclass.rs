@@ -201,6 +201,14 @@ impl<T> WithAddress<T> {
         self.command
     }
 
+    pub fn as_parts(&self) -> (&CCAddress, &T) {
+        (&self.address, &self.command)
+    }
+
+    pub fn as_parts_mut(&mut self) -> (&mut CCAddress, &mut T) {
+        (&mut self.address, &mut self.command)
+    }
+
     pub fn split(self) -> (CCAddress, T) {
         (self.address, self.command)
     }

@@ -51,14 +51,12 @@ pub struct DriverActor {
 }
 
 pub struct DriverAdapter {
-    pub logs: LogReceiver,
     pub input_tx: DriverInputSender,
     pub event_rx: DriverEventReceiver,
 }
 
 impl Driver {
-    pub fn new(serial_api: &SerialApi, security_keys: SecurityKeys) -> (Self, DriverActor, DriverAdapter) {
-        let (log_queue_tx, log_queue_rx) = mpsc::channel(16);
+    pub fn new(serial_api: &SerialApi, log_tx: LogSender, security_keys: SecurityKeys) -> (Self, DriverActor, DriverAdapter) {
         let (input_tx, input_rx) = mpsc::channel(16);
         let (event_tx, event_rx) = mpsc::channel(16);
 
@@ -71,13 +69,12 @@ impl Driver {
         };
 
         let adapter = DriverAdapter {
-            logs: log_queue_rx,
             input_tx: input_tx.clone(),
             event_rx,
         };
 
         let actor = DriverActor {
-            log_queue: log_queue_tx,
+            log_queue: log_tx,
             input_tx,
             input_rx,
             event_tx,

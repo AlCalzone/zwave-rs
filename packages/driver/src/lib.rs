@@ -6,7 +6,7 @@ submodule!(controller);
 submodule!(node);
 submodule!(serial_api);
 
-type LogSender =
+pub type LogSender =
     futures::channel::mpsc::Sender<(zwave_logging::LogInfo, zwave_core::log::Loglevel)>;
-type LogReceiver =
+pub type LogReceiver =
     futures::channel::mpsc::Receiver<(zwave_logging::LogInfo, zwave_core::log::Loglevel)>;

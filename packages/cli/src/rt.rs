@@ -1,25 +1,15 @@
+use bytes::BytesMut;
+use serialport::TTYPort;
 use std::{
-    collections::VecDeque,
     io::{Read, Write},
-    thread,
     time::Duration,
 };
-
-use bytes::BytesMut;
-use futures::{channel::mpsc, FutureExt, SinkExt};
-use serialport::TTYPort;
-use tokio::{join, task};
-use zwave_core::{
-    log::{self, Loglevel},
-    prelude::Serializable,
-};
+use tokio::task;
+use zwave_core::prelude::Serializable;
 use zwave_driver::{
-    Driver, DriverActor, DriverAdapter, DriverEvent, DriverInput, SerialApiActor, SerialApiAdapter,
+    DriverActor, DriverAdapter, DriverInput, LogReceiver, SerialApiActor, SerialApiAdapter,
 };
-use zwave_logging::{
-    loggers::{base::BaseLogger, serial::SerialLogger},
-    LogInfo, Logger,
-};
+use zwave_logging::{loggers::base::BaseLogger, Logger};
 use zwave_serial::frame::RawSerialFrame;
 
 const BUFFER_SIZE: usize = 256;
@@ -27,6 +17,7 @@ const BUFFER_SIZE: usize = 256;
 pub struct Runtime {
     logger: BaseLogger,
     port: TTYPort,
+    log_rx: LogReceiver,
     driver: DriverActor,
     driver_adapter: DriverAdapter,
     serial_api: SerialApiActor,
@@ -37,6 +28,7 @@ impl Runtime {
     pub fn new(
         port: TTYPort,
         logger: BaseLogger,
+        log_rx: LogReceiver,
         driver: DriverActor,
         driver_adapter: DriverAdapter,
         serial_api: SerialApiActor,
@@ -44,6 +36,7 @@ impl Runtime {
     ) -> Self {
         Self {
             logger,
+            log_rx,
             port,
             driver,
             driver_adapter,
@@ -110,10 +103,7 @@ impl Runtime {
             }
 
             // If there is something to be logged, do it
-            while let Ok(Some((log, level))) = self.serial_api_adapter.logs.try_next() {
-                self.logger.log(log, level);
-            }
-            while let Ok(Some((log, level))) = self.driver_adapter.logs.try_next() {
+            while let Ok(Some((log, level))) = self.log_rx.try_next() {
                 self.logger.log(log, level);
             }
 

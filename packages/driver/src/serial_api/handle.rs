@@ -15,7 +15,7 @@ impl SerialApi {
     //     NodeLogger::new(self, node_id, endpoint)
     // }
 
-    fn dispatch(&self, input: SerialApiInput) {
+    pub(crate) fn dispatch(&self, input: SerialApiInput) {
         self.input_tx
             .clone()
             .try_send(input)

@@ -242,7 +242,7 @@ impl SerialApiActor {
                 }
 
                 // Not expected. Logging must happen upstream, so embedded CCs can be decoded
-                eprintln!("TODO: handle received command: {:?}", cmd);
+                self.queue_event(SerialApiEvent::Unsolicited { command: cmd });
             }
             // Not much we can do with a raw frame at this point
             _ => {

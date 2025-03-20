@@ -3,7 +3,7 @@ use crate::error::{Error, Result};
 use futures::{channel::oneshot, select_biased, FutureExt, StreamExt};
 use std::sync::Arc;
 use std::time::Instant;
-use zwave_cc::commandclass::CCSession;
+use zwave_cc::commandclass::{CCSession, CcOrRaw};
 use zwave_cc::prelude::*;
 use zwave_core::prelude::*;
 use zwave_core::security::{SecurityManager, SecurityManagerOptions, SecurityManagerStorage};
@@ -127,12 +127,15 @@ impl DriverActor {
         };
         // ...and handle it
         if let Some(cc) = cc {
-            // FIXME: Can we get rid of this clone()
-            let (address, cc_or_raw) = cc.clone().split();
+            // FIXME: Can we get rid of all these clones()?
+            let (address, cc_or_raw) = cc.as_parts_mut();
 
-            let ctx = self.get_cc_parsing_context(&address);
-            let cc = match cc_or_raw.try_as_cc(ctx) {
-                Ok(cc) => cc,
+            let ctx = self.get_cc_parsing_context(address);
+            match cc_or_raw.clone().try_as_cc(ctx) {
+                Ok(parsed_cc) => {
+                    // Update the command, so it gets logged correctly
+                    *cc_or_raw = CcOrRaw::CC(parsed_cc);
+                }
                 Err(e) => {
                     self.driver_log()
                         .error(|| format!("failed to parse CC: {}", e));
@@ -140,9 +143,17 @@ impl DriverActor {
                 }
             };
 
-            let mut cc = cc.with_address(address.clone());
+            // TODO: This back and forth is pretty awkward
+            let CcOrRaw::CC(cc) = cc_or_raw else {
+                panic!("The CC should have been parsed already")
+            };
+            let mut cc = cc.clone().with_address(address.clone());
+
             // Check if there is someone waiting for this CC
             if let Some(callback) = self.take_matching_awaited_cc(&cc) {
+                self.node_log(cc.address().source_node_id, cc.address().endpoint_index)
+                    .command(&command, Direction::Inbound);
+
                 let _ = callback.send(Ok(cc));
                 return;
             }

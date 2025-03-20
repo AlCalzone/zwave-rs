@@ -1,7 +1,11 @@
+use futures::future;
 use std::time::Duration;
 use tokio::task;
-use zwave_cc::{commandclass::NoOperationCC, prelude::CCAddressable};
-use zwave_core::log::Loglevel;
+use zwave_cc::{
+    commandclass::{BasicCCGet, NoOperationCC, SecurityCCCommandEncapsulation},
+    prelude::*,
+};
+use zwave_core::{log::Loglevel, values::LevelSet};
 use zwave_driver::{Controller, SecurityKeys};
 use zwave_logging::loggers::base::BaseLogger;
 
@@ -51,14 +55,17 @@ async fn main() {
         .open_native()
         .expect("failed to open port");
 
+    let (log_tx, log_rx) = futures::channel::mpsc::channel(16);
+
     let (mut serial_api, mut serial_api_actor, mut serial_api_adapter) =
-        zwave_driver::SerialApi::new();
+        zwave_driver::SerialApi::new(log_tx.clone());
     let (mut driver, mut driver_actor, mut driver_adapter) =
-        zwave_driver::Driver::new(&serial_api, security_keys);
+        zwave_driver::Driver::new(&serial_api, log_tx, security_keys);
 
     let mut runtime = Runtime::new(
         port,
         logger,
+        log_rx,
         driver_actor,
         driver_adapter,
         serial_api_actor,
@@ -77,6 +84,14 @@ async fn main() {
                 controller.interview().await.unwrap();
 
             tokio::time::sleep(Duration::from_secs(3)).await;
+
+            let node = controller.get_node(&6u8.into()).unwrap();
+
+            let cc: CC = BasicCCGet::default().into();
+            let cc: CC = SecurityCCCommandEncapsulation::new(cc).into();
+            let cc = cc.with_destination(node.id().into());
+            let result = driver.exec_node_command(&cc, None).await;
+            println!("result: {:?}", result);
 
             // let ping_result = controller
             //     .get_node(&4u8.into())

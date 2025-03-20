@@ -66,7 +66,6 @@ pub struct SerialApiActor {
 pub struct SerialApiAdapter {
     pub serial_in: SerialFrameSender,
     pub serial_out: SerialFrameReceiver,
-    pub logs: LogReceiver,
     pub input_tx: SerialApiInputSender,
     pub event_rx: SerialApiEventReceiver,
 }
@@ -78,10 +77,9 @@ pub struct SerialApi {
 }
 
 impl SerialApi {
-    pub fn new() -> (Self, SerialApiActor, SerialApiAdapter) {
+    pub fn new(log_tx: LogSender) -> (Self, SerialApiActor, SerialApiAdapter) {
         let (serial_in_tx, serial_in_rx) = mpsc::channel(16);
         let (serial_out_tx, serial_out_rx) = mpsc::channel(16);
-        let (log_queue_tx, log_queue_rx) = mpsc::channel(16);
         let (input_tx, input_rx) = mpsc::channel(16);
         let (event_tx, event_rx) = mpsc::channel(16);
 
@@ -90,7 +88,6 @@ impl SerialApi {
         let adapter = SerialApiAdapter {
             serial_in: serial_in_tx,
             serial_out: serial_out_rx,
-            logs: log_queue_rx,
             input_tx: input_tx.clone(),
             event_rx,
         };
@@ -103,7 +100,7 @@ impl SerialApi {
         let actor = SerialApiActor {
             serial_in: serial_in_rx,
             serial_out: serial_out_tx,
-            log_queue: log_queue_tx,
+            log_queue: log_tx,
             input_tx,
             input_rx,
             event_tx,
