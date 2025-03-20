@@ -6,7 +6,7 @@ use zwave_cc::prelude::*;
 use zwave_core::parse::multi::variable_length_bitmask_u8;
 use zwave_core::parse::{
     bytes::be_u8,
-    combinators::{map_res, opt},
+    combinators::opt,
     multi::length_value,
 };
 use zwave_core::prelude::*;

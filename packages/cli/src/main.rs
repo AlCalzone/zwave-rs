@@ -1,14 +1,12 @@
-use futures::future;
 use std::time::Duration;
 use tokio::task;
 use zwave_cc::{
-    commandclass::{BasicCCGet, NoOperationCC, SecurityCCCommandEncapsulation},
+    commandclass::{BasicCCGet, SecurityCCCommandEncapsulation},
     prelude::*,
 };
-use zwave_core::{log::Loglevel, values::LevelSet};
+use zwave_core::log::Loglevel;
 use zwave_driver::{Controller, SecurityKeys};
 use zwave_logging::loggers::base::BaseLogger;
-use zwave_serial::serialport::{SerialPort, TcpSocket, ZWavePort};
 
 mod rt;
 use rt::Runtime;
@@ -54,12 +52,12 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let (log_tx, log_rx) = futures::channel::mpsc::channel(16);
 
-    let (mut serial_api, mut serial_api_actor, mut serial_api_adapter) =
+    let (serial_api, serial_api_actor, serial_api_adapter) =
         zwave_driver::SerialApi::new(log_tx.clone());
-    let (mut driver, mut driver_actor, mut driver_adapter) =
+    let (driver, driver_actor, driver_adapter) =
         zwave_driver::Driver::new(&serial_api, log_tx, security_keys);
 
-    let mut runtime = Runtime::new(
+    let runtime = Runtime::new(
         PORT,
         logger,
         log_rx,
@@ -76,8 +74,8 @@ async fn main() -> Result<(), anyhow::Error> {
                 runtime.run().await;
             });
 
-            let mut controller = Controller::new(&driver);
-            let mut controller: Controller<'_, zwave_driver::Ready> =
+            let controller = Controller::new(&driver);
+            let controller: Controller<'_, zwave_driver::Ready> =
                 controller.interview().await.unwrap();
 
             tokio::time::sleep(Duration::from_secs(3)).await;

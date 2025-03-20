@@ -1,22 +1,13 @@
-use bytes::BytesMut;
 use futures::StreamExt;
-use std::{
-    io::{Read, Write},
-    time::Duration,
-};
 use tokio::{select, task};
-use zwave_core::prelude::Serializable;
 use zwave_driver::{
     DriverActor, DriverAdapter, DriverInput, LogReceiver, SerialApiActor, SerialApiAdapter,
 };
 use zwave_logging::{loggers::base::BaseLogger, Logger};
 use zwave_serial::{
     binding::SerialBinding,
-    frame::RawSerialFrame,
     serialport::{SerialPort, TcpSocket, ZWavePort},
 };
-
-const BUFFER_SIZE: usize = 256;
 
 pub struct Runtime {
     logger: BaseLogger,
@@ -69,8 +60,6 @@ impl Runtime {
     }
 
     pub async fn run(mut self) {
-        let mut serial_in_buffer = BytesMut::zeroed(BUFFER_SIZE);
-
         let mut driver = self.driver;
         let mut serial_api = self.serial_api;
 

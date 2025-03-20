@@ -1,7 +1,7 @@
 use crate::error::Result;
 use crate::serial_api::SerialApi;
-use crate::{ExecutableCommand, LogReceiver, LogSender, SerialApiMachineResult};
-use awaited::{AwaitedRef, AwaitedRegistry, Predicate};
+use crate::LogSender;
+use awaited::Predicate;
 use futures::channel::{mpsc, oneshot};
 use typed_builder::TypedBuilder;
 use std::sync::Arc;
@@ -9,7 +9,6 @@ use std::time::{Duration, Instant};
 use storage::DriverStorage;
 use zwave_cc::prelude::*;
 use zwave_core::log::Loglevel;
-use zwave_core::prelude::*;
 use zwave_core::submodule;
 use zwave_logging::LogInfo;
 use zwave_serial::prelude::*;

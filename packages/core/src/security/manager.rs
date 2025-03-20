@@ -3,7 +3,7 @@ use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use getrandom::getrandom;
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     sync::{Arc, RwLock},
 };
 

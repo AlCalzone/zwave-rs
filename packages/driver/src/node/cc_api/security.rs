@@ -1,8 +1,8 @@
-use crate::{cc_api_assert_supported, expect_cc_or_timeout, get_implemented_version};
+use crate::expect_cc_or_timeout;
 use crate::{CCAPIResult, EndpointLike, CCAPI};
 use zwave_cc::commandclass::{security::*, CCAddressable};
 use zwave_core::security::S0Nonce;
-use zwave_core::{cache::CacheExt, prelude::*};
+use zwave_core::prelude::*;
 
 pub struct SecurityCCAPI<'a> {
     endpoint: &'a dyn EndpointLike<'a>,

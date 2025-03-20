@@ -13,7 +13,11 @@ pub struct NodeLogger<'a> {
 }
 
 impl<'a> NodeLogger<'a> {
-    pub fn new(inner: &'a dyn LocalImmutableLogger, node_id: NodeId, endpoint: EndpointIndex) -> Self {
+    pub fn new(
+        inner: &'a dyn LocalImmutableLogger,
+        node_id: NodeId,
+        endpoint: EndpointIndex,
+    ) -> Self {
         Self {
             inner,
             node_id,

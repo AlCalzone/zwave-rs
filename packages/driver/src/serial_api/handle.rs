@@ -3,18 +3,9 @@ use super::{ExecutableCommand, SerialApi, SerialApiInput};
 use crate::error::Result;
 use futures::channel::oneshot;
 use zwave_core::log::Loglevel;
-use zwave_core::prelude::*;
 use zwave_logging::{LocalImmutableLogger, LogInfo};
 
 impl SerialApi {
-    // pub(crate) fn controller_log(&self) -> ControllerLogger {
-    //     ControllerLogger::new(self)
-    // }
-
-    // pub(crate) fn node_log(&self, node_id: NodeId, endpoint: EndpointIndex) -> NodeLogger {
-    //     NodeLogger::new(self, node_id, endpoint)
-    // }
-
     pub(crate) fn dispatch(&self, input: SerialApiInput) {
         self.input_tx
             .clone()
@@ -35,7 +26,6 @@ impl SerialApi {
 
         rx.await.expect("Failed to receive command result")
     }
-
 }
 
 impl LocalImmutableLogger for SerialApi {

@@ -1,5 +1,5 @@
 use super::{awaited::Predicate, Driver, DriverInput};
-use crate::{error::Result, ExecutableCommand, SerialApiMachineResult};
+use crate::error::Result;
 use futures::channel::oneshot;
 use std::time::Duration;
 use zwave_cc::prelude::*;

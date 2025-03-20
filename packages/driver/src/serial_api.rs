@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::{LogReceiver, LogSender};
+use crate::LogSender;
 use futures::channel::{mpsc, oneshot};
 use storage::SerialApiStorage;
 use std::sync::Arc;

@@ -1,4 +1,4 @@
-use crate::{LocalImmutableLogger, LogInfo, Logger};
+use crate::{LocalImmutableLogger, LogInfo};
 use std::borrow::Cow;
 use zwave_core::log::{LogPayload, Loglevel};
 
@@ -24,11 +24,7 @@ impl<'a> DriverLogger<'a> {
     }
 
     // FIXME: Remove duplication with ControllerLogger
-    pub fn message<L: Into<Cow<'static, str>>>(
-        &self,
-        message: impl Fn() -> L,
-        level: Loglevel,
-    ) {
+    pub fn message<L: Into<Cow<'static, str>>>(&self, message: impl Fn() -> L, level: Loglevel) {
         if self.level() < level {
             return;
         }

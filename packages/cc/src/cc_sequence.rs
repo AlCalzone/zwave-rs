@@ -1,5 +1,3 @@
-use zwave_core::{definitions::NodeId, security};
-
 use crate::{
     commandclass::{WithAddress, CC},
     prelude::{CCAddressable, CCEncodingContext},

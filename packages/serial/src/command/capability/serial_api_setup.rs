@@ -1,11 +1,10 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
-use proc_macros::TryFromRepr;
 use zwave_core::parse::multi::fixed_length_bitmask_u8;
 use zwave_core::parse::parser_not_implemented;
 use zwave_core::parse::{
     bytes::{be_i16, be_i8, be_u8, complete::skip},
-    combinators::{map, map_res},
+    combinators::map,
 };
 use zwave_core::prelude::*;
 use zwave_core::serialize;

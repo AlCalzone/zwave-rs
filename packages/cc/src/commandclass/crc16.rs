@@ -4,7 +4,6 @@ use proc_macros::{CCValues, TryFromRepr};
 use zwave_core::checksum::crc16_incremental;
 use zwave_core::parse::{
     bytes::{be_u16, complete::take},
-    combinators::map_res,
     validate,
 };
 use zwave_core::prelude::*;

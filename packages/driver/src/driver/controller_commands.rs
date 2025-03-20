@@ -1,6 +1,7 @@
-use super::{expect_controller_command_result, ControllerCommandError, ControllerCommandResult, Driver, ExecControllerCommandOptions, ExecutableCommand};
-use thiserror::Error;
-use typed_builder::TypedBuilder;
+use super::{
+    expect_controller_command_result, ControllerCommandError, ControllerCommandResult, Driver,
+    ExecControllerCommandOptions,
+};
 use zwave_core::log::Loglevel;
 use zwave_core::prelude::*;
 use zwave_serial::command::{
@@ -149,7 +150,9 @@ impl Driver {
         }
 
         // Remember the protocol version
-        self.serial_api.storage.set_sdk_version(protocol_version.version);
+        self.serial_api
+            .storage
+            .set_sdk_version(protocol_version.version);
 
         Ok(protocol_version)
     }

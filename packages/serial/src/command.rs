@@ -1,15 +1,11 @@
-use std::sync::{Arc, RwLock};
-
 use crate::prelude::*;
+use crate::util::hex_fmt;
 use bytes::Bytes;
-use typed_builder::TypedBuilder;
-use zwave_core::prelude::*;
-use zwave_core::security::SecurityManager;
-use zwave_core::submodule;
-
-use crate::{frame::SerialFrame, util::hex_fmt};
 use custom_debug_derive::Debug;
 use enum_dispatch::enum_dispatch;
+use typed_builder::TypedBuilder;
+use zwave_core::prelude::*;
+use zwave_core::submodule;
 
 submodule!(application);
 submodule!(capability);

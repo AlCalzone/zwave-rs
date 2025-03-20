@@ -4,7 +4,7 @@ use typed_builder::TypedBuilder;
 use zwave_cc::{commandclass::CcOrRaw, prelude::*};
 use zwave_core::parse::{
     bytes::be_u8,
-    combinators::{map, map_res},
+    combinators::map,
     multi::length_value,
 };
 use zwave_core::prelude::*;

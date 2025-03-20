@@ -1,10 +1,9 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
-use custom_debug_derive::Debug;
 use zwave_cc::{commandclass::CcOrRaw, prelude::*};
 use zwave_core::parse::{
     bytes::be_u8,
-    combinators::{map_res, opt},
+    combinators::opt,
     multi::length_value,
 };
 use zwave_core::prelude::*;

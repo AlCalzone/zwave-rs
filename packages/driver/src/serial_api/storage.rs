@@ -1,8 +1,5 @@
-use std::{
-    collections::HashMap,
-    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
-};
-use zwave_core::{cache::CacheValue, prelude::*, value_id::EndpointValueId};
+use std::sync::RwLock;
+use zwave_core::prelude::*;
 
 /// Storage shared between the Serial API and driver actors, containing information
 /// that is needed to correctly parse and serialize commands.

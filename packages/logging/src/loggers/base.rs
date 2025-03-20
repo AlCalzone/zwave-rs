@@ -1,4 +1,4 @@
-use crate::{LocalImmutableLogger, LogFormatter, LogInfo, Logger};
+use crate::{LogFormatter, LogInfo, Logger};
 use termcolor::WriteColor;
 use zwave_core::log::Loglevel;
 
