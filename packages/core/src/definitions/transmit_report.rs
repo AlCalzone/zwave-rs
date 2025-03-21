@@ -7,6 +7,7 @@ use crate::parse::{
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use custom_debug_derive::Debug;
+use tinyvec::TinyVec;
 use std::fmt::Display;
 use ux::{u1, u2};
 
@@ -61,7 +62,7 @@ pub struct TransmitReport {
     /// Channel number used to transmit the data
     pub tx_channel_no: u8,
     /// The repeaters used in the route to the destination
-    pub repeaters: Vec<Repeater>,
+    pub repeaters: TinyVec<Repeater, 4>,
     /// State of the route resolution for the transmission attempt. Encoding is manufacturer specific. Z-Wave JS uses the Silicon Labs interpretation.
     pub routing_scheme: RoutingScheme,
     /// Transmission speed used in the last attempt

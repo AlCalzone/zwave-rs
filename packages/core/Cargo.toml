@@ -24,6 +24,7 @@ pin-project.workspace = true
 proc-macros.workspace = true
 thiserror.workspace = true
 time.workspace = true
+tinyvec.workspace = true
 tokio.workspace = true
 typed-builder.workspace = true
 unicode-segmentation.workspace = true

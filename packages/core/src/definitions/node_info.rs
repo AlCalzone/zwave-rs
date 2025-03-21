@@ -1,10 +1,12 @@
 use crate::parse::{
-        bits::{bits, bool},
-        bytes::be_u8,
-        combinators::cond, multi::fixed_length_cc_list_only_supported,
-    };
+    bits::{bits, bool},
+    bytes::be_u8,
+    combinators::cond,
+    multi::fixed_length_cc_list_only_supported,
+};
 use crate::prelude::*;
 use bytes::Bytes;
+use tinyvec::TinyVec;
 use ux::{u1, u2, u5};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -16,7 +18,7 @@ pub struct NodeInformationProtocolData {
     /// Whether the node supports routing/forwarding messages
     pub routing: bool,
     /// Which data rates the node supports
-    pub supported_data_rates: Vec<DataRate>,
+    pub supported_data_rates: TinyVec<DataRate, 3>,
     /// The protocol version this node implements
     pub protocol_version: ProtocolVersion,
     /// Whether this node supports additional CCs besides the mandatory minimum
@@ -63,7 +65,7 @@ impl Parsable for NodeInformationProtocolData {
         let generic_device_class = be_u8(i)?;
         let specific_device_class = cond(has_specific_device_class, be_u8).parse(i)?;
 
-        let mut supported_data_rates = Vec::new();
+        let mut supported_data_rates = TinyVec::new();
         if speed_100k {
             supported_data_rates.push(DataRate::DataRate_100k);
         }
