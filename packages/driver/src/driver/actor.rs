@@ -180,11 +180,11 @@ impl DriverActor {
 
     fn init_security_managers(&mut self) {
         let logger = self.driver_log();
-        if let Some(s0_key) = &self.security_keys.s0_legacy {
+        if let Some(ref s0_key) = self.security_keys.s0_legacy {
             logger.info(|| "Network key for S0 configured, enabling S0 security manager...");
             let storage = SecurityManagerStorage::new(SecurityManagerOptions {
                 own_node_id: self.serial_api.storage.own_node_id(),
-                network_key: s0_key.clone(),
+                network_key: s0_key.into(),
             });
             let sec_man = SecurityManager::new(Arc::new(storage));
             self.storage.security_manager_mut().replace(sec_man);

@@ -1,58 +1,127 @@
 use super::crypto::encrypt_aes_ecb;
 use crate::prelude::*;
-use bytes::{Bytes, BytesMut};
 use getrandom::getrandom;
 use std::{
     collections::BTreeMap,
+    ops::Deref,
     sync::{Arc, RwLock},
 };
 
 pub const NETWORK_KEY_SIZE: usize = 16;
-pub type NetworkKey = Vec<u8>;
 pub const S0_HALF_NONCE_SIZE: usize = 8;
 pub const S0_NONCE_SIZE: usize = 16;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct S0Nonce {
-    nonce: Bytes,
-}
+#[repr(transparent)]
+pub struct S0Nonce([u8; S0_HALF_NONCE_SIZE]);
 
 impl S0Nonce {
-    pub fn new(nonce: Bytes) -> Self {
+    pub fn new(nonce: &[u8]) -> Self {
         if nonce.len() != S0_HALF_NONCE_SIZE {
-            panic!("So nonce must be 8 bytes long, got {}", nonce.len());
+            panic!("S0 nonce must be 8 bytes long, got {}", nonce.len());
         }
-        Self { nonce }
+        let nonce = nonce.try_into().unwrap();
+        Self(nonce)
     }
 
     pub fn random() -> Self {
-        let mut buf = BytesMut::zeroed(S0_HALF_NONCE_SIZE);
-        getrandom(&mut buf[..S0_HALF_NONCE_SIZE])
-            .unwrap_or_else(|_| panic!("Failed to generate random bytes"));
-        Self {
-            nonce: buf.freeze(),
-        }
-    }
-
-    pub fn get(&self) -> &Bytes {
-        &self.nonce
-    }
-
-    pub fn set(&mut self, nonce: Bytes) {
-        if nonce.len() != S0_HALF_NONCE_SIZE {
-            panic!("So nonce must be 8 bytes long, got {}", nonce.len());
-        }
-        self.nonce = nonce;
+        let mut nonce = [0u8; S0_HALF_NONCE_SIZE];
+        getrandom(&mut nonce).unwrap_or_else(|_| panic!("Failed to generate random bytes"));
+        Self(nonce)
     }
 
     pub fn id(&self) -> u8 {
-        self.nonce[0]
+        self.0[0]
+    }
+}
+
+impl From<Vec<u8>> for S0Nonce {
+    fn from(value: Vec<u8>) -> Self {
+        Self::new(&value)
+    }
+}
+
+impl From<&Vec<u8>> for S0Nonce {
+    fn from(value: &Vec<u8>) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<&[u8]> for S0Nonce {
+    fn from(value: &[u8]) -> Self {
+        Self::new(value)
+    }
+}
+
+impl AsRef<[u8]> for S0Nonce {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl Deref for S0Nonce {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
 impl std::fmt::Display for S0Nonce {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "0x{}", hex::encode(&self.nonce))
+        write!(f, "0x{}", hex::encode(self.0))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[repr(transparent)]
+pub struct NetworkKey([u8; NETWORK_KEY_SIZE]);
+
+impl NetworkKey {
+    pub fn new(key: &[u8]) -> Self {
+        if key.len() != NETWORK_KEY_SIZE {
+            panic!("S0 network key must be 16 bytes long, got {}", key.len());
+        }
+        let key = key.try_into().unwrap();
+        Self(key)
+    }
+}
+
+impl From<Vec<u8>> for NetworkKey {
+    fn from(value: Vec<u8>) -> Self {
+        Self::new(&value)
+    }
+}
+
+impl From<&Vec<u8>> for NetworkKey {
+    fn from(value: &Vec<u8>) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<&[u8]> for NetworkKey {
+    fn from(value: &[u8]) -> Self {
+        Self::new(value)
+    }
+}
+
+impl AsRef<[u8]> for NetworkKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl Deref for NetworkKey {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for NetworkKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", hex::encode(self.0))
     }
 }
 
@@ -77,12 +146,12 @@ pub struct SecurityManagerOptions {
 
 #[inline(always)]
 fn generate_auth_key(network_key: &NetworkKey) -> NetworkKey {
-    encrypt_aes_ecb(AUTH_KEY_BASE, &network_key)
+    encrypt_aes_ecb(AUTH_KEY_BASE, network_key).into()
 }
 
 #[inline(always)]
 fn generate_enc_key(network_key: &NetworkKey) -> NetworkKey {
-    encrypt_aes_ecb(ENC_KEY_BASE, &network_key)
+    encrypt_aes_ecb(ENC_KEY_BASE, network_key).into()
 }
 
 macro_rules! read_locked {

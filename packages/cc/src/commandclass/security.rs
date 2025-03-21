@@ -123,7 +123,7 @@ impl CCId for SecurityCCNonceReport {
 impl CCParsable for SecurityCCNonceReport {
     fn parse(i: &mut Bytes, _ctx: CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
         let nonce = take(S0_HALF_NONCE_SIZE).parse(i)?;
-        let nonce = S0Nonce::new(nonce);
+        let nonce = S0Nonce::new(&nonce);
         Ok(Self { nonce })
     }
 }
@@ -131,7 +131,7 @@ impl CCParsable for SecurityCCNonceReport {
 impl SerializableWith<&CCEncodingContext> for SecurityCCNonceReport {
     fn serialize(&self, output: &mut BytesMut, ctx: &CCEncodingContext) {
         use serialize::bytes::slice;
-        slice(&self.nonce.get()).serialize(output);
+        slice(&self.nonce).serialize(output);
     }
 }
 
@@ -307,7 +307,7 @@ impl CCParsable for SecurityCCCommandEncapsulation {
         // Validate the encrypted data
         let auth_data = S0AuthData {
             sender_nonce: &sender_nonce,
-            receiver_nonce: nonce.get(),
+            receiver_nonce: &nonce,
             cc_command: SecurityCCCommand::CommandEncapsulation,
             sending_node_id: source_node_id,
             receiving_node_id: own_node_id,
@@ -323,7 +323,7 @@ impl CCParsable for SecurityCCCommandEncapsulation {
         )?;
 
         // Decrypt the encapsulated CC
-        let iv = [sender_nonce, nonce.get().clone()].concat();
+        let iv = [sender_nonce.as_ref(), &nonce].concat();
         let mut frame_control_and_plaintext =
             Bytes::from(decrypt_aes_ofb(&ciphertext, sec_man.enc_key(), &iv));
 
@@ -382,13 +382,13 @@ impl SerializableWith<&CCEncodingContext> for SecurityCCCommandEncapsulation {
 
         // Encrypt the plaintext
         let sender_nonce = S0Nonce::random();
-        let iv = [sender_nonce.get().as_ref(), receiver_nonce.get().as_ref()].concat();
+        let iv: Vec<u8> = [sender_nonce.as_ref(), receiver_nonce].concat();
         let ciphertext = encrypt_aes_ofb(&plaintext, sec_man.enc_key(), &iv);
 
         // Authenticate the encrypted data
         let auth_data = S0AuthData {
-            sender_nonce: sender_nonce.get(),
-            receiver_nonce: receiver_nonce.get(),
+            sender_nonce: &sender_nonce,
+            receiver_nonce,
             cc_command: SecurityCCCommand::CommandEncapsulation,
             sending_node_id: ctx.own_node_id,
             receiving_node_id: ctx.node_id,
@@ -397,7 +397,7 @@ impl SerializableWith<&CCEncodingContext> for SecurityCCCommandEncapsulation {
         let auth_code = compute_mac(&auth_data.as_bytes(), sec_man.auth_key());
 
         tuple((
-            slice(sender_nonce.get()),
+            slice(sender_nonce),
             slice(ciphertext),
             be_u8(receiver_nonce.id()),
             slice(auth_code),
