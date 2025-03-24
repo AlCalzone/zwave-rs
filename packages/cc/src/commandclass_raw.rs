@@ -1,5 +1,4 @@
 use bytes::{Bytes, BytesMut};
-use custom_debug_derive::Debug;
 use zwave_core::parse::{
     bytes::{be_u8, rest},
     combinators::map,
@@ -11,7 +10,6 @@ use zwave_core::serialize::{self, Serializable};
 pub struct CCRaw {
     pub cc_id: CommandClasses,
     pub cc_command: Option<u8>,
-    // #[debug(with = "hex_fmt")]
     pub payload: Bytes,
 }
 

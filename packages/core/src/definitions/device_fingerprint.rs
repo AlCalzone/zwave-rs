@@ -1,28 +1,24 @@
-use custom_debug_derive::Debug;
-use super::Version;
+use super::{Id16, Version};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeviceFingerprint {
-    #[debug(format = "0x{:04x}")]
-    manufacturer_id: u16,
-    #[debug(format = "0x{:04x}")]
-    product_type: u16,
-    #[debug(format = "0x{:04x}")]
-    product_id: u16,
+    manufacturer_id: Id16,
+    product_type: Id16,
+    product_id: Id16,
     firmware_version: Version,
 }
 
 impl DeviceFingerprint {
     pub fn new(
-        manufacturer_id: u16,
-        product_type: u16,
-        product_id: u16,
+        manufacturer_id: impl Into<Id16>,
+        product_type: impl Into<Id16>,
+        product_id: impl Into<Id16>,
         firmware_version: Version,
     ) -> Self {
         Self {
-            manufacturer_id,
-            product_type,
-            product_id,
+            manufacturer_id: manufacturer_id.into(),
+            product_type: product_type.into(),
+            product_id: product_id.into(),
             firmware_version,
         }
     }

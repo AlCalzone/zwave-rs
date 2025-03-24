@@ -4,7 +4,6 @@ use crate::parse::{
 };
 use crate::prelude::*;
 use bytes::Bytes;
-use custom_debug_derive::Debug;
 use proc_macros::TryFromRepr;
 use ux::{u1, u2};
 

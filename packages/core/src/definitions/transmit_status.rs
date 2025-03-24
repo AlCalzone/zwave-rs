@@ -7,7 +7,6 @@ use crate::{
 };
 use bytes::{BytesMut, Bytes};
 use crate::serialize::{self, Serializable};
-use custom_debug_derive::Debug;
 use proc_macros::TryFromRepr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]

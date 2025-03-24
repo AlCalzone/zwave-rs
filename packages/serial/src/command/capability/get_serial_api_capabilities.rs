@@ -1,6 +1,5 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
-use custom_debug_derive::Debug;
 use zwave_core::parse::multi::fixed_length_bitmask_u8;
 use zwave_core::log::ToLogPayload;
 use zwave_core::parse::{
@@ -64,12 +63,9 @@ impl ToLogPayload for GetSerialApiCapabilitiesRequest {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetSerialApiCapabilitiesResponse {
-    #[debug(format = "0x{:04x}")]
-    pub manufacturer_id: u16,
-    #[debug(format = "0x{:04x}")]
-    pub product_type: u16,
-    #[debug(format = "0x{:04x}")]
-    pub product_id: u16,
+    pub manufacturer_id: Id16,
+    pub product_type: Id16,
+    pub product_id: Id16,
     pub firmware_version: Version,
     pub supported_function_types: Vec<FunctionType>,
 }
@@ -109,9 +105,9 @@ impl CommandParsable for GetSerialApiCapabilitiesResponse {
 
         Ok(Self {
             firmware_version,
-            manufacturer_id,
-            product_type,
-            product_id,
+            manufacturer_id: manufacturer_id.into(),
+            product_type: product_type.into(),
+            product_id: product_id.into(),
             supported_function_types,
         })
     }

@@ -6,7 +6,6 @@ use crate::parse::{
 };
 use crate::prelude::*;
 use bytes::Bytes;
-use custom_debug_derive::Debug;
 use proc_macros::TryFromRepr;
 
 /// Complete list of function IDs for data messages.

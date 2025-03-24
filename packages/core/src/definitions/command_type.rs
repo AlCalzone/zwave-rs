@@ -10,8 +10,6 @@ use crate::{
 use bytes::Bytes;
 use proc_macros::TryFromRepr;
 
-use custom_debug_derive::Debug;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
 #[repr(u8)]
 pub enum CommandType {

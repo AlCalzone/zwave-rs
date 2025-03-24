@@ -1,7 +1,6 @@
 use crate::state_machine::traits::*;
 use crate::util::{now, MaybeSleep};
 
-use custom_debug_derive::Debug;
 use thiserror::Error;
 
 use std::marker::{Send, Sync};

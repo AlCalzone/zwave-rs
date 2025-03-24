@@ -1,8 +1,8 @@
 use crate::prelude::*;
-use crate::util::hex_fmt;
+use crate::util::with_hex_fmt;
 use bytes::Bytes;
-use custom_debug_derive::Debug;
 use enum_dispatch::enum_dispatch;
+use std::fmt::Debug;
 use typed_builder::TypedBuilder;
 use zwave_core::prelude::*;
 use zwave_core::submodule;
@@ -107,12 +107,21 @@ pub trait AsCommandRaw {
     fn as_raw(&self, ctx: &CommandEncodingContext) -> CommandRaw;
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct NotImplemented {
     pub command_type: CommandType,
     pub function_type: FunctionType,
-    #[debug(with = "hex_fmt")]
     pub payload: Bytes,
+}
+
+impl Debug for NotImplemented {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CommandRaw")
+            .field("command_type", &self.command_type)
+            .field("function_type", &self.function_type)
+            .field("payload", &with_hex_fmt(&self.payload))
+            .finish()
+    }
 }
 
 impl CommandBase for NotImplemented {}

@@ -385,7 +385,6 @@ impl From<&Destination> for FrameAddressing {
 pub struct NotImplemented {
     pub cc_id: CommandClasses,
     pub cc_command: Option<u8>,
-    // #[debug(with = "hex_fmt")]
     pub payload: Bytes,
 }
 

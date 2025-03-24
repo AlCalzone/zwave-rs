@@ -292,7 +292,7 @@ impl<'a> Controller<'a, Ready> {
             .contains(&command)
     }
 
-    pub fn home_id(&self) -> u32 {
+    pub fn home_id(&self) -> Id32 {
         self.storage().home_id
     }
 

@@ -8,7 +8,6 @@ edition.workspace = true
 
 [dependencies]
 bytes.workspace = true
-custom_debug_derive.workspace = true
 enum_dispatch.workspace = true
 futures.workspace = true
 hex.workspace = true

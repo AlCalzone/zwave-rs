@@ -6,7 +6,6 @@ use crate::parse::{
 };
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
-use custom_debug_derive::Debug;
 use tinyvec::TinyVec;
 use std::fmt::Display;
 use ux::{u1, u2};

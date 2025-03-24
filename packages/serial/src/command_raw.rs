@@ -1,7 +1,8 @@
 use crate::frame::SerialFrame;
-use crate::{frame::SerialControlByte, util::hex_fmt};
+use crate::util::with_hex_fmt;
+use crate::frame::SerialControlByte;
 use bytes::{Bytes, BytesMut};
-use custom_debug_derive::Debug;
+use std::fmt::Debug;
 use zwave_core::prelude::*;
 use zwave_core::serialize;
 use zwave_core::{
@@ -16,14 +17,23 @@ use zwave_core::{
     },
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct CommandRaw {
     pub command_type: CommandType,
     pub function_type: FunctionType,
-    #[debug(with = "hex_fmt")]
     pub payload: Bytes,
-    #[debug(format = "{:#04x}")]
     pub checksum: u8,
+}
+
+impl Debug for CommandRaw {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CommandRaw")
+            .field("command_type", &self.command_type)
+            .field("function_type", &self.function_type)
+            .field("payload", &with_hex_fmt(&self.payload))
+            .field("checksum", &format_args!("{:#04x}", &self.checksum))
+            .finish()
+    }
 }
 
 fn command_checksum(cmd_buffer: &[u8]) -> u8 {

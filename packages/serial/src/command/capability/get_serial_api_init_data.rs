@@ -1,6 +1,5 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
-use custom_debug_derive::Debug;
 use ux::u4;
 use zwave_core::parse::{
     bits::{self, bool},

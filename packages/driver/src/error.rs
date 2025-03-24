@@ -1,5 +1,4 @@
 use crate::ControllerCommandError;
-use custom_debug_derive::Debug;
 use thiserror::Error;
 use zwave_serial::error::Error as SerialPortError;
 

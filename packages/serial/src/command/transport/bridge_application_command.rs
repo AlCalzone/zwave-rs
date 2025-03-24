@@ -1,6 +1,5 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
-use custom_debug_derive::Debug;
 use zwave_cc::commandclass::CcOrRaw;
 use zwave_cc::prelude::*;
 use zwave_core::parse::multi::variable_length_bitmask_u8;

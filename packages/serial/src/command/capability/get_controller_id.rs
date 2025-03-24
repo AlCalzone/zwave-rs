@@ -1,6 +1,5 @@
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
-use custom_debug_derive::Debug;
 use zwave_core::serialize;
 use zwave_core::parse::bytes::be_u32;
 use zwave_core::prelude::*;
@@ -55,8 +54,7 @@ impl ToLogPayload for GetControllerIdRequest {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetControllerIdResponse {
-    #[debug(format = "0x{:08x}")]
-    pub home_id: u32,
+    pub home_id: Id32,
     pub own_node_id: NodeId,
 }
 
@@ -82,7 +80,7 @@ impl CommandParsable for GetControllerIdResponse {
         let own_node_id = NodeId::parse(i, ctx.node_id_type)?;
 
         Ok(Self {
-            home_id,
+            home_id: home_id.into(),
             own_node_id,
         })
     }
@@ -91,7 +89,7 @@ impl CommandParsable for GetControllerIdResponse {
 impl SerializableWith<&CommandEncodingContext> for GetControllerIdResponse {
     fn serialize(&self, output: &mut BytesMut, ctx: &CommandEncodingContext) {
         use serialize::bytes::be_u32;
-        be_u32(self.home_id).serialize(output);
+        be_u32(self.home_id.into()).serialize(output);
         self.own_node_id.serialize(output, ctx.node_id_type);
     }
 }

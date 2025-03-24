@@ -1,4 +1,3 @@
-use custom_debug_derive::Debug;
 use typed_builder::TypedBuilder;
 use zwave_core::prelude::*;
 use zwave_serial::command::SerialApiSetupCommand;
@@ -8,8 +7,8 @@ use zwave_serial::command::SerialApiSetupCommand;
 /// (application) code, in several locations at once, often simultaneously, we need to use
 /// interior mutability to allow for concurrent access without requiring a mutable reference.
 pub(crate) struct ControllerStorage {
-    #[debug(format = "0x{:08x}")]
-    pub(crate) home_id: u32,
+    #[builder(setter(into))]
+    pub(crate) home_id: Id32,
     pub(crate) own_node_id: NodeId,
     #[builder(setter(into))]
     pub(crate) suc_node_id: Option<NodeId>,

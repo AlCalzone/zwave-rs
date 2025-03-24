@@ -7,7 +7,6 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-custom_debug_derive.workspace = true
 paste.workspace = true
 petgraph.workspace = true
 proc-macros.workspace = true

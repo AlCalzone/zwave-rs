@@ -22,7 +22,6 @@ cbc = { version = "0.1.2", features = ["alloc"] }
 ccm = "0.5.0"
 chrono = "0.4.31"
 crc16 = "0.4.0"
-custom_debug_derive = "0.5.1"
 enum_dispatch = "0.3.12"
 enum-iterator = "1.4.1"
 futures = { version = "0.3.29", features = ["executor"] }
