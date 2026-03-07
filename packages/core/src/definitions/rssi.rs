@@ -49,7 +49,12 @@ impl From<i8> for RSSI {
 
 impl From<RSSI> for i8 {
     fn from(val: RSSI) -> Self {
-        val.into()
+        match val {
+            RSSI::Measured(rssi) => rssi,
+            RSSI::NotAvailable => 127,
+            RSSI::ReceiverSaturated => 126,
+            RSSI::NoSignalDetected => 125,
+        }
     }
 }
 

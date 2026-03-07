@@ -55,15 +55,15 @@ impl SerialApiActor {
         }
     }
 
-    pub fn driver_log(&self) -> DriverLogger {
+    pub fn driver_log(&self) -> DriverLogger<'_> {
         DriverLogger::new(self)
     }
 
-    pub fn serial_log(&self) -> SerialLogger {
+    pub fn serial_log(&self) -> SerialLogger<'_> {
         SerialLogger::new(self)
     }
 
-    pub fn controller_log(&self) -> ControllerLogger {
+    pub fn controller_log(&self) -> ControllerLogger<'_> {
         ControllerLogger::new(self)
     }
 

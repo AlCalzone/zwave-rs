@@ -536,7 +536,7 @@ impl CCSequence for SecurityCCCommandEncapsulationSequence {
         //     .build();
 
         // FIXME: Handle splitting the CC into multiple frames
-        let cc_slice = self.encapsulated_cc.as_raw(&ctx).as_bytes();
+        let cc_slice = self.encapsulated_cc.as_raw(ctx).as_bytes();
 
         let state = SecurityCCCommandEncapsulationState::Partial {
             sequenced: false,

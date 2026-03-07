@@ -14,6 +14,6 @@ impl<'a, T: 'a + AsRef<[u8]>> Debug for HexFmt<'a, T> {
     }
 }
 
-pub fn with_hex_fmt<T: std::fmt::Debug + AsRef<[u8]>>(n: &T) -> HexFmt<T> {
+pub fn with_hex_fmt<T: std::fmt::Debug + AsRef<[u8]>>(n: &T) -> HexFmt<'_, T> {
     HexFmt { data: n }
 }

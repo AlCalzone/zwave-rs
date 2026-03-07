@@ -175,7 +175,7 @@ pub(crate) fn find_repr_attr(attrs: &[syn::Attribute]) -> Option<syn::Ident> {
                 None
             }
         })
-        .last();
+        .next_back();
 
     if let Some(repr) = last_repr {
         if let Ok(list) = repr.require_list() {

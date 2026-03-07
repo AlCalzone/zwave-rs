@@ -11,15 +11,15 @@ use zwave_logging::{
 };
 
 impl Driver {
-    pub(crate) fn driver_log(&self) -> DriverLogger {
+    pub(crate) fn driver_log(&self) -> DriverLogger<'_> {
         DriverLogger::new(self)
     }
 
-    pub(crate) fn controller_log(&self) -> ControllerLogger {
+    pub(crate) fn controller_log(&self) -> ControllerLogger<'_> {
         ControllerLogger::new(self)
     }
 
-    pub(crate) fn node_log(&self, node_id: NodeId, endpoint: EndpointIndex) -> NodeLogger {
+    pub(crate) fn node_log(&self, node_id: NodeId, endpoint: EndpointIndex) -> NodeLogger<'_> {
         NodeLogger::new(self, node_id, endpoint)
     }
 

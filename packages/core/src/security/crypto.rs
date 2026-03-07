@@ -195,7 +195,7 @@ const CONSTANT_PRK: [u8; 16] = [0x33; 16];
 
 /// Computes the Pseudo Random Key (PRK) used to derive auth, encryption and nonce keys
 pub fn compute_prk(ecdh_shared_secret: &[u8], pub_key_a: &[u8], pub_key_b: &[u8]) -> Vec<u8> {
-    let message = [&ecdh_shared_secret, pub_key_a, pub_key_b].concat();
+    let message = [ecdh_shared_secret, pub_key_a, pub_key_b].concat();
     compute_cmac(&message, &CONSTANT_PRK)
 }
 

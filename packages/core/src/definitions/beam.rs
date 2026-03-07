@@ -37,10 +37,7 @@ impl Beam {
     pub fn parse_opt(i: &mut (Bytes, usize)) -> crate::parse::ParseResult<Option<Self>> {
         context(
             "Beam",
-            map(bits::take(2usize), |x: u8| match Beam::try_from(x) {
-                Ok(beam) => Some(beam),
-                Err(_) => None,
-            }),
+            map(bits::take(2usize), |x: u8| Beam::try_from(x).ok()),
         )
         .parse(i)
     }

@@ -22,19 +22,19 @@ impl DriverStorage {
         }
     }
 
-    pub fn value_cache(&self) -> RwLockReadGuard<HashMap<EndpointValueId, CacheValue>> {
+    pub fn value_cache(&self) -> RwLockReadGuard<'_, HashMap<EndpointValueId, CacheValue>> {
         self.value_cache.read().unwrap()
     }
 
-    pub fn value_cache_mut(&self) -> RwLockWriteGuard<HashMap<EndpointValueId, CacheValue>> {
+    pub fn value_cache_mut(&self) -> RwLockWriteGuard<'_, HashMap<EndpointValueId, CacheValue>> {
         self.value_cache.write().unwrap()
     }
 
-    pub fn security_manager(&self) -> RwLockReadGuard<Option<SecurityManager>> {
+    pub fn security_manager(&self) -> RwLockReadGuard<'_, Option<SecurityManager>> {
         self.security_manager.read().unwrap()
     }
 
-    pub fn security_manager_mut(&self) -> RwLockWriteGuard<Option<SecurityManager>> {
+    pub fn security_manager_mut(&self) -> RwLockWriteGuard<'_, Option<SecurityManager>> {
         self.security_manager.write().unwrap()
     }
 }

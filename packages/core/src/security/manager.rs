@@ -324,11 +324,9 @@ impl SecurityManager {
         let key = write_locked!(self, free_nonces).remove(&issuer)?;
 
         // With that, try to find the nonce in the nonce store
-        let entry = read_locked!(self, nonce_store)
+        return read_locked!(self, nonce_store)
             .get(&key)
             .map(|e| e.nonce.clone());
-
-        entry
     }
 
     pub fn auth_key(&self) -> &[u8] {

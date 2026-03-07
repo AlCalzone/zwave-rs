@@ -52,7 +52,6 @@ impl_cachevalue_from!(BinarySet, BinarySet);
 impl_cachevalue_from!(BinaryReport, BinaryReport);
 
 /// A trait for a cache that stores values for a given key
-
 pub trait Cache<TKey> {
     fn read(&self, key: &TKey) -> Option<CacheValue>;
     fn write_many(&mut self, values: impl Iterator<Item = (TKey, CacheValue)>);

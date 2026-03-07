@@ -6,7 +6,7 @@ use zwave_core::prelude::*;
 
 // API for node instances
 impl Controller<'_, Ready> {
-    pub fn get_node(&self, node_id: &NodeId) -> Option<Node> {
+    pub fn get_node(&self, node_id: &NodeId) -> Option<Node<'_>> {
         // Do not return a node API for the Serial API controller
         if node_id == &self.own_node_id() {
             return None;
@@ -29,7 +29,7 @@ impl Controller<'_, Ready> {
             })
     }
 
-    pub fn nodes(&self) -> Vec<Node> {
+    pub fn nodes(&self) -> Vec<Node<'_>> {
         self.node_storage()
             .keys()
             .filter_map(move |node_id| self.get_node(node_id))

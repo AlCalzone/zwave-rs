@@ -106,7 +106,7 @@ pub trait EndpointLike<'a> {
     fn controls_cc(&self, cc: CommandClasses) -> bool;
     fn get_cc_version(&self, cc: CommandClasses) -> Option<u8>;
 
-    fn logger(&self) -> NodeLogger;
+    fn logger(&self) -> NodeLogger<'_>;
 
     // TODO: Add the rest
 }
@@ -124,7 +124,7 @@ impl<'a> Node<'a> {
         }
     }
 
-    pub(crate) fn controller(&self) -> &Controller<Ready> {
+    pub(crate) fn controller(&self) -> &'_ Controller<'_, Ready> {
         self.controller
     }
 
@@ -136,7 +136,7 @@ impl<'a> Node<'a> {
         self.id
     }
 
-    pub fn get_endpoint(&self, index: u8) -> Endpoint {
+    pub fn get_endpoint(&self, index: u8) -> Endpoint<'_> {
         Endpoint::new(self, index, self.controller)
     }
 
@@ -245,7 +245,7 @@ impl<'a> EndpointLike<'a> for Node<'a> {
             .flatten()
     }
 
-    fn logger(&self) -> NodeLogger {
+    fn logger(&self) -> NodeLogger<'_> {
         self.controller
             .driver()
             .node_log(self.node_id(), self.index())
@@ -267,7 +267,7 @@ impl<'a> Endpoint<'a> {
         }
     }
 
-    pub fn controller(&self) -> &Controller<Ready> {
+    pub fn controller(&self) -> &'_ Controller<'_, Ready> {
         self.controller
     }
 }
@@ -277,7 +277,7 @@ impl<'a> EndpointLike<'a> for Endpoint<'a> {
         self.node.id()
     }
 
-    fn get_node(&'a self) -> &Node<'a> {
+    fn get_node(&'a self) -> &'a Node<'a> {
         self.node
     }
 
@@ -346,7 +346,7 @@ impl<'a> EndpointLike<'a> for Endpoint<'a> {
             .flatten()
     }
 
-    fn logger(&self) -> NodeLogger {
+    fn logger(&self) -> NodeLogger<'_> {
         self.controller
             .driver()
             .node_log(self.node_id(), self.index())

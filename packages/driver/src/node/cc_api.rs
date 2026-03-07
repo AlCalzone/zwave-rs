@@ -27,7 +27,7 @@ pub trait CCAPI<'a> {
 impl_cc_apis!("src/node/cc_api");
 
 impl<'a> Node<'a> {
-    pub fn cc_api(&self) -> CCAPIs {
+    pub fn cc_api(&self) -> CCAPIs<'_> {
         CCAPIs::new(self)
     }
 }

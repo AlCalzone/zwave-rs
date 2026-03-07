@@ -420,14 +420,13 @@ pub fn impl_cc_apis(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(TryFromRepr)]
 pub fn derive_try_from_repr(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let result = match &input.data {
+    match &input.data {
         syn::Data::Enum(data) => {
             try_from_repr_for_enum(&input, data.variants.iter().cloned().collect())
         }
         syn::Data::Struct(_) => panic!("#[derive(TryFromRepr)] not supported for structs"),
         syn::Data::Union(_) => panic!("#[derive(TryFromRepr)] not supported for unions"),
-    };
-    result
+    }
 }
 
 #[proc_macro_derive(CCValues, attributes(cc_value))]

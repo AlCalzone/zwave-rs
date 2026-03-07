@@ -100,7 +100,7 @@ impl CommandParsable for GetSerialApiCapabilitiesResponse {
         let supported_function_types = fixed_length_bitmask_u8(i, 1, NUM_FUNCTION_BYTES)?;
         let supported_function_types = supported_function_types
             .iter()
-            .filter_map(|f| FunctionType::try_from(*f).map_or_else(|_| None, Some))
+            .filter_map(|f| FunctionType::try_from(*f).ok())
             .collect::<Vec<_>>();
 
         Ok(Self {
