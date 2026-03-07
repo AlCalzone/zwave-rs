@@ -210,7 +210,7 @@ impl SerialApiActor {
                 // Check if this is an expected response or callback
                 if let Some(SerialApiCommandState {
                     command,
-                    ref machine,
+                    machine,
                     ..
                 }) = &self.serial_api_command
                 {
