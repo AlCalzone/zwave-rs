@@ -1,13 +1,11 @@
+use crate::port::ZWavePort;
 use futures::StreamExt;
 use tokio::{select, task};
 use zwave_driver::{
     DriverActor, DriverAdapter, DriverInput, LogReceiver, SerialApiActor, SerialApiAdapter,
 };
-use zwave_logging::{loggers::base::BaseLogger, Logger};
-use zwave_serial::{
-    binding::SerialBinding,
-    serialport::{SerialPort, TcpSocket, ZWavePort},
-};
+use zwave_logging::{Logger, loggers::base::BaseLogger};
+use zwave_serial::binding::SerialBinding;
 
 pub struct Runtime {
     logger: BaseLogger,
@@ -29,10 +27,10 @@ impl Runtime {
         serial_api: SerialApiActor,
         serial_api_adapter: SerialApiAdapter,
     ) -> Result<Self, anyhow::Error> {
-        let open_port_result = if let Some(path) = path.strip_prefix("tcp://") {
-            TcpSocket::new(path).map(ZWavePort::Tcp)
+        let open_port_result = if let Some(addr) = path.strip_prefix("tcp://") {
+            ZWavePort::open_tcp(addr)
         } else {
-            SerialPort::new(path).map(ZWavePort::Serial)
+            ZWavePort::open_serial(path)
         };
 
         let port = match open_port_result {

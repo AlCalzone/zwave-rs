@@ -1,6 +1,6 @@
+use crate::frame::SerialControlByte;
 use crate::frame::SerialFrame;
 use crate::util::with_hex_fmt;
-use crate::frame::SerialControlByte;
 use bytes::{Bytes, BytesMut};
 use std::fmt::Debug;
 use zwave_core::prelude::*;

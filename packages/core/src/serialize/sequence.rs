@@ -1,6 +1,6 @@
 use super::{
-    bytes::{be_u8, slice},
     Serializable,
+    bytes::{be_u8, slice},
 };
 use bitvec::prelude::*;
 use bytes::BytesMut;

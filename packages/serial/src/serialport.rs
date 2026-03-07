@@ -1,100 +1,35 @@
 use crate::binding::SerialBinding;
 use crate::error::*;
 use crate::frame::RawSerialFrame;
+use asynchronous_codec::{Decoder, Encoder, Framed};
 use bytes::BytesMut;
+use futures::io::{AsyncRead, AsyncWrite};
 use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
-use tokio::net::TcpStream;
-use tokio_serial::{SerialPortBuilderExt, SerialStream};
-use tokio_util::codec::{Decoder, Encoder, Framed};
 use zwave_core::parse::Needed;
 use zwave_core::prelude::*;
 
-pub enum ZWavePort {
-    Serial(SerialPort),
-    Tcp(TcpSocket),
+pub struct FramedBinding<S> {
+    writer: SplitSink<Framed<S, SerialFrameCodec>, RawSerialFrame>,
+    reader: SplitStream<Framed<S, SerialFrameCodec>>,
 }
 
-impl SerialBinding for ZWavePort {
-    async fn write(&mut self, frame: RawSerialFrame) -> Result<()> {
-        match self {
-            ZWavePort::Serial(port) => port.write(frame).await,
-            ZWavePort::Tcp(port) => port.write(frame).await,
-        }
-    }
-
-    async fn read(&mut self) -> Option<RawSerialFrame> {
-        match self {
-            ZWavePort::Serial(port) => port.read().await,
-            ZWavePort::Tcp(port) => port.read().await,
-        }
+impl<S: AsyncRead + AsyncWrite + Unpin> FramedBinding<S> {
+    pub fn new(stream: S) -> Self {
+        let framed = Framed::new(stream, SerialFrameCodec);
+        let (writer, reader) = framed.split();
+        Self { writer, reader }
     }
 }
 
-// FIXME: The only difference between SerialPort and TcpSocket is the type of the stream
-// We should unify them into a single struct with a generic type parameter
-
-pub struct SerialPort {
-    writer: SplitSink<Framed<SerialStream, SerialFrameCodec>, RawSerialFrame>,
-    reader: SplitStream<Framed<SerialStream, SerialFrameCodec>>,
-}
-
-impl SerialPort {
-    pub fn new(path: &str) -> Result<Self> {
-        #[allow(unused_mut)]
-        let mut port = tokio_serial::new(path, 115_200).open_native_async()?;
-
-        #[cfg(unix)]
-        port.set_exclusive(false)
-            .expect("Unable to set serial port exclusive to false");
-        let codec = SerialFrameCodec.framed(port);
-        let (writer, reader) = codec.split();
-
-        Ok(Self { writer, reader })
-    }
-}
-
-impl SerialBinding for SerialPort {
+impl<S: AsyncRead + AsyncWrite + Unpin + Send> SerialBinding for FramedBinding<S> {
     async fn write(&mut self, frame: RawSerialFrame) -> Result<()> {
         self.writer.send(frame).await?;
         Ok(())
     }
 
     async fn read(&mut self) -> Option<RawSerialFrame> {
-        let ret = self.reader.next().await;
-        match ret {
-            Some(Ok(frame)) => Some(frame),
-            _ => None,
-        }
-    }
-}
-
-pub struct TcpSocket {
-    writer: SplitSink<Framed<TcpStream, SerialFrameCodec>, RawSerialFrame>,
-    reader: SplitStream<Framed<TcpStream, SerialFrameCodec>>,
-}
-
-impl TcpSocket {
-    pub fn new(addr: &str) -> Result<Self> {
-        let stream = std::net::TcpStream::connect(addr)?;
-        stream.set_nonblocking(true)?;
-        let stream = TcpStream::from_std(stream)?;
-
-        let codec = SerialFrameCodec.framed(stream);
-        let (writer, reader) = codec.split();
-        Ok(Self { writer, reader })
-    }
-}
-
-impl SerialBinding for TcpSocket {
-    async fn write(&mut self, frame: RawSerialFrame) -> Result<()> {
-        self.writer.send(frame).await?;
-        Ok(())
-    }
-
-    async fn read(&mut self) -> Option<RawSerialFrame> {
-        let ret = self.reader.next().await;
-        match ret {
+        match self.reader.next().await {
             Some(Ok(frame)) => Some(frame),
             _ => None,
         }
@@ -128,12 +63,13 @@ impl Decoder for SerialFrameCodec {
     }
 }
 
-impl Encoder<RawSerialFrame> for SerialFrameCodec {
+impl Encoder for SerialFrameCodec {
+    type Item<'a> = RawSerialFrame;
     type Error = std::io::Error;
 
     fn encode(
         &mut self,
-        item: RawSerialFrame,
+        item: Self::Item<'_>,
         dst: &mut BytesMut,
     ) -> std::result::Result<(), Self::Error> {
         item.serialize(dst);

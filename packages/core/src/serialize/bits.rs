@@ -1,5 +1,5 @@
-use super::ensure_capacity;
 use super::BitOutput;
+use super::ensure_capacity;
 use crate::prelude::*;
 use bitvec::prelude::*;
 use bytes::BytesMut;

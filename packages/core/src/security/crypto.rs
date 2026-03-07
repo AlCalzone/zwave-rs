@@ -1,12 +1,12 @@
 use aes::cipher::{
+    BlockEncrypt, BlockEncryptMut, KeyInit, KeyIvInit, StreamCipher,
     block_padding::ZeroPadding,
     generic_array::{
-        typenum::{U13, U16, U8},
         GenericArray,
+        typenum::{U8, U13, U16},
     },
-    BlockEncrypt, BlockEncryptMut, KeyInit, KeyIvInit, StreamCipher,
 };
-use ccm::{aead::Aead, AeadInPlace};
+use ccm::{AeadInPlace, aead::Aead};
 
 type Aes128Ofb = ofb::Ofb<aes::Aes128>;
 type Aes128CbcEnc = cbc::Encryptor<aes::Aes128>;
@@ -414,7 +414,9 @@ mod test {
     fn test_compute_cmac_4() {
         // Test vector taken from https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Standards-and-Guidelines/documents/examples/AES_CMAC.pdf
         let key = hex_literal!("2B7E151628AED2A6ABF7158809CF4F3C");
-        let plaintext = hex_literal!("6BC1BEE22E409F96E93D7E117393172AAE2D8A571E03AC9C9EB76FAC45AF8E5130C81C46A35CE411E5FBC1191A0A52EFF69F2445DF4F9B17AD2B417BE66C3710");
+        let plaintext = hex_literal!(
+            "6BC1BEE22E409F96E93D7E117393172AAE2D8A571E03AC9C9EB76FAC45AF8E5130C81C46A35CE411E5FBC1191A0A52EFF69F2445DF4F9B17AD2B417BE66C3710"
+        );
         let expected = hex_literal!("51F0BEBF7E3B9D92FC49741779363CFE");
 
         assert_eq!(compute_cmac(&plaintext, &key), expected);

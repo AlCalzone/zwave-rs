@@ -14,4 +14,6 @@ zwave-logging.workspace = true
 termcolor.workspace = true
 futures.workspace = true
 tokio.workspace = true
+tokio-serial.workspace = true
+tokio-util = { workspace = true, features = ["compat"] }
 anyhow = "1.0.97"

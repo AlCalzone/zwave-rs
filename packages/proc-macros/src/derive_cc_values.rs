@@ -11,13 +11,13 @@ pub(crate) fn impl_derive_cc_values(
             return Err(Error::new(
                 ast.span(),
                 "#[derive(CCValues)] is not supported for enums",
-            ))
+            ));
         }
         syn::Data::Union(_) => {
             return Err(Error::new(
                 ast.span(),
                 "#[derive(CCValues)] is not supported for unions",
-            ))
+            ));
         }
     };
 
@@ -28,13 +28,13 @@ pub(crate) fn impl_derive_cc_values(
             return Err(Error::new(
                 ast.span(),
                 "#[derive(CCValues)] is not supported for tuple structs",
-            ))
+            ));
         }
         syn::Fields::Unit => {
             return Err(Error::new(
                 ast.span(),
                 "#[derive(CCValues)] is not supported for unit structs",
-            ))
+            ));
         }
     };
 
@@ -52,7 +52,7 @@ pub(crate) fn impl_derive_cc_values(
                     return Err(Error::new(
                         a.span(),
                         "Expected a path to a CC value definition",
-                    ))
+                    ));
                 }
             };
             let field_name = f.ident.as_ref().unwrap();
@@ -63,7 +63,7 @@ pub(crate) fn impl_derive_cc_values(
                     return Err(Error::new(
                         f.span(),
                         "Unsupported type for #[derive(CCValues)]",
-                    ))
+                    ));
                 }
             };
 

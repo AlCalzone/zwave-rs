@@ -1,4 +1,4 @@
-use super::{ensure_capacity, Serializable};
+use super::{Serializable, ensure_capacity};
 use bytes::BytesMut;
 
 macro_rules! impl_int {

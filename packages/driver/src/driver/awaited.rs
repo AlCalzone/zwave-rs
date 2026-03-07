@@ -5,6 +5,7 @@ use std::time::Duration;
 use unique_id::sequence::SequenceGenerator;
 use unique_id::Generator;
 use zwave_core::util::MaybeSleep;
+use futures::FutureExt;
 use futures::channel::oneshot;
 
 pub type Predicate<T> = Box<dyn Fn(&T) -> bool + Sync + Send>;
@@ -97,12 +98,12 @@ impl<T> AwaitedRef<T> {
 
     /// Begins awaiting the value
     pub async fn try_await(mut self) -> Result<T> {
-        let sleep = MaybeSleep::new(self.timeout);
-        let receiver = self
+        let mut sleep = MaybeSleep::new(self.timeout).fuse();
+        let mut receiver = self
             .channel
             .take()
             .expect("try_await may only be called once");
-        tokio::select! {
+        futures::select! {
             result = receiver => result.map_err(|_| Error::Internal),
             _ = sleep => Err(Error::Timeout),
         }

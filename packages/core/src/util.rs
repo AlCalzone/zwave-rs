@@ -1,4 +1,4 @@
-use pin_project::pin_project;
+use futures_timer::Delay;
 use std::borrow::Cow;
 use std::{
     future::Future,
@@ -6,21 +6,16 @@ use std::{
     task::{Context, Poll},
     time::Duration,
 };
-use tokio::time::{sleep, Sleep};
 use unicode_segmentation::UnicodeSegmentation;
 
-#[pin_project]
 pub struct MaybeSleep {
-    duration: Option<Duration>,
-    #[pin]
-    sleep: Option<Sleep>,
+    sleep: Option<Delay>,
 }
 
 impl MaybeSleep {
     pub fn new(duration: Option<Duration>) -> Self {
         Self {
-            duration,
-            sleep: duration.map(sleep),
+            sleep: duration.map(Delay::new),
         }
     }
 }
@@ -29,18 +24,15 @@ impl Future for MaybeSleep {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-        if this.sleep.is_some() {
-            let sleep = this.sleep.as_pin_mut().unwrap();
-            sleep.poll(cx)
-        } else {
-            Poll::Pending
+        match &mut self.get_mut().sleep {
+            Some(delay) => Pin::new(delay).poll(cx),
+            None => Poll::Pending,
         }
     }
 }
 
 pub fn now() -> String {
-    use time::{macros::format_description, OffsetDateTime};
+    use time::{OffsetDateTime, macros::format_description};
     let format =
         format_description!("[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:4]Z");
     OffsetDateTime::now_utc().format(format).unwrap()

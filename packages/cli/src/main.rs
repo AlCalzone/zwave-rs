@@ -4,15 +4,16 @@ use zwave_cc::{
     commandclass::{BasicCCGet, SecurityCCCommandEncapsulation},
     prelude::*,
 };
-use zwave_core::log::Loglevel;
+use zwave_core::{log::Loglevel, prelude::NodeId};
 use zwave_driver::{Controller, SecurityKeys};
 use zwave_logging::loggers::base::BaseLogger;
 
+mod port;
 mod rt;
 use rt::Runtime;
 
 #[cfg(target_os = "linux")]
-const PORT: &str = "/dev/ttyUSB0";
+const PORT: &str = "/dev/ttyACM1";
 // const PORT: &str = "tcp://Z-Net-R2v2.local:2001";
 
 #[cfg(target_os = "windows")]
@@ -80,13 +81,20 @@ async fn main() -> Result<(), anyhow::Error> {
 
             tokio::time::sleep(Duration::from_secs(3)).await;
 
-            let node = controller.get_node(&6u8.into()).unwrap();
+            let node = controller.get_node(&NodeId::new(24u8)).unwrap();
 
-            let cc: CC = BasicCCGet::default().into();
-            let cc: CC = SecurityCCCommandEncapsulation::new(cc).into();
-            let cc = cc.with_destination(node.id().into());
-            let result = driver.exec_node_command(&cc, None).await;
+            let result = node
+                .cc_api()
+                .basic()
+                .set(zwave_core::values::LevelSet::On)
+                .await;
             println!("result: {:?}", result);
+
+            // let cc: CC = BasicCCGet::default().into();
+            // let cc: CC = SecurityCCCommandEncapsulation::new(cc).into();
+            // let cc = cc.with_destination(node.id().into());
+            // let result = driver.exec_node_command(&cc, None).await;
+            // println!("result: {:?}", result);
 
             // let ping_result = controller
             //     .get_node(&4u8.into())

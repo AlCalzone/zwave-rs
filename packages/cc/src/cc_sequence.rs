@@ -1,5 +1,5 @@
 use crate::{
-    commandclass::{WithAddress, CC},
+    commandclass::{CC, WithAddress},
     prelude::{CCAddressable, CCEncodingContext},
 };
 

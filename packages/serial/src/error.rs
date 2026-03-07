@@ -1,9 +1,7 @@
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Serialport(#[from] tokio_serial::Error),
-    #[error(transparent)]
-    IO(#[from] tokio::io::Error),
+    IO(#[from] std::io::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

@@ -1,10 +1,10 @@
 use super::{
+    ToLength,
     bytes::{
         be_u8,
         complete::{literal, take},
     },
     combinators::map_parser,
-    ToLength,
 };
 use crate::prelude::*;
 use bitvec::prelude::*;

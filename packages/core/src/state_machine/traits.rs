@@ -65,7 +65,7 @@ pub trait StateMachine: Sized + Send + 'static {
     /// Determines the next transition to be executed given the current state and the input.
     /// Returns the transition if a valid one exists, otherwise returns None.
     fn next(&self, input: Self::I, evaluate_condition: impl Fn(Self::C) -> bool)
-        -> Option<Self::T>;
+    -> Option<Self::T>;
 
     /// Transitions the state machine into the new state
     fn transition(&mut self, state: Self::S);

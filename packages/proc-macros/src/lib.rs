@@ -9,7 +9,7 @@ use impl_cc_enum::{CCInfo, CCInfoExtractor};
 use impl_command_enum::{CommandInfo, CommandInfoExtractor};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, visit, DeriveInput};
+use syn::{DeriveInput, parse_macro_input, visit};
 use util::{parse_dirname_from_macro_input, parse_files_in_dir};
 
 mod derive_cc_values;

@@ -1,4 +1,4 @@
-use super::{combinators::map, Needed};
+use super::{Needed, combinators::map};
 use crate::prelude::*;
 use bytes::{Buf, Bytes};
 use std::ops::{Add, Shl, Shr};

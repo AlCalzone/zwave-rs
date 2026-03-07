@@ -42,15 +42,15 @@ impl DriverActor {
         }
     }
 
-    pub fn driver_log(&self) -> DriverLogger {
+    pub fn driver_log(&self) -> DriverLogger<'_> {
         DriverLogger::new(self)
     }
 
-    pub fn controller_log(&self) -> ControllerLogger {
+    pub fn controller_log(&self) -> ControllerLogger<'_> {
         ControllerLogger::new(self)
     }
 
-    pub(crate) fn node_log(&self, node_id: NodeId, endpoint: EndpointIndex) -> NodeLogger {
+    pub(crate) fn node_log(&self, node_id: NodeId, endpoint: EndpointIndex) -> NodeLogger<'_> {
         NodeLogger::new(self, node_id, endpoint)
     }
 

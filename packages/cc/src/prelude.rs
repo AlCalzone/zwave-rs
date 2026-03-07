@@ -1,5 +1,5 @@
 pub use crate::commandclass::{
-    CCAddress, CCAddressable, CCBase, CCEncodingContext, CCId, CCInfo, CCParsable,
-    CCParsingContext, CCValues, Destination, WithAddress, CC,
+    CC, CCAddress, CCAddressable, CCBase, CCEncodingContext, CCId, CCInfo, CCParsable,
+    CCParsingContext, CCValues, Destination, WithAddress,
 };
 pub use crate::commandclass_raw::CCRaw;
