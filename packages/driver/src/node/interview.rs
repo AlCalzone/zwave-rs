@@ -152,7 +152,7 @@ impl<'a> Node<'a> {
         // Interview all endpoints
         let endpoint_indizes: &[u8] = &[];
         for endpoint_index in endpoint_indizes {
-            let endpoint = self.get_endpoint(*endpoint_index);
+            let endpoint = self.endpoint(*endpoint_index);
             endpoint.interview_ccs().await?;
         }
 

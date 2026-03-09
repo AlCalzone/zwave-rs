@@ -81,7 +81,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
             tokio::time::sleep(Duration::from_secs(3)).await;
 
-            let node = controller.get_node(&NodeId::new(24u8)).unwrap();
+            let node = controller.node(NodeId::new(24u8)).unwrap();
 
             let result = node
                 .cc_api()
@@ -97,7 +97,7 @@ async fn main() -> Result<(), anyhow::Error> {
             // println!("result: {:?}", result);
 
             // let ping_result = controller
-            //     .get_node(&4u8.into())
+            //     .node(4u8.into())
             //     .unwrap()
             //     .ping()
             //     .await

@@ -1,4 +1,4 @@
-use crate::{ControllerCommandError, EndpointLike, ExecNodeCommandError, Node};
+use crate::{ControllerCommandError, Endpoint, EndpointLike, ExecNodeCommandError, Node};
 use proc_macros::impl_cc_apis;
 use thiserror::Error;
 use zwave_core::definitions::*;
@@ -27,6 +27,12 @@ pub trait CCAPI<'a> {
 impl_cc_apis!("src/node/cc_api");
 
 impl<'a> Node<'a> {
+    pub fn cc_api(&self) -> CCAPIs<'_> {
+        CCAPIs::new(self)
+    }
+}
+
+impl<'a> Endpoint<'a> {
     pub fn cc_api(&self) -> CCAPIs<'_> {
         CCAPIs::new(self)
     }

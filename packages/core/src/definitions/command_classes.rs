@@ -1,6 +1,6 @@
 use crate::{
     parse::{
-        bytes::{be_u16, be_u8},
+        bytes::{be_u8, be_u16},
         combinators::{map_res, peek},
     },
     prelude::*,
@@ -508,7 +508,7 @@ impl Parsable for CommandClasses {
 
 impl Serializable for CommandClasses {
     fn serialize(&self, output: &mut bytes::BytesMut) {
-        use serialize::bytes::{be_u16, be_u8};
+        use serialize::bytes::{be_u8, be_u16};
         if self.is_extended_cc() {
             be_u16(*self as u16).serialize(output);
         } else {
@@ -520,69 +520,28 @@ impl Serializable for CommandClasses {
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct CommandClassInfo {
     /// Whether the node or endpoint supports the CC, meaning others can control the CC oh it
-    supported: bool,
+    pub supported: bool,
     /// Whether the node or endpoint controls this CC (in others)
-    controlled: bool,
+    pub controlled: bool,
     /// Whether the CC is ONLY supported securely
-    secure: bool,
+    pub secure: bool,
     /// The maximum version of the CC that is supported by the node or endpoint
-    version: u8,
+    pub version: u8,
 }
 
 impl CommandClassInfo {
-    pub fn new(supported: bool, controlled: bool, secure: bool, version: u8) -> CommandClassInfo {
-        CommandClassInfo {
-            supported,
-            controlled,
-            secure,
-            version,
-        }
-    }
-
-    pub fn supported(&self) -> bool {
-        self.supported
-    }
-
-    pub fn set_supported(&mut self, supported: bool) {
-        self.supported = supported;
-    }
-
-    pub fn controlled(&self) -> bool {
-        self.controlled
-    }
-
-    pub fn set_controlled(&mut self, controlled: bool) {
-        self.controlled = controlled;
-    }
-
-    pub fn secure(&self) -> bool {
-        self.secure
-    }
-
-    pub fn set_secure(&mut self, secure: bool) {
-        self.secure = secure;
-    }
-
-    pub fn version(&self) -> u8 {
-        self.version
-    }
-
-    pub fn set_version(&mut self, version: u8) {
-        self.version = version;
-    }
-
     pub fn merge(&mut self, other: &PartialCommandClassInfo) {
         if let Some(supported) = other.supported {
-            self.set_supported(supported);
+            self.supported = supported;
         }
         if let Some(controlled) = other.controlled {
-            self.set_controlled(controlled);
+            self.controlled = controlled;
         }
         if let Some(secure) = other.secure {
-            self.set_secure(secure);
+            self.secure = secure;
         }
         if let Some(version) = other.version {
-            self.set_version(version);
+            self.version = version;
         }
     }
 }

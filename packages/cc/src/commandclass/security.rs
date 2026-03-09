@@ -270,7 +270,7 @@ impl CCParsable for SecurityCCCommandEncapsulation {
         let source_node_id = ctx.source_node_id;
         let own_node_id = ctx.own_node_id;
 
-        let Some(sec_man) = ctx.security_manager.as_mut() else {
+        let Some(sec_man) = ctx.security_manager.as_ref() else {
             return fail_validation(
                 "Secure commands (S0) can only be decoded when the network key is set",
             );

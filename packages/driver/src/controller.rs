@@ -1,15 +1,16 @@
 use crate::{
-    ControllerCommandError, ControllerCommandResult, Driver, EndpointStorage, NodeStorage,
+    ControllerCommandError, ControllerCommandResult, Driver, NodeStorage,
 };
 use std::{
     collections::BTreeMap,
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::Arc,
 };
-use zwave_core::{definitions::*, log::Loglevel, submodule};
+use zwave_core::{definitions::*, log::Loglevel, submodule, util::Locked};
 use zwave_serial::command::SerialApiSetupCommand;
 
 submodule!(storage);
 submodule!(node_api);
+submodule!(state);
 // submodule!(node_commands);
 
 /// The controller API can be in one of multiple states, each of which has a different set of capabilities.
@@ -22,9 +23,8 @@ impl ControllerState for Init {}
 /// The controller is ready to use normally
 #[derive(Clone)]
 pub struct Ready {
-    storage: Arc<RwLock<ControllerStorage>>,
-    nodes: Arc<RwLock<BTreeMap<NodeId, NodeStorage>>>,
-    endpoints: Arc<RwLock<BTreeMap<(NodeId, EndpointIndex), EndpointStorage>>>,
+    storage: Arc<Locked<ControllerStorage>>,
+    nodes: Arc<Locked<BTreeMap<NodeId, NodeStorage>>>,
 }
 impl ControllerState for Ready {}
 
@@ -97,8 +97,6 @@ impl<'a> Controller<'a, Init> {
         let suc_node_id = driver.get_suc_node_id(command_options).await?;
 
         let mut nodes = BTreeMap::new();
-        let endpoints = BTreeMap::new();
-
         // Read the protocol info for each node and store it
         // FIXME: Read this from cache where possible when we have one
         {
@@ -143,9 +141,8 @@ impl<'a> Controller<'a, Init> {
         Ok(Controller {
             driver,
             state: Ready {
-                storage: Arc::new(RwLock::new(controller)),
-                nodes: Arc::new(RwLock::new(nodes)),
-                endpoints: Arc::new(RwLock::new(endpoints)),
+                storage: Arc::new(Locked::new(controller)),
+                nodes: Arc::new(Locked::new(nodes)),
             },
         })
     }
@@ -232,128 +229,90 @@ impl<'a> Controller<'a, Ready> {
         self.driver
     }
 
-    fn storage(&self) -> RwLockReadGuard<'_, ControllerStorage> {
-        self.state
-            .storage
-            .read()
-            .expect("failed to lock controller storage for reading")
-    }
-
-    fn storage_mut(&self) -> RwLockWriteGuard<'_, ControllerStorage> {
-        self.state
-            .storage
-            .write()
-            .expect("failed to lock controller storage for writing")
-    }
-
-    pub(crate) fn node_storage(&self) -> RwLockReadGuard<'_, BTreeMap<NodeId, NodeStorage>> {
-        self.state
-            .nodes
-            .read()
-            .expect("failed to lock node storage for reading")
-    }
-
-    pub(crate) fn node_storage_mut(&self) -> RwLockWriteGuard<'_, BTreeMap<NodeId, NodeStorage>> {
-        self.state
-            .nodes
-            .write()
-            .expect("failed to lock node storage for writing")
-    }
-
-    pub(crate) fn endpoint_storage(
-        &self,
-    ) -> RwLockReadGuard<'_, BTreeMap<(NodeId, EndpointIndex), EndpointStorage>> {
-        self.state
-            .endpoints
-            .read()
-            .expect("failed to lock endpoint storage for reading")
-    }
-
-    pub(crate) fn endpoint_storage_mut(
-        &self,
-    ) -> RwLockWriteGuard<'_, BTreeMap<(NodeId, EndpointIndex), EndpointStorage>> {
-        self.state
-            .endpoints
-            .write()
-            .expect("failed to lock endpoint storage for writing")
-    }
-
     /// Checks whether a given Z-Wave function type is supported by the controller.
     pub fn supports_function(&self, function_type: FunctionType) -> bool {
-        self.storage()
-            .supported_function_types
-            .contains(&function_type)
+        self.state
+            .storage
+            .inspect(|storage| storage.supported_function_types.contains(&function_type))
     }
 
     /// Checks whether a given Z-Wave Serial API setup command is supported by the controller.
     pub fn supports_serial_api_setup_command(&self, command: SerialApiSetupCommand) -> bool {
-        self.storage()
-            .supported_serial_api_setup_commands
-            .contains(&command)
+        self.state.storage.inspect(|storage| {
+            storage
+                .supported_serial_api_setup_commands
+                .contains(&command)
+        })
     }
 
     pub fn home_id(&self) -> Id32 {
-        self.storage().home_id
+        self.state.storage.inspect(|storage| storage.home_id)
     }
 
     pub fn own_node_id(&self) -> NodeId {
-        self.storage().own_node_id
+        self.state.storage.inspect(|storage| storage.own_node_id)
     }
 
     pub fn suc_node_id(&self) -> Option<NodeId> {
-        self.storage().suc_node_id
+        self.state.storage.inspect(|storage| storage.suc_node_id)
     }
 
     pub(crate) fn set_suc_node_id(&mut self, suc_node_id: Option<NodeId>) {
-        self.storage_mut().suc_node_id = suc_node_id;
+        self.state
+            .storage
+            .update(|storage| storage.suc_node_id = suc_node_id);
     }
 
     pub fn is_suc(&self) -> bool {
-        self.storage().is_suc
+        self.state.storage.inspect(|storage| storage.is_suc)
     }
 
     pub(crate) fn set_is_suc(&mut self, is_suc: bool) {
-        self.storage_mut().is_suc = is_suc;
+        self.state.storage.update(|storage| storage.is_suc = is_suc);
     }
 
     pub fn is_sis(&self) -> bool {
-        self.storage().is_sis
+        self.state.storage.inspect(|storage| storage.is_sis)
     }
 
     pub(crate) fn set_is_sis(&mut self, is_sis: bool) {
-        self.storage_mut().is_sis = is_sis;
+        self.state.storage.update(|storage| storage.is_sis = is_sis);
     }
 
     pub fn sis_present(&self) -> bool {
-        self.storage().sis_present
+        self.state.storage.inspect(|storage| storage.sis_present)
     }
 
     pub(crate) fn set_sis_present(&mut self, sis_present: bool) {
-        self.storage_mut().sis_present = sis_present;
+        self.state
+            .storage
+            .update(|storage| storage.sis_present = sis_present);
     }
 
     pub fn role(&self) -> ControllerRole {
-        self.storage().role
+        self.state.storage.inspect(|storage| storage.role)
     }
 
     pub(crate) fn set_role(&mut self, role: ControllerRole) {
-        self.storage_mut().role = role;
+        self.state.storage.update(|storage| storage.role = role);
     }
 
     pub fn rf_region(&self) -> Option<RfRegion> {
-        self.storage().rf_region
+        self.state.storage.inspect(|storage| storage.rf_region)
     }
 
     pub(crate) fn set_rf_region(&mut self, region: Option<RfRegion>) {
-        self.storage_mut().rf_region = region;
+        self.state.storage.update(|storage| storage.rf_region = region);
     }
 
     pub fn powerlevel(&self) -> Option<Powerlevel> {
-        self.storage().powerlevel
+        self.state.storage.inspect(|storage| storage.powerlevel)
     }
 
     pub(crate) fn set_powerlevel(&mut self, powerlevel: Option<Powerlevel>) {
-        self.storage_mut().powerlevel = powerlevel;
+        self.state
+            .storage
+            .update(|storage| storage.powerlevel = powerlevel);
     }
 }
 

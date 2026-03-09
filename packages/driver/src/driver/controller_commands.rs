@@ -152,7 +152,8 @@ impl Driver {
         // Remember the protocol version
         self.serial_api
             .storage
-            .set_sdk_version(protocol_version.version);
+            .sdk_version()
+            .set(Some(protocol_version.version));
 
         Ok(protocol_version)
     }
@@ -237,7 +238,7 @@ impl Driver {
 
         // Remember the node ID type
         if success {
-            self.serial_api.storage.set_node_id_type(node_id_type);
+            self.serial_api.storage.node_id_type().set(node_id_type);
         }
 
         Ok(success)

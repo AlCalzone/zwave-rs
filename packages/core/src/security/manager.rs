@@ -1,11 +1,8 @@
 use super::crypto::encrypt_aes_ecb;
 use crate::prelude::*;
+use crate::util::Locked;
 use getrandom::getrandom;
-use std::{
-    collections::BTreeMap,
-    ops::Deref,
-    sync::{Arc, RwLock},
-};
+use std::{collections::BTreeMap, ops::Deref, sync::Arc};
 
 pub const NETWORK_KEY_SIZE: usize = 16;
 pub const S0_HALF_NONCE_SIZE: usize = 8;
@@ -154,24 +151,10 @@ fn generate_enc_key(network_key: &NetworkKey) -> NetworkKey {
     encrypt_aes_ecb(ENC_KEY_BASE, network_key).into()
 }
 
-macro_rules! read_locked {
-    ($self:ident, $field:ident) => {
-        $self
-            .storage
-            .$field
-            .read()
-            .expect("failed to lock SecurityManager storage for reading")
-    };
-}
-
-macro_rules! write_locked {
-    ($self:ident, $field:ident) => {
-        $self
-            .storage
-            .$field
-            .write()
-            .expect("failed to lock SecurityManager storage for writing")
-    };
+struct SecurityManagerState {
+    nonce_store: BTreeMap<NonceKey, NonceEntry>,
+    free_nonces: BTreeMap<NodeId, NonceKey>,
+    receiver_nonces: BTreeMap<NodeId, NonceKey>,
 }
 
 pub struct SecurityManagerStorage {
@@ -179,9 +162,7 @@ pub struct SecurityManagerStorage {
     network_key: NetworkKey,
     auth_key: NetworkKey,
     enc_key: NetworkKey,
-    nonce_store: RwLock<BTreeMap<NonceKey, NonceEntry>>,
-    free_nonces: RwLock<BTreeMap<NodeId, NonceKey>>,
-    receiver_nonces: RwLock<BTreeMap<NodeId, NonceKey>>,
+    state: Locked<SecurityManagerState>,
 }
 
 impl SecurityManagerStorage {
@@ -198,9 +179,11 @@ impl SecurityManagerStorage {
             network_key: options.network_key,
             auth_key,
             enc_key,
-            nonce_store: RwLock::new(BTreeMap::new()),
-            free_nonces: RwLock::new(BTreeMap::new()),
-            receiver_nonces: RwLock::new(BTreeMap::new()),
+            state: Locked::new(SecurityManagerState {
+                nonce_store: BTreeMap::new(),
+                free_nonces: BTreeMap::new(),
+                receiver_nonces: BTreeMap::new(),
+            }),
         }
     }
 }
@@ -216,13 +199,15 @@ impl SecurityManager {
     }
 
     fn has_nonce(&self, nonce_id: u8) -> bool {
-        read_locked!(self, nonce_store).contains_key(&NonceKey {
-            issuer: self.storage.own_node_id,
-            nonce_id,
+        self.storage.state.inspect(|state| {
+            state.nonce_store.contains_key(&NonceKey {
+                issuer: self.storage.own_node_id,
+                nonce_id,
+            })
         })
     }
 
-    pub fn generate_nonce(&mut self, receiver: NodeId) -> S0Nonce {
+    pub fn generate_nonce(&self, receiver: NodeId) -> S0Nonce {
         // Generate a nonce until we find one whose ID that is not already in use
         let nonce = loop {
             let nonce = S0Nonce::random();
@@ -237,96 +222,94 @@ impl SecurityManager {
         nonce
     }
 
-    pub fn set_nonce(&mut self, issuer: NodeId, receiver: NodeId, nonce: S0Nonce, free: bool) {
+    pub fn set_nonce(&self, issuer: NodeId, receiver: NodeId, nonce: S0Nonce, free: bool) {
         let key = NonceKey {
             issuer,
             nonce_id: nonce.id(),
         };
 
-        let mut receiver_nonces = write_locked!(self, receiver_nonces);
-        let mut nonce_store = write_locked!(self, nonce_store);
+        self.storage.state.update(|state| {
+            // If there is an existing nonce for the same receiver, remove it
+            if let Some(existing_key) = state.receiver_nonces.get(&receiver) {
+                state.nonce_store.remove(existing_key);
+            }
 
-        // If there is an existing nonce for the same receiver, remove it
-        if let Some(existing_key) = receiver_nonces.get(&receiver) {
-            nonce_store.remove(existing_key);
-        }
+            // Add the new one
+            state
+                .nonce_store
+                .insert(key, NonceEntry { receiver, nonce });
+            state.receiver_nonces.insert(receiver, key);
 
-        // Add the new one
-        nonce_store.insert(key, NonceEntry { receiver, nonce });
-        receiver_nonces.insert(receiver, key);
+            // And mark it as free if requested
+            if free {
+                state.free_nonces.insert(issuer, key);
+            }
 
-        // And mark it as free if requested
-        if free {
-            write_locked!(self, free_nonces).insert(issuer, key);
-        }
-
-        // TODO: Expire old nonces
+            // TODO: Expire old nonces
+        });
     }
 
     /// Deletes a specific nonce if it exists
-    fn delete_nonce(&mut self, issuer: NodeId, nonce_id: u8) {
+    fn delete_nonce(&self, issuer: NodeId, nonce_id: u8) {
         let key = NonceKey { issuer, nonce_id };
+        self.storage.state.update(|state| {
+            // Remove the entry from the nonce store
+            let old = state.nonce_store.remove(&key);
 
-        let mut receiver_nonces = write_locked!(self, receiver_nonces);
-        let mut nonce_store = write_locked!(self, nonce_store);
-        let mut free_nonces = write_locked!(self, free_nonces);
+            // Delete the entry for the issuer from free_nonces if the stored key is the
+            // expected one
+            if state.free_nonces.get(&issuer) == Some(&key) {
+                state.free_nonces.remove(&issuer);
+            }
 
-        // Remove the entry from the nonce store
-        let old = nonce_store.remove(&key);
-
-        // Delete the entry for the issuer from free_nonces if the stored key is the
-        // expected one
-        if free_nonces.get(&issuer) == Some(&key) {
-            free_nonces.remove(&issuer);
-        }
-
-        // And delete the entry for the receiver from receiver_nonces
-        if let Some(NonceEntry { receiver, .. }) = old {
-            receiver_nonces.remove(&receiver);
-        }
+            // And delete the entry for the receiver from receiver_nonces
+            if let Some(NonceEntry { receiver, .. }) = old {
+                state.receiver_nonces.remove(&receiver);
+            }
+        });
     }
 
     /// Deletes the nonce stored for a given receiver
-    pub fn delete_nonce_for_receiver(&mut self, receiver: NodeId) {
-        let key = write_locked!(self, receiver_nonces).remove(&receiver);
+    pub fn delete_nonce_for_receiver(&self, receiver: NodeId) {
+        let key = self
+            .storage
+            .state
+            .update(|state| state.receiver_nonces.remove(&receiver));
         if let Some(NonceKey { issuer, nonce_id }) = key {
             self.delete_nonce(issuer, nonce_id);
         }
     }
 
     /// Deletes a nonce that was issued by ourselves
-    pub fn delete_own_nonce(&mut self, nonce_id: u8) {
+    pub fn delete_own_nonce(&self, nonce_id: u8) {
         self.delete_nonce(self.storage.own_node_id, nonce_id);
     }
 
     /// Tries to retrieve a specific nonce issued by ourselves. The same nonce
     /// can only be retrieved once.
-    pub fn try_get_own_nonce(&mut self, nonce_id: u8) -> Option<S0Nonce> {
+    pub fn try_get_own_nonce(&self, nonce_id: u8) -> Option<S0Nonce> {
         self.try_get_nonce(self.storage.own_node_id, nonce_id)
     }
 
     /// Tries to retrieve a specific nonce by ID for a given node. The same nonce
     /// can only be retrieved once.
-    pub fn try_get_nonce(&mut self, issuer: NodeId, nonce_id: u8) -> Option<S0Nonce> {
+    pub fn try_get_nonce(&self, issuer: NodeId, nonce_id: u8) -> Option<S0Nonce> {
         let key = NonceKey { issuer, nonce_id };
-        // If the nonce was previously free, it no longer is
-        write_locked!(self, free_nonces).remove(&issuer);
-        // And return the nonce if it was found
-        write_locked!(self, nonce_store)
-            .remove(&key)
-            .map(|e| e.nonce)
+        self.storage.state.update(|state| {
+            // If the nonce was previously free, it no longer is
+            state.free_nonces.remove(&issuer);
+            // And return the nonce if it was found
+            state.nonce_store.remove(&key).map(|entry| entry.nonce)
+        })
     }
 
     /// Tries to claim a nonce that is not reserved for a specific transaction.
     /// If a nonce is found, it is no longer considered free afterwards
-    pub fn try_claim_nonce(&mut self, issuer: NodeId) -> Option<S0Nonce> {
-        // Find and possibly remove an entry for the given Node ID from the free_nonces map
-        let key = write_locked!(self, free_nonces).remove(&issuer)?;
-
-        // With that, try to find the nonce in the nonce store
-        return read_locked!(self, nonce_store)
-            .get(&key)
-            .map(|e| e.nonce.clone());
+    pub fn try_claim_nonce(&self, issuer: NodeId) -> Option<S0Nonce> {
+        self.storage.state.update(|state| {
+            let key = state.free_nonces.remove(&issuer)?;
+            state.nonce_store.get(&key).map(|entry| entry.nonce.clone())
+        })
     }
 
     pub fn auth_key(&self) -> &[u8] {

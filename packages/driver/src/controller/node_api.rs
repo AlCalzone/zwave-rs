@@ -6,33 +6,26 @@ use zwave_core::prelude::*;
 
 // API for node instances
 impl Controller<'_, Ready> {
-    pub fn get_node(&self, node_id: &NodeId) -> Option<Node<'_>> {
+    pub fn node(&self, node_id: NodeId) -> Option<Node<'_>> {
         // Do not return a node API for the Serial API controller
-        if node_id == &self.own_node_id() {
+        if node_id == self.own_node_id() {
             return None;
         }
 
-        self.state
-            .nodes
-            .read()
-            .expect("failed to lock node storage for reading")
-            .get(node_id)
-            .map(|storage| {
-                Node::new(
-                    *node_id,
-                    // We clone the protocol data from storage to avoid lots of node methods
-                    // needing an Option as the return type in case the node was removed after
-                    // the call to get_node
-                    storage.protocol_data.clone(),
-                    self,
-                )
-            })
+        self.node_state(node_id).protocol_data().map(|protocol_data| {
+            Node::new(
+                node_id,
+                protocol_data,
+                self,
+            )
+        })
     }
 
     pub fn nodes(&self) -> Vec<Node<'_>> {
-        self.node_storage()
-            .keys()
-            .filter_map(move |node_id| self.get_node(node_id))
-            .collect()
+        self.state.nodes.inspect(|nodes| {
+            nodes.keys()
+                .filter_map(move |node_id| self.node(*node_id))
+                .collect()
+        })
     }
 }

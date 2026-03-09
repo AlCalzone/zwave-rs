@@ -17,19 +17,27 @@ impl<'a> ValueCache<'a> {
 
 impl Cache<EndpointValueId> for ValueCache<'_> {
     fn read(&self, key: &EndpointValueId) -> Option<CacheValue> {
-        self.storage.value_cache().get(key).cloned()
+        self.storage
+            .value_cache()
+            .inspect(|cache| cache.get(key).cloned())
     }
 
     fn write(&mut self, key: &EndpointValueId, value: CacheValue) {
-        self.storage.value_cache_mut().insert(*key, value);
+        self.storage.value_cache().update(|cache| {
+            cache.insert(*key, value);
+        });
     }
 
     fn write_many(&mut self, values: impl Iterator<Item = (EndpointValueId, CacheValue)>) {
-        self.storage.value_cache_mut().extend(values);
+        self.storage.value_cache().update(|cache| {
+            cache.extend(values);
+        });
     }
 
     fn delete(&mut self, key: &EndpointValueId) {
-        self.storage.value_cache_mut().remove(key);
+        self.storage.value_cache().update(|cache| {
+            cache.remove(key);
+        });
     }
 }
 

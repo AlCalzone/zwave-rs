@@ -1,4 +1,7 @@
-use crate::{Controller, ControllerCommandResult, Driver, ExecNodeCommandError, Ready};
+use crate::{
+    Controller, ControllerCommandResult, Driver, EndpointStateRef, ExecNodeCommandError,
+    NodeStateRef, Ready,
+};
 use cache::EndpointValueCache;
 use zwave_cc::commandclass::{CCAddressable, NoOperationCC};
 use zwave_core::{definitions::*, submodule};
@@ -8,82 +11,6 @@ submodule!(interview);
 submodule!(storage);
 submodule!(cc_api);
 mod cache;
-
-// macro_rules! read {
-//     ($self:ident, $node_id:expr, $field:ident) => {
-//         $self
-//             .driver
-//             .get_node_storage($node_id)
-//             .map(|storage| storage.$field)
-//     };
-// }
-
-macro_rules! read_locked {
-    ($self:ident, $node_id:expr, $field:ident; deref) => {
-        $self
-            .controller
-            .node_storage()
-            .get($node_id)
-            .map(|storage| *storage.$field)
-    };
-    ($self:ident, $node_id:expr, $field:ident) => {
-        $self
-            .controller
-            .node_storage()
-            .get($node_id)
-            .map(|storage| storage.$field)
-    };
-}
-
-macro_rules! write_locked {
-    ($self:ident, $node_id:expr, $field:ident) => {
-        $self
-            .controller
-            .node_storage_mut()
-            .get_mut($node_id)
-            .map(|storage| &mut storage.$field)
-    };
-}
-
-macro_rules! read_endpoint_locked {
-    // ($self:ident, $node_id:expr, $endpoint_index:expr, $field:ident; deref) => {
-    //     $self
-    //         .driver
-    //         .storage
-    //         .endpoints()
-    //         .get(&(*$node_id, *$endpoint_index))
-    //         .map(|storage| *storage.$field)
-    // };
-    ($self:ident, $node_id:expr, $endpoint_index:expr, $field:ident) => {
-        $self
-            .controller
-            .endpoint_storage()
-            .get(&(*$node_id, *$endpoint_index))
-            .map(|storage| &storage.$field)
-    };
-}
-
-macro_rules! write_endpoint_locked {
-    ($self:ident, $node_id:expr, $endpoint_index:expr, $field:ident) => {
-        $self
-            .controller
-            .endpoint_storage_mut()
-            .get_mut(&(*$node_id, *$endpoint_index))
-            .map(|storage| &mut storage.$field)
-    };
-}
-
-// macro_rules! read_atomic {
-//     ($self:ident, $field:ident) => {
-//         read!($self, $field).load(Ordering::Relaxed)
-//     };
-// }
-
-// macro_rules! write_atomic {
-//     ($self:ident, $field:ident, $value:expr) => {
-//         read!($self, $field).store($value, Ordering::Relaxed);
-//     };
-// }
 
 pub struct Node<'a> {
     id: NodeId,
@@ -136,18 +63,16 @@ impl<'a> Node<'a> {
         self.id
     }
 
-    pub fn get_endpoint(&self, index: u8) -> Endpoint<'_> {
+    pub fn endpoint(&self, index: u8) -> Endpoint<'_> {
         Endpoint::new(self, index, self.controller)
     }
 
     pub fn interview_stage(&self) -> InterviewStage {
-        read_locked!(self, &self.id, interview_stage).unwrap_or(InterviewStage::None)
+        self.state().interview_stage().unwrap_or(InterviewStage::None)
     }
 
     pub fn set_interview_stage(&self, interview_stage: InterviewStage) {
-        if let Some(handle) = write_locked!(self, &self.id, interview_stage) {
-            *handle = interview_stage;
-        }
+        self.state().set_interview_stage(interview_stage);
     }
 
     pub fn protocol_data(&self) -> &NodeInformationProtocolData {
@@ -156,6 +81,14 @@ impl<'a> Node<'a> {
 
     pub fn can_sleep(&self) -> bool {
         !self.protocol_data.listening && self.protocol_data.frequent_listening.is_none()
+    }
+
+    fn state(&self) -> NodeStateRef<'_> {
+        self.controller.node_state(self.id)
+    }
+
+    fn endpoint_state(&self) -> EndpointStateRef<'_> {
+        self.state().endpoint(EndpointIndex::Root)
     }
 
     /// Pings the node and returns whether it responded or not.
@@ -191,58 +124,31 @@ impl<'a> EndpointLike<'a> for Node<'a> {
     }
 
     fn modify_cc_info(&self, cc: CommandClasses, info: &PartialCommandClassInfo) {
-        if let Some(cc_info) = write_endpoint_locked!(self, &self.id, &self.index(), cc_info) {
-            cc_info
-                .entry(cc)
-                .and_modify(|cc_info| cc_info.merge(info))
-                .or_insert_with(|| info.into());
-        }
+        self.endpoint_state().merge_command_class_info(cc, info);
     }
 
     fn remove_cc(&self, cc: CommandClasses) {
-        if let Some(cc_info) = write_endpoint_locked!(self, &self.id, &self.index(), cc_info) {
-            cc_info.remove(&cc);
-        }
+        self.endpoint_state().remove_command_class(cc);
     }
 
     fn supported_command_classes(&self) -> Vec<CommandClasses> {
-        read_endpoint_locked!(self, &self.id, &self.index(), cc_info)
-            .map(|map| {
-                map.iter()
-                    .filter_map(|(cc, info)| if info.supported() { Some(*cc) } else { None })
-                    .collect()
-            })
-            .unwrap_or_default()
+        self.endpoint_state().supported_command_classes()
     }
 
     fn controlled_command_classes(&self) -> Vec<CommandClasses> {
-        read_endpoint_locked!(self, &self.id, &self.index(), cc_info)
-            .map(|map| {
-                map.iter()
-                    .filter_map(|(cc, info)| if info.controlled() { Some(*cc) } else { None })
-                    .collect()
-            })
-            .unwrap_or_default()
+        self.endpoint_state().controlled_command_classes()
     }
 
     fn supports_cc(&self, cc: CommandClasses) -> bool {
-        read_endpoint_locked!(self, &self.id, &self.index(), cc_info)
-            .map(|map| map.get(&cc).map(|cc| cc.supported()))
-            .flatten()
-            .unwrap_or(false)
+        self.endpoint_state().supports_command_class(cc)
     }
 
     fn controls_cc(&self, cc: CommandClasses) -> bool {
-        read_endpoint_locked!(self, &self.id, &self.index(), cc_info)
-            .map(|map| map.get(&cc).map(|cc| cc.controlled()))
-            .flatten()
-            .unwrap_or(false)
+        self.endpoint_state().controls_command_class(cc)
     }
 
     fn get_cc_version(&self, cc: CommandClasses) -> Option<u8> {
-        read_endpoint_locked!(self, &self.id, &self.index(), cc_info)
-            .map(|map| map.get(&cc).map(|cc| cc.version()))
-            .flatten()
+        self.endpoint_state().command_class_version(cc)
     }
 
     fn logger(&self) -> NodeLogger<'_> {
@@ -270,6 +176,12 @@ impl<'a> Endpoint<'a> {
     pub fn controller(&self) -> &'_ Controller<'_, Ready> {
         self.controller
     }
+
+    fn state(&self) -> EndpointStateRef<'_> {
+        self.controller
+            .node_state(self.node_id())
+            .endpoint(self.index())
+    }
 }
 
 impl<'a> EndpointLike<'a> for Endpoint<'a> {
@@ -290,60 +202,31 @@ impl<'a> EndpointLike<'a> for Endpoint<'a> {
     }
 
     fn modify_cc_info(&self, cc: CommandClasses, info: &PartialCommandClassInfo) {
-        if let Some(cc_info) = write_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
-        {
-            cc_info
-                .entry(cc)
-                .and_modify(|cc_info| cc_info.merge(info))
-                .or_insert_with(|| info.into());
-        }
+        self.state().merge_command_class_info(cc, info);
     }
 
     fn remove_cc(&self, cc: CommandClasses) {
-        if let Some(cc_info) = write_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
-        {
-            cc_info.remove(&cc);
-        }
+        self.state().remove_command_class(cc);
     }
 
     fn supported_command_classes(&self) -> Vec<CommandClasses> {
-        read_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
-            .map(|map| {
-                map.iter()
-                    .filter_map(|(cc, info)| if info.supported() { Some(*cc) } else { None })
-                    .collect()
-            })
-            .unwrap_or_default()
+        self.state().supported_command_classes()
     }
 
     fn controlled_command_classes(&self) -> Vec<CommandClasses> {
-        read_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
-            .map(|map| {
-                map.iter()
-                    .filter_map(|(cc, info)| if info.controlled() { Some(*cc) } else { None })
-                    .collect()
-            })
-            .unwrap_or_default()
+        self.state().controlled_command_classes()
     }
 
     fn supports_cc(&self, cc: CommandClasses) -> bool {
-        read_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
-            .map(|map| map.get(&cc).map(|cc| cc.supported()))
-            .flatten()
-            .unwrap_or(false)
+        self.state().supports_command_class(cc)
     }
 
     fn controls_cc(&self, cc: CommandClasses) -> bool {
-        read_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
-            .map(|map| map.get(&cc).map(|cc| cc.controlled()))
-            .flatten()
-            .unwrap_or(false)
+        self.state().controls_command_class(cc)
     }
 
     fn get_cc_version(&self, cc: CommandClasses) -> Option<u8> {
-        read_endpoint_locked!(self, &self.node_id(), &self.index(), cc_info)
-            .map(|map| map.get(&cc).map(|cc| cc.version()))
-            .flatten()
+        self.state().command_class_version(cc)
     }
 
     fn logger(&self) -> NodeLogger<'_> {

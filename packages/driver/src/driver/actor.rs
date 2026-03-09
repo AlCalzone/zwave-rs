@@ -113,8 +113,8 @@ impl DriverActor {
         CCParsingContext::builder()
             .source_node_id(address.source_node_id)
             .frame_addressing(Some((&address.destination).into()))
-            .own_node_id(self.serial_api.storage.own_node_id())
-            .security_manager(self.storage.security_manager().clone())
+            .own_node_id(self.serial_api.storage.own_node_id().get())
+            .security_manager(self.storage.security_manager().cloned())
             .build()
     }
 
@@ -183,11 +183,11 @@ impl DriverActor {
         if let Some(ref s0_key) = self.security_keys.s0_legacy {
             logger.info(|| "Network key for S0 configured, enabling S0 security manager...");
             let storage = SecurityManagerStorage::new(SecurityManagerOptions {
-                own_node_id: self.serial_api.storage.own_node_id(),
+                own_node_id: self.serial_api.storage.own_node_id().get(),
                 network_key: s0_key.into(),
             });
             let sec_man = SecurityManager::new(Arc::new(storage));
-            self.storage.security_manager_mut().replace(sec_man);
+            let _ = self.storage.security_manager().replace(Some(sec_man));
         } else {
             logger.warn(|| "No network key for S0 configured, communication with secure (S0) devices won't work!");
         }

@@ -132,9 +132,9 @@ impl SerialApiActor {
                 let expects_callback = command.expects_callback();
 
                 let ctx = CommandEncodingContext::builder()
-                    .own_node_id(self.storage.own_node_id())
-                    .node_id_type(self.storage.node_id_type())
-                    .sdk_version(self.storage.sdk_version())
+                    .own_node_id(self.storage.own_node_id().get())
+                    .node_id_type(self.storage.node_id_type().get())
+                    .sdk_version(self.storage.sdk_version().get())
                     .build();
                 let raw = command.as_raw(&ctx);
                 let frame = SerialFrame::Command(raw);
@@ -193,9 +193,9 @@ impl SerialApiActor {
                 // Try to convert it into an actual command
                 let cmd = {
                     let ctx = CommandParsingContext::builder()
-                        .own_node_id(self.storage.own_node_id())
-                        .node_id_type(self.storage.node_id_type())
-                        .sdk_version(self.storage.sdk_version())
+                        .own_node_id(self.storage.own_node_id().get())
+                        .node_id_type(self.storage.node_id_type().get())
+                        .sdk_version(self.storage.sdk_version().get())
                         .build();
                     match zwave_serial::command::Command::try_from_raw(raw, ctx) {
                         Ok(cmd) => cmd,

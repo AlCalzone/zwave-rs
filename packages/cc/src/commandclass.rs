@@ -118,7 +118,10 @@ impl CCSession for CC {
     }
 
     fn merge_session(&mut self, ctx: CCParsingContext, other_ccs: Vec<CC>) -> ParseResult<()> {
-        #[expect(clippy::single_match, reason = "We are going to add more CCs that are part of sessions in the future, so we want to keep the structure in place")]
+        #[expect(
+            clippy::single_match,
+            reason = "We are going to add more CCs that are part of sessions in the future, so we want to keep the structure in place"
+        )]
         match self {
             CC::SecurityCCCommandEncapsulation(me) => me.merge_session(ctx, other_ccs)?,
             // By default we assume the CC is not part of a session, so it is already complete

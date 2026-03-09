@@ -3,10 +3,75 @@ use std::borrow::Cow;
 use std::{
     future::Future,
     pin::Pin,
+    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     task::{Context, Poll},
     time::Duration,
 };
 use unicode_segmentation::UnicodeSegmentation;
+
+/// A small wrapper around `RwLock<T>` for storage fields that
+/// are shared across the codebase and should expose
+/// semantic read/update operations instead of raw lock guards.
+pub struct Locked<T> {
+    inner: RwLock<T>,
+}
+
+impl<T> Locked<T> {
+    /// Creates a new locked value.
+    pub fn new(value: T) -> Self {
+        Self {
+            inner: RwLock::new(value),
+        }
+    }
+
+    /// Reads the contained value and derives a result from it.
+    pub fn inspect<R>(&self, inspect: impl FnOnce(&T) -> R) -> R {
+        let guard = self.read();
+        inspect(&guard)
+    }
+
+    /// Mutates the contained value and returns the closure result.
+    pub fn update<R>(&self, update: impl FnOnce(&mut T) -> R) -> R {
+        let mut guard = self.write();
+        update(&mut guard)
+    }
+
+    /// Replaces the contained value.
+    pub fn set(&self, value: T) {
+        self.update(|slot| *slot = value);
+    }
+
+    /// Replaces the contained value and returns the previous one.
+    pub fn replace(&self, value: T) -> T {
+        self.update(|slot| std::mem::replace(slot, value))
+    }
+
+    fn read(&self) -> RwLockReadGuard<'_, T> {
+        self.inner
+            .read()
+            .expect("failed to lock storage for reading")
+    }
+
+    fn write(&self) -> RwLockWriteGuard<'_, T> {
+        self.inner
+            .write()
+            .expect("failed to lock storage for writing")
+    }
+}
+
+impl<T: Copy> Locked<T> {
+    /// Returns a copy of the contained value.
+    pub fn get(&self) -> T {
+        self.inspect(|value| *value)
+    }
+}
+
+impl<T: Clone> Locked<T> {
+    /// Returns a clone of the contained value.
+    pub fn cloned(&self) -> T {
+        self.inspect(Clone::clone)
+    }
+}
 
 pub struct MaybeSleep {
     sleep: Option<Delay>,

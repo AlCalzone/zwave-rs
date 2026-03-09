@@ -1,8 +1,10 @@
-use std::{
-    collections::HashMap,
-    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
+use std::collections::HashMap;
+use zwave_core::{
+    cache::CacheValue,
+    security::SecurityManager,
+    util::Locked,
+    value_id::EndpointValueId,
 };
-use zwave_core::{cache::CacheValue, security::SecurityManager, value_id::EndpointValueId};
 
 /// Internal storage for the driver instance and shared API instances.
 /// Since the driver is meant be used from external (application) code,
@@ -10,31 +12,23 @@ use zwave_core::{cache::CacheValue, security::SecurityManager, value_id::Endpoin
 /// interior mutability to allow for concurrent access without requiring
 /// a mutable reference.
 pub(crate) struct DriverStorage {
-    value_cache: RwLock<HashMap<EndpointValueId, CacheValue>>,
-    security_manager: RwLock<Option<SecurityManager>>,
+    value_cache: Locked<HashMap<EndpointValueId, CacheValue>>,
+    security_manager: Locked<Option<SecurityManager>>,
 }
 
 impl DriverStorage {
     pub fn new() -> Self {
         Self {
-            value_cache: RwLock::new(HashMap::new()),
-            security_manager: RwLock::new(None),
+            value_cache: Locked::new(HashMap::new()),
+            security_manager: Locked::new(None),
         }
     }
 
-    pub fn value_cache(&self) -> RwLockReadGuard<'_, HashMap<EndpointValueId, CacheValue>> {
-        self.value_cache.read().unwrap()
+    pub(crate) fn value_cache(&self) -> &Locked<HashMap<EndpointValueId, CacheValue>> {
+        &self.value_cache
     }
 
-    pub fn value_cache_mut(&self) -> RwLockWriteGuard<'_, HashMap<EndpointValueId, CacheValue>> {
-        self.value_cache.write().unwrap()
-    }
-
-    pub fn security_manager(&self) -> RwLockReadGuard<'_, Option<SecurityManager>> {
-        self.security_manager.read().unwrap()
-    }
-
-    pub fn security_manager_mut(&self) -> RwLockWriteGuard<'_, Option<SecurityManager>> {
-        self.security_manager.write().unwrap()
+    pub(crate) fn security_manager(&self) -> &Locked<Option<SecurityManager>> {
+        &self.security_manager
     }
 }
