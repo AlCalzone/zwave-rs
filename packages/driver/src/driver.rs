@@ -1,14 +1,15 @@
+use crate::LogSender;
 use crate::error::Result;
 use crate::serial_api::SerialApi;
-use crate::LogSender;
 use awaited::Predicate;
 use futures::channel::{mpsc, oneshot};
-use typed_builder::TypedBuilder;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use storage::DriverStorage;
+use typed_builder::TypedBuilder;
 use zwave_cc::prelude::*;
 use zwave_core::log::Loglevel;
+use zwave_core::security::NetworkKey;
 use zwave_core::submodule;
 use zwave_logging::LogInfo;
 use zwave_serial::prelude::*;
@@ -55,7 +56,11 @@ pub struct DriverAdapter {
 }
 
 impl Driver {
-    pub fn new(serial_api: &SerialApi, log_tx: LogSender, security_keys: SecurityKeys) -> (Self, DriverActor, DriverAdapter) {
+    pub fn new(
+        serial_api: &SerialApi,
+        log_tx: LogSender,
+        security_keys: SecurityKeys,
+    ) -> (Self, DriverActor, DriverAdapter) {
         let (input_tx, input_rx) = mpsc::channel(16);
         let (event_tx, event_rx) = mpsc::channel(16);
 
@@ -127,6 +132,12 @@ pub struct DriverOptions {
 
 #[derive(Default, Clone, TypedBuilder)]
 pub struct SecurityKeys {
-    #[builder(default, setter(into))]
-    pub s0_legacy: Option<Vec<u8>>,
+    #[builder(default, setter(into, strip_option))]
+    pub s0_legacy: Option<NetworkKey>,
+    #[builder(default, setter(into, strip_option))]
+    pub s2_unauthenticated: Option<NetworkKey>,
+    #[builder(default, setter(into, strip_option))]
+    pub s2_authenticated: Option<NetworkKey>,
+    #[builder(default, setter(into, strip_option))]
+    pub s2_access_control: Option<NetworkKey>,
 }

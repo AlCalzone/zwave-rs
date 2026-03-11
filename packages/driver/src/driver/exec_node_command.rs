@@ -52,6 +52,7 @@ impl Driver {
             .own_node_id(self.serial_api.storage.own_node_id().get())
             .node_id(destination_node_id)
             .security_manager(self.storage.security_manager().cloned())
+            .security_manager2(self.storage.security_manager2().cloned())
             .build()
     }
 

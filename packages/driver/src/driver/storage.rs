@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use zwave_core::{
     cache::CacheValue,
-    security::SecurityManager,
+    security::{SecurityManager, SecurityManager2},
     util::Locked,
     value_id::EndpointValueId,
 };
@@ -14,6 +14,7 @@ use zwave_core::{
 pub(crate) struct DriverStorage {
     value_cache: Locked<HashMap<EndpointValueId, CacheValue>>,
     security_manager: Locked<Option<SecurityManager>>,
+    security_manager2: Locked<Option<SecurityManager2>>,
 }
 
 impl DriverStorage {
@@ -21,6 +22,7 @@ impl DriverStorage {
         Self {
             value_cache: Locked::new(HashMap::new()),
             security_manager: Locked::new(None),
+            security_manager2: Locked::new(None),
         }
     }
 
@@ -30,5 +32,9 @@ impl DriverStorage {
 
     pub(crate) fn security_manager(&self) -> &Locked<Option<SecurityManager>> {
         &self.security_manager
+    }
+
+    pub(crate) fn security_manager2(&self) -> &Locked<Option<SecurityManager2>> {
+        &self.security_manager2
     }
 }

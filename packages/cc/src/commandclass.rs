@@ -7,7 +7,10 @@ use std::{
 };
 use typed_builder::TypedBuilder;
 use zwave_core::{cache::CacheValue, value_id::ValueId};
-use zwave_core::{prelude::*, security::SecurityManager};
+use zwave_core::{
+    prelude::*,
+    security::{SecurityManager, SecurityManager2},
+};
 
 pub use crate::cc_sequence::*;
 
@@ -18,6 +21,8 @@ pub struct CCEncodingContext {
     own_node_id: NodeId,
     #[builder(default, setter(into))]
     security_manager: Option<SecurityManager>,
+    #[builder(default, setter(into))]
+    security_manager2: Option<SecurityManager2>,
 }
 
 #[derive(Default, TypedBuilder)]
@@ -29,6 +34,8 @@ pub struct CCParsingContext {
     pub(crate) frame_addressing: Option<FrameAddressing>,
     #[builder(default, setter(into))]
     pub(crate) security_manager: Option<SecurityManager>,
+    #[builder(default, setter(into))]
+    pub(crate) security_manager2: Option<SecurityManager2>,
 }
 
 pub trait CCParsable

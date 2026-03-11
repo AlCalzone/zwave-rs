@@ -24,6 +24,7 @@ submodule!(rf_region);
 submodule!(routing_scheme);
 submodule!(rssi);
 submodule!(sdk_version);
+submodule!(security_class);
 submodule!(serial_api_wakeup_reason);
 submodule!(transmit_options);
 submodule!(transmit_report);

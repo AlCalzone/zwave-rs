@@ -1,51 +1,73 @@
-use super::crypto::{encrypt_aes_ecb, increment_slice_mut, xor_slice_mut};
+use super::crypto::{
+    AesKey, Block, ENTROPY_SIZE, Entropy, PersonalizationString, encrypt_aes_ecb,
+    increment_slice_mut, xor_slice_mut,
+};
 
-const KEY_LEN: usize = 16;
-const BLOCK_LEN: usize = 16;
-const SEED_LEN: usize = KEY_LEN + BLOCK_LEN;
+pub const KEY_LEN: usize = 16;
+pub const BLOCK_LEN: usize = 16;
+pub const SEED_LEN: usize = ENTROPY_SIZE;
 
 // Warning: This code expects ctr_len to equal BLOCK_LEN.
 // See specification on how to handle other cases
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CtrDrbg {
-    v: [u8; BLOCK_LEN],
-    key: [u8; KEY_LEN],
+    v: Block,
+    key: AesKey,
     // reseed counter is not used
 }
 
 impl CtrDrbg {
-    pub fn new(entropy: [u8; SEED_LEN]) -> Self {
+    pub fn new(entropy: Entropy) -> Self {
         let mut ret = Self {
             v: [0; BLOCK_LEN],
-            key: [0; KEY_LEN],
+            key: [0; KEY_LEN].into(),
         };
 
-        ret.init(entropy);
+        ret.init(entropy, None);
 
         ret
     }
 
-    fn init(&mut self, entropy: [u8; SEED_LEN]) {
-        // No personalization_string is used, otherwise XOR entropy with it
-        // and use the result as seed material.
+    pub fn new_with_personalization(
+        entropy: Entropy,
+        personalization_string: PersonalizationString,
+    ) -> Self {
+        let mut ret = Self {
+            v: [0; BLOCK_LEN],
+            key: [0; KEY_LEN].into(),
+        };
 
-        self.update(Some(entropy));
+        ret.init(entropy, Some(personalization_string));
+
+        ret
     }
 
-    fn update(&mut self, provided_data: Option<[u8; SEED_LEN]>) {
+    fn init(&mut self, entropy: Entropy, personalization_string: Option<PersonalizationString>) {
+        let mut seed_material = entropy;
+        if let Some(personalization_string) = personalization_string {
+            xor_slice_mut(seed_material.as_mut(), personalization_string.as_ref());
+        }
+
+        self.update(Some(seed_material));
+    }
+
+    fn update(&mut self, provided_data: Option<Entropy>) {
         let mut temp: Vec<u8> = Vec::with_capacity(SEED_LEN);
         while temp.len() < SEED_LEN {
             increment_slice_mut(&mut self.v);
-            temp.append(&mut encrypt_aes_ecb(&self.v, &self.key));
+            let block = encrypt_aes_ecb(&self.v, &self.key);
+            temp.extend_from_slice(&block);
         }
         temp.truncate(SEED_LEN);
 
         if let Some(provided_data) = provided_data {
-            xor_slice_mut(&mut temp, &provided_data);
+            xor_slice_mut(&mut temp, provided_data.as_ref());
         }
 
         let (key, v) = temp.split_at_mut(KEY_LEN);
-        self.key.copy_from_slice(key);
+        let key: [u8; KEY_LEN] = key.try_into().unwrap();
+        self.key = key.into();
         self.v.copy_from_slice(v);
     }
 
@@ -56,7 +78,8 @@ impl CtrDrbg {
 
         while temp.len() < bytes {
             increment_slice_mut(&mut self.v);
-            temp.append(&mut encrypt_aes_ecb(&self.v, &self.key));
+            let block = encrypt_aes_ecb(&self.v, &self.key);
+            temp.extend_from_slice(&block);
         }
         temp.truncate(bytes);
 
@@ -66,7 +89,7 @@ impl CtrDrbg {
     }
 
     #[cfg(test)]
-    pub fn reseed(&mut self, entropy: [u8; SEED_LEN]) {
+    pub fn reseed(&mut self, entropy: Entropy) {
         // Reseeding isn't necessary for this implementation, but all test vectors use it
         self.update(Some(entropy));
     }
@@ -78,6 +101,7 @@ mod test {
 
     struct TestVector {
         entropy: Vec<u8>,
+        personalization_string: Option<Vec<u8>>,
         entropy_reseed: Vec<u8>,
         bytes: usize,
         expected: Vec<u8>,
@@ -94,10 +118,24 @@ mod test {
             let eol_index = input[entropy_index..].find('\n').unwrap() + entropy_index;
             let entropy = hex::decode(input[entropy_index..eol_index].trim()).unwrap();
 
-            let entropy_reseed_index = input[entropy_index..]
-                .find("EntropyInputReseed = ")
+            let pers_string_index = input[entropy_index..]
+                .find("PersonalizationString = ")
                 .unwrap()
                 + entropy_index
+                + "PersonalizationString = ".len();
+            let eol_index = input[pers_string_index..].find('\n').unwrap() + pers_string_index;
+            let personalization_string =
+                hex::decode(input[pers_string_index..eol_index].trim()).unwrap();
+            let personalization_string = if personalization_string.is_empty() {
+                None
+            } else {
+                Some(personalization_string)
+            };
+
+            let entropy_reseed_index = input[pers_string_index..]
+                .find("EntropyInputReseed = ")
+                .unwrap()
+                + pers_string_index
                 + "EntropyInputReseed = ".len();
             let eol_index =
                 input[entropy_reseed_index..].find('\n').unwrap() + entropy_reseed_index;
@@ -114,6 +152,7 @@ mod test {
 
             ret.push(TestVector {
                 entropy,
+                personalization_string,
                 entropy_reseed,
                 expected,
                 bytes: 512 / 8, // hardcoded, should probably be parsed from vectors
@@ -130,10 +169,17 @@ mod test {
         let vectors = get_vectors();
 
         for vector in vectors {
-            let mut drbg = CtrDrbg::new(vector.entropy.as_slice().try_into().unwrap());
+            let mut drbg = if let Some(pers_str) = vector.personalization_string.as_ref() {
+                CtrDrbg::new_with_personalization(
+                    vector.entropy.as_slice().into(),
+                    pers_str.as_slice().into(),
+                )
+            } else {
+                CtrDrbg::new(vector.entropy.as_slice().into())
+            };
 
             // The tests reseed and generate twice
-            drbg.reseed(vector.entropy_reseed.clone().try_into().unwrap());
+            drbg.reseed(vector.entropy_reseed.as_slice().into());
             let _ = drbg.generate(vector.bytes);
             let actual = drbg.generate(vector.bytes);
 
@@ -142,10 +188,15 @@ mod test {
                 &vector.expected,
                 r#"Failed test:
   entropy = {}
+  personalization_string = {}
   entropy_reseed = {}
   expected = {}
   actual = {}"#,
                 hex::encode(vector.entropy),
+                vector
+                    .personalization_string
+                    .map(hex::encode)
+                    .unwrap_or_else(|| "None".to_string()),
                 hex::encode(vector.entropy_reseed),
                 hex::encode(&vector.expected),
                 hex::encode(&actual)

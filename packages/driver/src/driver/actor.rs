@@ -6,7 +6,10 @@ use std::time::Instant;
 use zwave_cc::commandclass::{CCSession, CcOrRaw};
 use zwave_cc::prelude::*;
 use zwave_core::prelude::*;
-use zwave_core::security::{SecurityManager, SecurityManagerOptions, SecurityManagerStorage};
+use zwave_core::security::{
+    SecurityManager, SecurityManager2, SecurityManager2Storage, SecurityManagerOptions,
+    SecurityManagerStorage,
+};
 use zwave_core::{log::Loglevel, util::MaybeSleep};
 use zwave_logging::loggers::node::NodeLogger;
 use zwave_logging::{
@@ -115,6 +118,7 @@ impl DriverActor {
             .frame_addressing(Some((&address.destination).into()))
             .own_node_id(self.serial_api.storage.own_node_id().get())
             .security_manager(self.storage.security_manager().cloned())
+            .security_manager2(self.storage.security_manager2().cloned())
             .build()
     }
 
@@ -180,16 +184,43 @@ impl DriverActor {
 
     fn init_security_managers(&mut self) {
         let logger = self.driver_log();
+
         if let Some(ref s0_key) = self.security_keys.s0_legacy {
             logger.info(|| "Network key for S0 configured, enabling S0 security manager...");
             let storage = SecurityManagerStorage::new(SecurityManagerOptions {
                 own_node_id: self.serial_api.storage.own_node_id().get(),
-                network_key: s0_key.into(),
+                network_key: s0_key.clone(),
             });
             let sec_man = SecurityManager::new(Arc::new(storage));
             let _ = self.storage.security_manager().replace(Some(sec_man));
         } else {
             logger.warn(|| "No network key for S0 configured, communication with secure (S0) devices won't work!");
+        }
+
+        let has_s2_keys = self.security_keys.s2_unauthenticated.is_some()
+            || self.security_keys.s2_authenticated.is_some()
+            || self.security_keys.s2_access_control.is_some();
+
+        if has_s2_keys {
+            logger.info(|| "S2 network keys configured, enabling S2 security manager...");
+            let sec_man = SecurityManager2::new(Arc::new(SecurityManager2Storage::new()));
+
+            if let Some(ref key) = self.security_keys.s0_legacy {
+                sec_man.set_key(SecurityClass::S0Legacy, key.clone());
+            }
+            if let Some(ref key) = self.security_keys.s2_unauthenticated {
+                sec_man.set_key(SecurityClass::S2Unauthenticated, key.clone());
+            }
+            if let Some(ref key) = self.security_keys.s2_authenticated {
+                sec_man.set_key(SecurityClass::S2Authenticated, key.clone());
+            }
+            if let Some(ref key) = self.security_keys.s2_access_control {
+                sec_man.set_key(SecurityClass::S2AccessControl, key.clone());
+            }
+
+            let _ = self.storage.security_manager2().replace(Some(sec_man));
+        } else {
+            logger.warn(|| "No network keys for S2 configured, communication with secure (S2) devices won't work!");
         }
     }
 }

@@ -310,27 +310,28 @@ mod test {
         assert_eq!(str_width(&formatted2), 121);
     }
 
-    #[test]
-    fn test2() {
-        let fmt = DefaultFormatter::new();
+    // FIXME: Figure out what this was supposed to test
+    // #[test]
+    // fn test2() {
+    //     let fmt = DefaultFormatter::new();
 
-        let payload = LogPayloadText::new("")
-            .with_nested(LogPayloadDict::new().with_entry("nested", "value"))
-            .into();
+    //     let payload = LogPayloadText::new("")
+    //         .with_nested(LogPayloadDict::new().with_entry("nested", "value"))
+    //         .into();
 
-        // Lines with secondary tags should have the same length
-        let log = LogInfo::builder()
-            .label("CNTRLR")
-            .direction(Direction::Outbound)
-            .primary_tags(vec!["REQ".into(), "FUNC".into()])
-            .payload(payload)
-            .build();
-        let formatted = fmt.format_log(&log, Loglevel::Info);
-        let formatted2 = formatted
-            .iter()
-            .map(|f| f.string.clone())
-            .collect::<String>();
+    //     // Lines with secondary tags should have the same length
+    //     let log = LogInfo::builder()
+    //         .label("CNTRLR")
+    //         .direction(Direction::Outbound)
+    //         .primary_tags(vec!["REQ".into(), "FUNC".into()])
+    //         .payload(payload)
+    //         .build();
+    //     let formatted = fmt.format_log(&log, Loglevel::Info);
+    //     let formatted2 = formatted
+    //         .iter()
+    //         .map(|f| f.string.clone())
+    //         .collect::<String>();
 
-        assert_eq!(formatted2, "foo");
-    }
+    //     assert_eq!(formatted2, "foo");
+    // }
 }

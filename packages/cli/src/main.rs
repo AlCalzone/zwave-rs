@@ -25,19 +25,19 @@ async fn main() -> Result<(), anyhow::Error> {
     //     .path(PORT)
     //     // .loglevel(Loglevel::Silly)
     //     .security_keys(SecurityKeys {
-    //         s0_legacy: Some(vec![
+    //         s0_legacy: Some([
     //             0x01u8, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D,
     //             0x0E, 0x0F, 0x10,
-    //         ]),
+    //         ].into()),
     //         ..Default::default()
     //     })
     //     .build();
 
     let security_keys = SecurityKeys::builder()
-        .s0_legacy(Some(vec![
+        .s0_legacy([
             0x01u8, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
             0x0F, 0x10,
-        ]))
+        ])
         .build();
 
     let logger = BaseLogger {

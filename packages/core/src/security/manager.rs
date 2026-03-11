@@ -1,20 +1,19 @@
-use super::crypto::encrypt_aes_ecb;
+use super::{AesKey, NetworkKey, encrypt_aes_ecb};
 use crate::prelude::*;
 use crate::util::Locked;
 use getrandom::getrandom;
 use std::{collections::BTreeMap, ops::Deref, sync::Arc};
 
-pub const NETWORK_KEY_SIZE: usize = 16;
-pub const S0_HALF_NONCE_SIZE: usize = 8;
-pub const S0_NONCE_SIZE: usize = 16;
+pub const S0_NONCE_SIZE: usize = 8;
+pub const S0_IV_SIZE: usize = 2 * S0_NONCE_SIZE;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct S0Nonce([u8; S0_HALF_NONCE_SIZE]);
+pub struct S0Nonce([u8; S0_NONCE_SIZE]);
 
 impl S0Nonce {
     pub fn new(nonce: &[u8]) -> Self {
-        if nonce.len() != S0_HALF_NONCE_SIZE {
+        if nonce.len() != S0_NONCE_SIZE {
             panic!("S0 nonce must be 8 bytes long, got {}", nonce.len());
         }
         let nonce = nonce.try_into().unwrap();
@@ -22,7 +21,7 @@ impl S0Nonce {
     }
 
     pub fn random() -> Self {
-        let mut nonce = [0u8; S0_HALF_NONCE_SIZE];
+        let mut nonce = [0u8; S0_NONCE_SIZE];
         getrandom(&mut nonce).unwrap_or_else(|_| panic!("Failed to generate random bytes"));
         Self(nonce)
     }
@@ -57,7 +56,7 @@ impl AsRef<[u8]> for S0Nonce {
 }
 
 impl Deref for S0Nonce {
-    type Target = [u8];
+    type Target = [u8; S0_NONCE_SIZE];
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -70,60 +69,8 @@ impl std::fmt::Display for S0Nonce {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-#[repr(transparent)]
-pub struct NetworkKey([u8; NETWORK_KEY_SIZE]);
-
-impl NetworkKey {
-    pub fn new(key: &[u8]) -> Self {
-        if key.len() != NETWORK_KEY_SIZE {
-            panic!("S0 network key must be 16 bytes long, got {}", key.len());
-        }
-        let key = key.try_into().unwrap();
-        Self(key)
-    }
-}
-
-impl From<Vec<u8>> for NetworkKey {
-    fn from(value: Vec<u8>) -> Self {
-        Self::new(&value)
-    }
-}
-
-impl From<&Vec<u8>> for NetworkKey {
-    fn from(value: &Vec<u8>) -> Self {
-        Self::new(value)
-    }
-}
-
-impl From<&[u8]> for NetworkKey {
-    fn from(value: &[u8]) -> Self {
-        Self::new(value)
-    }
-}
-
-impl AsRef<[u8]> for NetworkKey {
-    fn as_ref(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-impl Deref for NetworkKey {
-    type Target = [u8];
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::fmt::Display for NetworkKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
-    }
-}
-
-const AUTH_KEY_BASE: &[u8; NETWORK_KEY_SIZE] = &[0x55; NETWORK_KEY_SIZE];
-const ENC_KEY_BASE: &[u8; NETWORK_KEY_SIZE] = &[0xaa; NETWORK_KEY_SIZE];
+const AUTH_KEY_BASE: [u8; 16] = [0x55; 16];
+const ENC_KEY_BASE: [u8; 16] = [0xaa; 16];
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord)]
 struct NonceKey {
@@ -142,13 +89,15 @@ pub struct SecurityManagerOptions {
 }
 
 #[inline(always)]
-fn generate_auth_key(network_key: &NetworkKey) -> NetworkKey {
-    encrypt_aes_ecb(AUTH_KEY_BASE, network_key).into()
+fn generate_auth_key(network_key: &NetworkKey) -> AesKey {
+    let network_key = AesKey::from(network_key);
+    encrypt_aes_ecb(&AUTH_KEY_BASE, &network_key).into()
 }
 
 #[inline(always)]
-fn generate_enc_key(network_key: &NetworkKey) -> NetworkKey {
-    encrypt_aes_ecb(ENC_KEY_BASE, network_key).into()
+fn generate_enc_key(network_key: &NetworkKey) -> AesKey {
+    let network_key = AesKey::from(network_key);
+    encrypt_aes_ecb(&ENC_KEY_BASE, &network_key).into()
 }
 
 struct SecurityManagerState {
@@ -160,17 +109,13 @@ struct SecurityManagerState {
 pub struct SecurityManagerStorage {
     own_node_id: NodeId,
     network_key: NetworkKey,
-    auth_key: NetworkKey,
-    enc_key: NetworkKey,
+    auth_key: AesKey,
+    enc_key: AesKey,
     state: Locked<SecurityManagerState>,
 }
 
 impl SecurityManagerStorage {
     pub fn new(options: SecurityManagerOptions) -> Self {
-        if options.network_key.len() != NETWORK_KEY_SIZE {
-            panic!("The network key must be 16 bytes long!");
-        }
-
         let auth_key = generate_auth_key(&options.network_key);
         let enc_key = generate_enc_key(&options.network_key);
 
@@ -312,11 +257,11 @@ impl SecurityManager {
         })
     }
 
-    pub fn auth_key(&self) -> &[u8] {
+    pub fn auth_key(&self) -> &AesKey {
         &self.storage.auth_key
     }
 
-    pub fn enc_key(&self) -> &[u8] {
+    pub fn enc_key(&self) -> &AesKey {
         &self.storage.enc_key
     }
 }

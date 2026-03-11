@@ -5,7 +5,9 @@ use typed_builder::TypedBuilder;
 use ux::{u2, u4};
 use zwave_core::parse::bytes::rest;
 use zwave_core::prelude::*;
-use zwave_core::security::{compute_mac, decrypt_aes_ofb, S0Nonce, MAC_SIZE, S0_HALF_NONCE_SIZE};
+use zwave_core::security::{
+    AesIV, MAC_SIZE, S0_NONCE_SIZE, S0Nonce, compute_mac, decrypt_aes_ofb, encrypt_aes_ofb,
+};
 use zwave_core::serialize::{self, DEFAULT_CAPACITY};
 use zwave_core::{
     parse::{
@@ -13,7 +15,6 @@ use zwave_core::{
         bytes::{be_u8, complete::take},
         fail_validation, validate,
     },
-    security::encrypt_aes_ofb,
 };
 
 use super::{CCSequence, CCSession, IntoCCSequence};
@@ -122,7 +123,7 @@ impl CCId for SecurityCCNonceReport {
 
 impl CCParsable for SecurityCCNonceReport {
     fn parse(i: &mut Bytes, _ctx: CCParsingContext) -> zwave_core::parse::ParseResult<Self> {
-        let nonce = take(S0_HALF_NONCE_SIZE).parse(i)?;
+        let nonce = take(S0_NONCE_SIZE).parse(i)?;
         let nonce = S0Nonce::new(&nonce);
         Ok(Self { nonce })
     }
@@ -277,19 +278,19 @@ impl CCParsable for SecurityCCCommandEncapsulation {
         };
 
         // To parse this, we need at least:
-        //   HALF_NONCE_SIZE bytes iv
+        //   S0_NONCE_SIZE bytes sender nonce
         // + 1 byte frame control (encrypted)
         // + at least 1 CC byte (encrypted)
         // + 1 byte nonce id
         // + 8 bytes auth code
 
-        let min_length = S0_HALF_NONCE_SIZE + 1 + 1 + 1 + 8;
+        let min_length = S0_NONCE_SIZE + 1 + 1 + 1 + 8;
         validate(i.len() >= min_length, "Incomplete payload")?;
-        let ciphertext_len: usize = i.len() - S0_HALF_NONCE_SIZE - 1 - 8;
+        let ciphertext_len: usize = i.len() - S0_NONCE_SIZE - 1 - 8;
 
         // Parse the CC fields
         let (sender_nonce, ciphertext, nonce_id, auth_code) = (
-            take(S0_HALF_NONCE_SIZE),
+            take(S0_NONCE_SIZE),
             take(ciphertext_len),
             be_u8,
             take(MAC_SIZE),
@@ -307,7 +308,7 @@ impl CCParsable for SecurityCCCommandEncapsulation {
         // Validate the encrypted data
         let auth_data = S0AuthData {
             sender_nonce: &sender_nonce,
-            receiver_nonce: &nonce,
+            receiver_nonce: nonce.as_ref(),
             cc_command: SecurityCCCommand::CommandEncapsulation,
             sending_node_id: source_node_id,
             receiving_node_id: own_node_id,
@@ -318,12 +319,13 @@ impl CCParsable for SecurityCCCommandEncapsulation {
         // Validate the encrypted data
         let expected_auth_code = compute_mac(&auth_data, sec_man.auth_key());
         validate(
-            auth_code == expected_auth_code,
+            auth_code.as_ref() == expected_auth_code.as_slice(),
             "Command authentication failed",
         )?;
 
         // Decrypt the encapsulated CC
-        let iv = [sender_nonce.as_ref(), &nonce].concat();
+        let sender_nonce = S0Nonce::new(&sender_nonce);
+        let iv = AesIV::from_halves(&sender_nonce, &nonce);
         let mut frame_control_and_plaintext =
             Bytes::from(decrypt_aes_ofb(&ciphertext, sec_man.enc_key(), &iv));
 
@@ -382,13 +384,13 @@ impl SerializableWith<&CCEncodingContext> for SecurityCCCommandEncapsulation {
 
         // Encrypt the plaintext
         let sender_nonce = S0Nonce::random();
-        let iv: Vec<u8> = [sender_nonce.as_ref(), receiver_nonce].concat();
+        let iv = AesIV::from_halves(&sender_nonce, receiver_nonce);
         let ciphertext = encrypt_aes_ofb(&plaintext, sec_man.enc_key(), &iv);
 
         // Authenticate the encrypted data
         let auth_data = S0AuthData {
-            sender_nonce: &sender_nonce,
-            receiver_nonce,
+            sender_nonce: sender_nonce.as_ref(),
+            receiver_nonce: receiver_nonce.as_ref(),
             cc_command: SecurityCCCommand::CommandEncapsulation,
             sending_node_id: ctx.own_node_id,
             receiving_node_id: ctx.node_id,
