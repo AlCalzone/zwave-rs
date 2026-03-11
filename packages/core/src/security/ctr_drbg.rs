@@ -44,25 +44,27 @@ impl CtrDrbg {
     }
 
     fn init(&mut self, entropy: Entropy, personalization_string: Option<PersonalizationString>) {
-        let mut seed_material = entropy;
+        let mut seed_material: [u8; SEED_LEN] = entropy.into();
         if let Some(personalization_string) = personalization_string {
-            xor_slice_mut(seed_material.as_mut(), personalization_string.as_ref());
+            let personalization_string: [u8; SEED_LEN] = personalization_string.into();
+            xor_slice_mut(&mut seed_material, &personalization_string);
         }
 
         self.update(Some(seed_material));
     }
 
-    fn update(&mut self, provided_data: Option<Entropy>) {
-        let mut temp: Vec<u8> = Vec::with_capacity(SEED_LEN);
-        while temp.len() < SEED_LEN {
+    fn update(&mut self, provided_data: Option<[u8; SEED_LEN]>) {
+        let mut temp = [0; SEED_LEN];
+        let mut offset = 0;
+        while offset < SEED_LEN {
             increment_slice_mut(&mut self.v);
             let block = encrypt_aes_ecb(&self.v, &self.key);
-            temp.extend_from_slice(&block);
+            temp[offset..offset + BLOCK_LEN].copy_from_slice(&block);
+            offset += BLOCK_LEN;
         }
-        temp.truncate(SEED_LEN);
 
         if let Some(provided_data) = provided_data {
-            xor_slice_mut(&mut temp, provided_data.as_ref());
+            xor_slice_mut(&mut temp, &provided_data);
         }
 
         let (key, v) = temp.split_at_mut(KEY_LEN);
@@ -91,7 +93,7 @@ impl CtrDrbg {
     #[cfg(test)]
     pub fn reseed(&mut self, entropy: Entropy) {
         // Reseeding isn't necessary for this implementation, but all test vectors use it
-        self.update(Some(entropy));
+        self.update(Some(entropy.into()));
     }
 }
 

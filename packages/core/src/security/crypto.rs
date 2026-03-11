@@ -15,7 +15,8 @@ type Aes128CbcEnc = cbc::Encryptor<aes::Aes128>;
 type Aes128CbcDec = cbc::Decryptor<aes::Aes128>;
 pub type Aes128Ccm = ccm::Ccm<aes::Aes128, U8, U13>;
 
-pub type Block = [u8; 16];
+pub const BLOCK_SIZE: usize = 16;
+pub type Block = [u8; BLOCK_SIZE];
 pub const MAC_SIZE: usize = 8;
 pub const AES_CCM_NONCE_SIZE: usize = 13;
 pub const ENTROPY_INPUT_SIZE: usize = 16;
@@ -316,46 +317,44 @@ pub fn encode_x25519_key_der_spki(key: &[u8]) -> Vec<u8> {
     [&X25519_SPKI_PREFIX[..], key].concat()
 }
 
-// Computes the byte-wise XOR of two slices with the same length
-pub fn xor_slices(a: &[u8], b: &[u8]) -> Vec<u8> {
-    assert!(a.len() == b.len(), "Slices must have the same length");
-    a.iter().zip(b.iter()).map(|(x, y)| x ^ y).collect()
+// Computes the byte-wise XOR of two arrays with the same length
+pub fn xor_slices<const N: usize>(a: &[u8; N], b: &[u8; N]) -> [u8; N] {
+    let mut ret = [0; N];
+    for i in 0..N {
+        ret[i] = a[i] ^ b[i];
+    }
+    ret
 }
 
-// Computes the byte-wise XOR of two slices with the same length, mutating the first slice
-pub fn xor_slice_mut(a: &mut [u8], b: &[u8]) {
-    assert!(a.len() == b.len(), "Slices must have the same length");
+// Computes the byte-wise XOR of two arrays with the same length, mutating the first slice
+pub fn xor_slice_mut<const N: usize>(a: &mut [u8; N], b: &[u8; N]) {
     a.iter_mut().zip(b.iter()).for_each(|(x, y)| *x ^= y);
 }
 
-// Creates a new vec from a slice in MSB ordering by left-shifting it one bit
-pub fn left_shift_1(input: &[u8]) -> Vec<u8> {
-    if input.is_empty() {
-        return vec![];
+// Creates a new array in MSB ordering by left-shifting it one bit
+pub fn left_shift_1<const N: usize>(input: &[u8; N]) -> [u8; N] {
+    let mut ret = [0; N];
+    if N == 0 {
+        return ret;
     }
 
-    let mut ret = vec![0; input.len()];
     // TODO: Maybe use iterators here?
-    for i in 0..input.len() - 1 {
+    for i in 0..N - 1 {
         ret[i] = (input[i] << 1) + if input[i + 1] & 0x80 != 0 { 1 } else { 0 };
     }
-    ret[input.len() - 1] = input[input.len() - 1] << 1;
+    ret[N - 1] = input[N - 1] << 1;
 
     ret
 }
 
-fn to_block16(bytes: Vec<u8>) -> Block {
-    bytes.try_into().unwrap()
-}
-
 #[test]
 fn test_left_shift_1() {
-    assert_eq!(left_shift_1(&[0x00]), vec![0x00]);
-    assert_eq!(left_shift_1(&[0x01]), vec![0x02]);
-    assert_eq!(left_shift_1(&[0x80]), vec![0x00]);
-    assert_eq!(left_shift_1(&[0x01, 0x00]), vec![0x02, 0x00]);
-    assert_eq!(left_shift_1(&[0x01, 0x80]), vec![0x03, 0x00]);
-    assert_eq!(left_shift_1(&[0x01, 0x40]), vec![0x02, 0x80]);
+    assert_eq!(left_shift_1(&[0x00]), [0x00]);
+    assert_eq!(left_shift_1(&[0x01]), [0x02]);
+    assert_eq!(left_shift_1(&[0x80]), [0x00]);
+    assert_eq!(left_shift_1(&[0x01, 0x00]), [0x02, 0x00]);
+    assert_eq!(left_shift_1(&[0x01, 0x80]), [0x03, 0x00]);
+    assert_eq!(left_shift_1(&[0x01, 0x40]), [0x02, 0x80]);
 }
 
 // Increments a multi-byte unsigned integer in big-endian order by 1
@@ -372,14 +371,14 @@ pub fn generate_aes128_cmac_subkeys(key: &AesKey) -> (Block, Block) {
     // NIST SP 800-38B, chapter 6.1
     let l = encrypt_aes_ecb(&Z128, key);
     let k1 = if l[0] & 0x80 == 0 {
-        to_block16(left_shift_1(&l))
+        left_shift_1(&l)
     } else {
-        to_block16(xor_slices(&left_shift_1(&l), &R128))
+        xor_slices(&left_shift_1(&l), &R128)
     };
     let k2 = if k1[0] & 0x80 == 0 {
-        to_block16(left_shift_1(&k1))
+        left_shift_1(&k1)
     } else {
-        to_block16(xor_slices(&left_shift_1(&k1), &R128))
+        xor_slices(&left_shift_1(&k1), &R128)
     };
 
     (k1, k2)
@@ -387,12 +386,11 @@ pub fn generate_aes128_cmac_subkeys(key: &AesKey) -> (Block, Block) {
 
 // Computes a message authentication code for Security S2 (as described in SDS13783)
 pub fn compute_cmac(message: &[u8], key: &AesKey) -> Block {
-    let block_size = 16;
-    let remainder = message.len() % block_size;
-    let num_blocks = message.len() / block_size + if remainder == 0 { 0 } else { 1 };
+    let remainder = message.len() % BLOCK_SIZE;
+    let num_blocks = message.len() / BLOCK_SIZE + if remainder == 0 { 0 } else { 1 };
 
     let last_block = if num_blocks > 0 {
-        &message[(num_blocks - 1) * block_size..]
+        &message[(num_blocks - 1) * BLOCK_SIZE..]
     } else {
         message
     };
@@ -416,8 +414,10 @@ pub fn compute_cmac(message: &[u8], key: &AesKey) -> Block {
     let mut ret = Z128;
     if num_blocks > 0 {
         for i in 0..num_blocks - 1 {
-            let block = &message[i * block_size..(i + 1) * block_size];
-            xor_slice_mut(&mut ret, block);
+            let block: Block = message[i * BLOCK_SIZE..][..BLOCK_SIZE]
+                .try_into()
+                .expect("The slice length is guaranteed to be a multiple of the block size");
+            xor_slice_mut(&mut ret, &block);
             ret = encrypt_aes_ecb(&ret, key);
         }
     }
