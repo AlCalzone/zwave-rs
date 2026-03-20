@@ -389,7 +389,7 @@ fn parse_extensions(buffer: &[u8], was_encrypted: bool) -> (Vec<Security2Extensi
         // to be ignored. Try to avoid this for known extensions by checking the actual and
         // expected length.
         let expected_length =
-            Security2Extension::expected_length_for_header(&buffer[offset..offset + 2]);
+            Security2Extension::expected_length_for_header(&buffer[offset..][..2]);
         // Parse the extension using the expected length if possible.
         let extension_length = expected_length.unwrap_or(actual_length);
 
@@ -403,7 +403,7 @@ fn parse_extensions(buffer: &[u8], was_encrypted: bool) -> (Vec<Security2Extensi
             break;
         }
 
-        let extension_data = &buffer[offset..offset + extension_length];
+        let extension_data = &buffer[offset..][..extension_length];
         offset += extension_length;
 
         let ext = match Security2Extension::parse(extension_data) {

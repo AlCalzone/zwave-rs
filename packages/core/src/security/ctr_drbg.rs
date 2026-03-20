@@ -59,7 +59,7 @@ impl CtrDrbg {
         while offset < SEED_LEN {
             increment_slice_mut(&mut self.v);
             let block = encrypt_aes_ecb(&self.v, &self.key);
-            temp[offset..offset + BLOCK_LEN].copy_from_slice(&block);
+            temp[offset..][..BLOCK_LEN].copy_from_slice(&block);
             offset += BLOCK_LEN;
         }
 
