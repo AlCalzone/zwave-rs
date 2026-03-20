@@ -6,6 +6,7 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bytes.workspace = true
 zwave-cc.workspace = true
 zwave-core.workspace = true
 zwave-driver.workspace = true
@@ -13,7 +14,7 @@ zwave-serial.workspace = true
 zwave-logging.workspace = true
 termcolor.workspace = true
 futures.workspace = true
-tokio.workspace = true
-tokio-serial.workspace = true
-tokio-util = { workspace = true, features = ["compat"] }
 anyhow = "1.0.97"
+async-channel = "2.3.1"
+serialport = "4.8.1"
+smol = "2.0.2"

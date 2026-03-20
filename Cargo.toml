@@ -24,7 +24,7 @@ chrono = "0.4.31"
 crc16 = "0.4.0"
 enum_dispatch = "0.3.12"
 enum-iterator = "1.4.1"
-futures = { version = "0.3.29", features = ["executor"] }
+futures = { version = "0.3.29", default-features = false, features = ["std", "async-await"] }
 futures-timer = "3.0"
 asynchronous-codec = "0.7"
 getrandom = "0.2.15"
@@ -37,14 +37,6 @@ termcolor = "1.4.0"
 thiserror = "1.0.50"
 time = { version = "0.3.36", features = ["formatting", "macros"] }
 tinyvec = { git = "https://github.com/AlCalzone/tinyvec", version = "0.1.0" }
-tokio = { version = "1.33.0", features = [
-    "rt-multi-thread",
-    "macros",
-    "time",
-    "sync",
-] }
-tokio-serial = "5.4.4"
-tokio-util = { version = "0.7.10", features = ["codec"] }
 typed-builder = "0.18.0"
 unicode-segmentation = "1.10.1"
 unique_id = "0.1.5"
