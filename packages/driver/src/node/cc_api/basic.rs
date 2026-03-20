@@ -1,5 +1,5 @@
 use crate::{expect_cc_or_timeout, CCAPIResult, EndpointLike, CCAPI};
-use zwave_cc::commandclass::{basic::*, CCAddressable};
+use zwave_cc::commandclass::{AsDestination, CCAddressable, basic::*};
 use zwave_core::{cache::CacheExt, prelude::*};
 
 pub struct BasicCCAPI<'a> {
@@ -68,7 +68,7 @@ impl BasicCCAPI<'_> {
         let cc = BasicCCSet::builder()
             .target_value(value)
             .build()
-            .with_destination(node.id().into());
+            .with_destination(node.as_destination());
         driver.exec_node_command(&cc.into(), None).await?;
         Ok(())
     }
@@ -76,7 +76,7 @@ impl BasicCCAPI<'_> {
     pub async fn get(&self) -> CCAPIResult<Option<BasicCCReport>> {
         let node = self.endpoint.get_node();
         let driver = node.driver();
-        let cc = BasicCCGet::default().with_destination(node.id().into());
+        let cc = BasicCCGet::default().with_destination(node.as_destination());
         let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, BasicCCReport);
 

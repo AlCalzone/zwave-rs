@@ -1,6 +1,6 @@
 use crate::{cc_api_assert_supported, expect_cc_or_timeout};
 use crate::{CCAPIResult, EndpointLike, CCAPI};
-use zwave_cc::commandclass::{manufacturer_specific::*, CCAddressable};
+use zwave_cc::commandclass::{AsDestination, CCAddressable, manufacturer_specific::*};
 use zwave_core::prelude::*;
 
 pub struct ManufacturerSpecificCCAPI<'a> {
@@ -51,7 +51,7 @@ impl ManufacturerSpecificCCAPI<'_> {
     pub async fn get(&self) -> CCAPIResult<Option<ManufacturerSpecificCCReport>> {
         let node = self.endpoint.get_node();
         let driver = node.driver();
-        let cc = ManufacturerSpecificCCGet::default().with_destination(node.id().into());
+        let cc = ManufacturerSpecificCCGet::default().with_destination(node.as_destination());
         let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, ManufacturerSpecificCCReport);
 
@@ -73,7 +73,7 @@ impl ManufacturerSpecificCCAPI<'_> {
         let cc = ManufacturerSpecificCCDeviceSpecificGet::builder()
             .device_id_type(device_id_type)
             .build()
-            .with_destination(node.id().into());
+            .with_destination(node.as_destination());
         let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, ManufacturerSpecificCCDeviceSpecificReport);
 

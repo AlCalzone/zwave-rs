@@ -363,6 +363,10 @@ pub enum Destination {
     Broadcast,
 }
 
+pub trait AsDestination {
+    fn as_destination(&self) -> Destination;
+}
+
 macro_rules! impl_destination_conversions_for {
     ($t:ty) => {
         impl From<$t> for Destination {

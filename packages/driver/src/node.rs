@@ -3,7 +3,7 @@ use crate::{
     NodeStateRef, Ready,
 };
 use cache::EndpointValueCache;
-use zwave_cc::commandclass::{CCAddressable, NoOperationCC};
+use zwave_cc::commandclass::{AsDestination, CCAddressable, Destination, NoOperationCC};
 use zwave_core::{definitions::*, submodule};
 use zwave_logging::loggers::node::NodeLogger;
 
@@ -68,7 +68,9 @@ impl<'a> Node<'a> {
     }
 
     pub fn interview_stage(&self) -> InterviewStage {
-        self.state().interview_stage().unwrap_or(InterviewStage::None)
+        self.state()
+            .interview_stage()
+            .unwrap_or(InterviewStage::None)
     }
 
     pub fn set_interview_stage(&self, interview_stage: InterviewStage) {
@@ -106,7 +108,7 @@ impl<'a> Node<'a> {
     /// Pings the node and returns whether it responded or not.
     pub async fn ping(&self) -> ControllerCommandResult<bool> {
         // ^ Although this is a node command, the only errors we want to surface are controller errors
-        let cc = NoOperationCC {}.with_destination(self.id.into());
+        let cc = NoOperationCC {}.with_destination(self.as_destination());
         let result = self.driver().exec_node_command(&cc.into(), None).await;
         match result {
             Ok(_) => Ok(true),
@@ -114,6 +116,12 @@ impl<'a> Node<'a> {
             Err(ExecNodeCommandError::Controller(e)) => Err(e),
             Err(ExecNodeCommandError::NodeTimeout) => panic!("NoOperation CC should not time out"),
         }
+    }
+}
+
+impl AsDestination for Node<'_> {
+    fn as_destination(&self) -> Destination {
+        self.id.into()
     }
 }
 

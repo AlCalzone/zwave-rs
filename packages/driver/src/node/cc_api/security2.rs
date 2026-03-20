@@ -1,5 +1,5 @@
 use crate::{CCAPI, CCAPIResult, EndpointLike, ExecNodeCommandError, expect_cc_or_timeout};
-use zwave_cc::commandclass::{CCAddressable, security2::*};
+use zwave_cc::commandclass::{AsDestination, CCAddressable, security2::*};
 use zwave_cc::prelude::CC;
 use zwave_core::prelude::*;
 
@@ -126,7 +126,7 @@ impl Security2CCAPI<'_> {
             .mos(false)
             .receiver_ei(receiver_ei)
             .build()
-            .with_destination(node.id().into());
+            .with_destination(node.as_destination());
         driver.exec_node_command(&cc.into(), None).await?;
         Ok(())
     }
@@ -139,7 +139,7 @@ impl Security2CCAPI<'_> {
             .sos(false)
             .mos(true)
             .build()
-            .with_destination(node.id().into());
+            .with_destination(node.as_destination());
         driver.exec_node_command(&cc.into(), None).await?;
         Ok(())
     }
@@ -155,7 +155,7 @@ impl Security2CCAPI<'_> {
         let cc = Security2CCMessageEncapsulation::builder()
             .extensions(vec![Security2Extension::mpan(group_id, inner_mpan_state)])
             .build()
-            .with_destination(node.id().into());
+            .with_destination(node.as_destination());
         driver.exec_node_command(&cc.into(), None).await?;
         Ok(())
     }
@@ -176,7 +176,7 @@ impl Security2CCAPI<'_> {
             .security_class(security_class)
             .encapsulated(Box::new(inner.into()))
             .build()
-            .with_destination(node.id().into());
+            .with_destination(node.as_destination());
         let response = driver.exec_node_command(&cc.into(), None).await;
 
         match response {
@@ -207,7 +207,7 @@ impl Security2CCAPI<'_> {
         let cc = Security2CCCommandsSupportedReport::builder()
             .supported_ccs(supported_ccs)
             .build()
-            .with_destination(node.id().into());
+            .with_destination(node.as_destination());
         driver.exec_node_command(&cc.into(), None).await?;
         Ok(())
     }
@@ -215,7 +215,7 @@ impl Security2CCAPI<'_> {
     pub async fn get_key_exchange_parameters(&self) -> CCAPIResult<Option<Security2CCKEXReport>> {
         let node = self.endpoint.get_node();
         let driver = node.driver();
-        let cc = Security2CCKEXGet::default().with_destination(node.id().into());
+        let cc = Security2CCKEXGet::default().with_destination(node.as_destination());
         let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, Security2CCKEXReport);
 
@@ -225,7 +225,7 @@ impl Security2CCAPI<'_> {
     pub async fn request_keys(&self, report: Security2CCKEXReport) -> CCAPIResult<()> {
         let node = self.endpoint.get_node();
         let driver = node.driver();
-        let cc = report.with_destination(node.id().into());
+        let cc = report.with_destination(node.as_destination());
         driver.exec_node_command(&cc.into(), None).await?;
         Ok(())
     }
@@ -233,7 +233,7 @@ impl Security2CCAPI<'_> {
     pub async fn grant_keys(&self, set: Security2CCKEXSet) -> CCAPIResult<()> {
         let node = self.endpoint.get_node();
         let driver = node.driver();
-        let cc = set.with_destination(node.id().into());
+        let cc = set.with_destination(node.as_destination());
         driver.exec_node_command(&cc.into(), None).await?;
         Ok(())
     }
@@ -244,7 +244,7 @@ impl Security2CCAPI<'_> {
         let cc = Security2CCKEXFail::builder()
             .fail_type(fail_type)
             .build()
-            .with_destination(node.id().into());
+            .with_destination(node.as_destination());
         driver.exec_node_command(&cc.into(), None).await?;
         Ok(())
     }
@@ -260,7 +260,7 @@ impl Security2CCAPI<'_> {
             .including_node(including_node)
             .public_key(public_key)
             .build()
-            .with_destination(node.id().into());
+            .with_destination(node.as_destination());
         driver.exec_node_command(&cc.into(), None).await?;
         Ok(())
     }
@@ -271,7 +271,7 @@ impl Security2CCAPI<'_> {
         let cc = Security2CCNetworkKeyGet::builder()
             .requested_key(requested_key)
             .build()
-            .with_destination(node.id().into());
+            .with_destination(node.as_destination());
         driver.exec_node_command(&cc.into(), None).await?;
         Ok(())
     }
@@ -287,7 +287,7 @@ impl Security2CCAPI<'_> {
             .granted_key(granted_key)
             .network_key(network_key)
             .build()
-            .with_destination(node.id().into());
+            .with_destination(node.as_destination());
         driver.exec_node_command(&cc.into(), None).await?;
         Ok(())
     }
@@ -295,7 +295,7 @@ impl Security2CCAPI<'_> {
     pub async fn verify_network_key(&self) -> CCAPIResult<()> {
         let node = self.endpoint.get_node();
         let driver = node.driver();
-        let cc = Security2CCNetworkKeyVerify::default().with_destination(node.id().into());
+        let cc = Security2CCNetworkKeyVerify::default().with_destination(node.as_destination());
         driver.exec_node_command(&cc.into(), None).await?;
         Ok(())
     }
@@ -307,7 +307,7 @@ impl Security2CCAPI<'_> {
             .key_verified(true)
             .key_request_complete(false)
             .build()
-            .with_destination(node.id().into());
+            .with_destination(node.as_destination());
         driver.exec_node_command(&cc.into(), None).await?;
         Ok(())
     }
@@ -319,7 +319,7 @@ impl Security2CCAPI<'_> {
             .key_verified(false)
             .key_request_complete(true)
             .build()
-            .with_destination(node.id().into());
+            .with_destination(node.as_destination());
         driver.exec_node_command(&cc.into(), None).await?;
         Ok(())
     }
