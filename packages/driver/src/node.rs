@@ -83,6 +83,18 @@ impl<'a> Node<'a> {
         !self.protocol_data.listening && self.protocol_data.frequent_listening.is_none()
     }
 
+    pub fn has_security_class(&self, security_class: SecurityClass) -> Option<bool> {
+        self.state().has_security_class(security_class)
+    }
+
+    pub fn set_security_class(&self, security_class: SecurityClass, granted: bool) {
+        self.state().set_security_class(security_class, granted);
+    }
+
+    pub fn highest_security_class(&self) -> Option<SecurityClass> {
+        self.state().highest_security_class()
+    }
+
     fn state(&self) -> NodeStateRef<'_> {
         self.controller.node_state(self.id)
     }

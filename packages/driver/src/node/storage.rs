@@ -9,6 +9,7 @@ use zwave_core::prelude::*;
 pub(crate) struct NodeStorage {
     pub(crate) interview_stage: InterviewStage,
     pub(crate) protocol_data: NodeInformationProtocolData,
+    pub(crate) security_classes: BTreeMap<SecurityClass, bool>,
     pub(crate) endpoints: BTreeMap<EndpointIndex, EndpointStorage>,
 }
 
@@ -21,6 +22,7 @@ impl NodeStorage {
         Self {
             interview_stage: InterviewStage::None,
             protocol_data,
+            security_classes: BTreeMap::new(),
             endpoints,
         }
     }

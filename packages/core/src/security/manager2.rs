@@ -303,6 +303,17 @@ impl SecurityManager2 {
             .inspect(|state| state.network_keys.contains_key(&security_class))
     }
 
+    /// Returns all configured S2 security classes from highest to lowest.
+    pub fn possible_s2_security_classes(&self) -> Vec<SecurityClass> {
+        self.storage.state.inspect(|state| {
+            SecurityClass::ALL_S2_DESCENDING
+                .iter()
+                .filter(|security_class| state.network_keys.contains_key(security_class))
+                .copied()
+                .collect()
+        })
+    }
+
     /// Returns the permanent keys for the given security class, if they have been configured.
     pub fn get_keys_for_security_class(
         &self,
@@ -908,5 +919,20 @@ mod test {
         });
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn possible_s2_security_classes_returns_configured_classes_descending() {
+        let manager = create_manager();
+        manager.set_key(SecurityClass::S2Unauthenticated, s2_key(1));
+        manager.set_key(SecurityClass::S2AccessControl, s2_key(2));
+
+        assert_eq!(
+            manager.possible_s2_security_classes(),
+            vec![
+                SecurityClass::S2AccessControl,
+                SecurityClass::S2Unauthenticated,
+            ]
+        );
     }
 }

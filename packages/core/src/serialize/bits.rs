@@ -24,7 +24,7 @@ trait WriteLastNBits {
 
 impl WriteLastNBits for BitOutput {
     fn write_last_n_bits<B: BitStore>(&mut self, b: B, num_bits: usize) {
-        let bitslice = b.view_bits::<Lsb0>();
+        let bitslice = b.view_bits::<Msb0>();
         let start = bitslice.len() - num_bits;
         self.extend_from_bitslice(&bitslice[start..])
     }
@@ -49,5 +49,26 @@ impl_bit_serializable_for_ux!(1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15);
 impl BitSerializable for bool {
     fn write(&self, b: &mut BitOutput) {
         b.push(*self);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::bits;
+    use crate::serialize::{BitSerializable, Serializable};
+    use bytes::BytesMut;
+    use ux::u6;
+
+    #[test]
+    fn serializes_non_zero_ux_values_in_big_endian_bit_order() {
+        let mut output = BytesMut::new();
+        bits(|bo| {
+            false.write(bo);
+            true.write(bo);
+            u6::new(0x01).write(bo);
+        })
+        .serialize(&mut output);
+
+        assert_eq!(output.as_ref(), &[0b0100_0001]);
     }
 }

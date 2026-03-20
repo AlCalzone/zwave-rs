@@ -67,6 +67,35 @@ impl<'a> NodeStateRef<'a> {
         })
     }
 
+    pub(crate) fn has_security_class(self, security_class: SecurityClass) -> Option<bool> {
+        self.controller.state.nodes.inspect(|nodes| {
+            nodes.get(&self.node_id)
+                .and_then(|storage| storage.security_classes.get(&security_class))
+                .copied()
+        })
+    }
+
+    pub(crate) fn set_security_class(self, security_class: SecurityClass, granted: bool) -> bool {
+        self.controller.state.nodes.update(|nodes| {
+            let Some(storage) = nodes.get_mut(&self.node_id) else {
+                return false;
+            };
+            storage.security_classes.insert(security_class, granted);
+            true
+        })
+    }
+
+    pub(crate) fn highest_security_class(self) -> Option<SecurityClass> {
+        self.controller.state.nodes.inspect(|nodes| {
+            let storage = nodes.get(&self.node_id)?;
+            storage
+                .security_classes
+                .iter()
+                .filter_map(|(security_class, granted)| granted.then_some(*security_class))
+                .max()
+        })
+    }
+
     pub(crate) fn endpoint_exists(self, endpoint_index: EndpointIndex) -> bool {
         self.endpoint(endpoint_index).exists()
     }

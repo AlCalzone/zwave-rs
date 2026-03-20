@@ -22,8 +22,9 @@ pub trait CCAPI<'a> {
     async fn refresh_values(&self) -> CCAPIResult<()>;
 }
 
-// Auto-generate CC APIs and dispatching interview methods
-// Changes to the trait implementations require proc-macro recompilation or changes to this file in order to be picked up.
+// Auto-generate CC API modules and interview dispatch from all .rs files in src/node/cc_api.
+// If a newly added API file is not picked up immediately, touching this file or recompiling the
+// proc-macro crate forces Cargo to rerun the macro.
 impl_cc_apis!("src/node/cc_api");
 
 impl<'a> Node<'a> {

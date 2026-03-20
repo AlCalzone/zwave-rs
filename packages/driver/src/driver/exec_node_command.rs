@@ -49,6 +49,7 @@ impl Driver {
 
     fn get_cc_encoding_context(&self, destination_node_id: NodeId) -> CCEncodingContext {
         CCEncodingContext::builder()
+            .home_id(self.serial_api.storage.home_id().get())
             .own_node_id(self.serial_api.storage.own_node_id().get())
             .node_id(destination_node_id)
             .security_manager(self.storage.security_manager().cloned())
