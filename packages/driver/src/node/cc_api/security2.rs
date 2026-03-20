@@ -1,4 +1,6 @@
-use crate::{CCAPI, CCAPIResult, EndpointLike, ExecNodeCommandError, expect_cc_or_timeout};
+use crate::{
+    CCAPI, CCAPIResult, EndpointLike, expect_cc_or_timeout, handle_unexpected_cc_or_timeout,
+};
 use zwave_cc::commandclass::{AsDestination, CCAddressable, security2::*};
 use zwave_cc::prelude::CC;
 use zwave_core::prelude::*;
@@ -38,9 +40,7 @@ impl<'a> CCAPI<'a> for Security2CCAPI<'a> {
 
         // Only on the highest security class does the response include the supported commands.
         let possible_security_classes: &[SecurityClass] = match node.highest_security_class() {
-            Some(security_class) if security_class.is_s2() => {
-                &[security_class]
-            }
+            Some(security_class) if security_class.is_s2() => &[security_class],
             _ if endpoint.index() == EndpointIndex::Root => {
                 // If the highest security class is not known yet, query all possible S2 classes
                 // on the root device, working from low to high.
@@ -178,24 +178,24 @@ impl Security2CCAPI<'_> {
             .build()
             .with_destination(node.as_destination());
         let response = driver.exec_node_command(&cc.into(), None).await;
-
-        match response {
+        let response = match response {
             Ok(Some(CC::Security2CCMessageEncapsulation(encapsulation))) => {
-                let supported_ccs = match encapsulation.encapsulated.as_deref() {
+                match encapsulation.encapsulated.as_deref() {
                     Some(CC::Security2CCCommandsSupportedReport(report)) => {
                         Some(report.supported_ccs.clone())
                     }
                     _ => None,
-                };
-                Ok(supported_ccs)
+                }
             }
-            Ok(Some(CC::Security2CCNonceReport(_))) => Ok(None),
-            Ok(Some(_)) => {
-                panic!("expected a Security2CCMessageEncapsulation or Security2CCNonceReport")
-            }
-            Ok(None) | Err(ExecNodeCommandError::NodeTimeout) => Ok(None),
-            Err(err) => Err(err.into()),
-        }
+            Ok(Some(CC::Security2CCNonceReport(_))) => None,
+            other => handle_unexpected_cc_or_timeout!(
+                other,
+                Security2CCMessageEncapsulation,
+                Security2CCNonceReport,
+            ),
+        };
+
+        Ok(response)
     }
 
     pub async fn report_supported_commands(
