@@ -1,5 +1,5 @@
 use super::{Controller, Ready};
-use crate::{EndpointStorage, InterviewStage};
+use crate::{EndpointStorage, InterviewStage, NodeStorage};
 use zwave_core::prelude::*;
 
 #[derive(Clone, Copy)]
@@ -25,6 +25,20 @@ impl<'a> Controller<'a, Ready> {
 }
 
 impl<'a> NodeStateRef<'a> {
+    fn inspect_node<R>(self, f: impl FnOnce(Option<&NodeStorage>) -> R) -> R {
+        self.controller
+            .state
+            .nodes
+            .inspect(|nodes| f(nodes.get(&self.node_id)))
+    }
+
+    fn update_node<R>(self, f: impl FnOnce(Option<&mut NodeStorage>) -> R) -> R {
+        self.controller
+            .state
+            .nodes
+            .update(|nodes| f(nodes.get_mut(&self.node_id)))
+    }
+
     pub(crate) fn endpoint(self, endpoint_index: EndpointIndex) -> EndpointStateRef<'a> {
         EndpointStateRef {
             controller: self.controller,
@@ -41,25 +55,25 @@ impl<'a> NodeStateRef<'a> {
     }
 
     pub(crate) fn protocol_data(self) -> Option<NodeInformationProtocolData> {
-        self.controller.state.nodes.inspect(|nodes| {
-            nodes.get(&self.node_id)
-                // We clone the protocol data from storage to avoid lots of node methods
-                // needing an Option as the return type in case the node was removed after
-                // the call to get_node
-                .map(|storage| storage.protocol_data.clone())
+        self.inspect_node(|storage| {
+            let storage = storage?;
+            // We clone the protocol data from storage to avoid lots of node methods
+            // needing an Option as the return type in case the node was removed after
+            // the call to get_node
+            Some(storage.protocol_data.clone())
         })
     }
 
     pub(crate) fn interview_stage(self) -> Option<InterviewStage> {
-        self.controller
-            .state
-            .nodes
-            .inspect(|nodes| nodes.get(&self.node_id).map(|storage| storage.interview_stage))
+        self.inspect_node(|storage| {
+            let storage = storage?;
+            Some(storage.interview_stage)
+        })
     }
 
     pub(crate) fn set_interview_stage(self, interview_stage: InterviewStage) -> bool {
-        self.controller.state.nodes.update(|nodes| {
-            let Some(storage) = nodes.get_mut(&self.node_id) else {
+        self.update_node(|storage| {
+            let Some(storage) = storage else {
                 return false;
             };
             storage.interview_stage = interview_stage;
@@ -68,16 +82,12 @@ impl<'a> NodeStateRef<'a> {
     }
 
     pub(crate) fn has_security_class(self, security_class: SecurityClass) -> Option<bool> {
-        self.controller.state.nodes.inspect(|nodes| {
-            nodes.get(&self.node_id)
-                .and_then(|storage| storage.security_classes.get(&security_class))
-                .copied()
-        })
+        self.inspect_node(|storage| storage?.security_classes.get(&security_class).copied())
     }
 
     pub(crate) fn set_security_class(self, security_class: SecurityClass, granted: bool) -> bool {
-        self.controller.state.nodes.update(|nodes| {
-            let Some(storage) = nodes.get_mut(&self.node_id) else {
+        self.update_node(|storage| {
+            let Some(storage) = storage else {
                 return false;
             };
             storage.security_classes.insert(security_class, granted);
@@ -86,9 +96,8 @@ impl<'a> NodeStateRef<'a> {
     }
 
     pub(crate) fn highest_security_class(self) -> Option<SecurityClass> {
-        self.controller.state.nodes.inspect(|nodes| {
-            let storage = nodes.get(&self.node_id)?;
-            storage
+        self.inspect_node(|storage| {
+            storage?
                 .security_classes
                 .iter()
                 .filter_map(|(security_class, granted)| granted.then_some(*security_class))
@@ -106,17 +115,34 @@ impl<'a> NodeStateRef<'a> {
 }
 
 impl<'a> EndpointStateRef<'a> {
-    pub(crate) fn exists(self) -> bool {
+    fn inspect_endpoint<R>(self, f: impl FnOnce(Option<&EndpointStorage>) -> R) -> R {
         self.controller.state.nodes.inspect(|nodes| {
-            nodes.get(&self.node_id)
-                .and_then(|node| node.endpoints.get(&self.endpoint_index))
-                .is_some()
+            f(nodes
+                .get(&self.node_id)
+                .and_then(|node| node.endpoints.get(&self.endpoint_index)))
         })
     }
 
+    fn update_node<R>(self, f: impl FnOnce(Option<&mut NodeStorage>) -> R) -> R {
+        self.controller
+            .state
+            .nodes
+            .update(|nodes| f(nodes.get_mut(&self.node_id)))
+    }
+
+    fn update_endpoint<R>(self, f: impl FnOnce(Option<&mut EndpointStorage>) -> R) -> R {
+        self.update_node(|node| {
+            f(node.and_then(|node| node.endpoints.get_mut(&self.endpoint_index)))
+        })
+    }
+
+    pub(crate) fn exists(self) -> bool {
+        self.inspect_endpoint(|endpoint| endpoint.is_some())
+    }
+
     pub(crate) fn ensure_exists(self) -> bool {
-        self.controller.state.nodes.update(|nodes| {
-            let Some(node) = nodes.get_mut(&self.node_id) else {
+        self.update_node(|node| {
+            let Some(node) = node else {
                 return false;
             };
 
@@ -128,9 +154,8 @@ impl<'a> EndpointStateRef<'a> {
     }
 
     pub(crate) fn supported_command_classes(self) -> Vec<CommandClasses> {
-        self.controller.state.nodes.inspect(|nodes| {
-            nodes.get(&self.node_id)
-                .and_then(|node| node.endpoints.get(&self.endpoint_index))
+        self.inspect_endpoint(|endpoint| {
+            endpoint
                 .map(|endpoint| {
                     endpoint
                         .cc_info
@@ -143,9 +168,8 @@ impl<'a> EndpointStateRef<'a> {
     }
 
     pub(crate) fn controlled_command_classes(self) -> Vec<CommandClasses> {
-        self.controller.state.nodes.inspect(|nodes| {
-            nodes.get(&self.node_id)
-                .and_then(|node| node.endpoints.get(&self.endpoint_index))
+        self.inspect_endpoint(|endpoint| {
+            endpoint
                 .map(|endpoint| {
                     endpoint
                         .cc_info
@@ -158,11 +182,8 @@ impl<'a> EndpointStateRef<'a> {
     }
 
     pub(crate) fn remove_command_class(self, command_class: CommandClasses) -> bool {
-        self.controller.state.nodes.update(|nodes| {
-            let Some(node) = nodes.get_mut(&self.node_id) else {
-                return false;
-            };
-            let Some(endpoint) = node.endpoints.get_mut(&self.endpoint_index) else {
+        self.update_endpoint(|endpoint| {
+            let Some(endpoint) = endpoint else {
                 return false;
             };
             endpoint.cc_info.remove(&command_class);
@@ -171,9 +192,8 @@ impl<'a> EndpointStateRef<'a> {
     }
 
     pub(crate) fn supports_command_class(self, command_class: CommandClasses) -> bool {
-        self.controller.state.nodes.inspect(|nodes| {
-            nodes.get(&self.node_id)
-                .and_then(|node| node.endpoints.get(&self.endpoint_index))
+        self.inspect_endpoint(|endpoint| {
+            endpoint
                 .and_then(|endpoint| endpoint.cc_info.get(&command_class))
                 .map(|info| info.supported)
                 .unwrap_or(false)
@@ -181,9 +201,8 @@ impl<'a> EndpointStateRef<'a> {
     }
 
     pub(crate) fn controls_command_class(self, command_class: CommandClasses) -> bool {
-        self.controller.state.nodes.inspect(|nodes| {
-            nodes.get(&self.node_id)
-                .and_then(|node| node.endpoints.get(&self.endpoint_index))
+        self.inspect_endpoint(|endpoint| {
+            endpoint
                 .and_then(|endpoint| endpoint.cc_info.get(&command_class))
                 .map(|info| info.controlled)
                 .unwrap_or(false)
@@ -191,9 +210,8 @@ impl<'a> EndpointStateRef<'a> {
     }
 
     pub(crate) fn command_class_version(self, command_class: CommandClasses) -> Option<u8> {
-        self.controller.state.nodes.inspect(|nodes| {
-            nodes.get(&self.node_id)
-                .and_then(|node| node.endpoints.get(&self.endpoint_index))
+        self.inspect_endpoint(|endpoint| {
+            endpoint
                 .and_then(|endpoint| endpoint.cc_info.get(&command_class))
                 .map(|info| info.version)
         })
@@ -204,8 +222,8 @@ impl<'a> EndpointStateRef<'a> {
         command_class: CommandClasses,
         info: &PartialCommandClassInfo,
     ) -> bool {
-        self.controller.state.nodes.update(|nodes| {
-            let Some(node) = nodes.get_mut(&self.node_id) else {
+        self.update_node(|node| {
+            let Some(node) = node else {
                 return false;
             };
             let endpoint = node
