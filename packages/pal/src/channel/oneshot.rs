@@ -66,45 +66,45 @@ mod embassy_impl {
     use core::pin::Pin;
     use core::task::{Context, Poll};
     use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-    use embassy_sync::signal::Signal;
+    use embassy_sync::channel::Channel;
 
-    type SharedSignal<T> = Arc<Signal<CriticalSectionRawMutex, T>>;
+    type SharedChannel<T> = Arc<Channel<CriticalSectionRawMutex, T, 1>>;
 
     pub struct Sender<T> {
-        inner: SharedSignal<T>,
+        inner: SharedChannel<T>,
     }
 
     impl<T> Sender<T> {
         pub fn send(self, value: T) -> Result<(), T> {
-            self.inner.signal(value);
-            Ok(())
+            self.inner.try_send(value).map_err(|e| match e {
+                embassy_sync::channel::TrySendError::Full(v) => v,
+            })
         }
     }
 
-    /// A oneshot receiver backed by an embassy `Signal`.
+    /// A oneshot receiver backed by an embassy capacity-1 channel.
     ///
+    /// Uses `poll_receive` for proper waker registration (no busy-loop).
     /// Unlike the std backend, this cannot detect sender disconnection —
     /// if the sender is dropped without sending, this future will pend forever.
     /// Callers should always use this with a timeout via `select_biased!`.
     pub struct Receiver<T> {
-        inner: SharedSignal<T>,
+        inner: SharedChannel<T>,
     }
 
     impl<T> Future for Receiver<T> {
         type Output = Result<T, Canceled>;
 
         fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-            self.inner
-                .poll_wait(cx)
-                .map(Ok)
+            self.inner.poll_receive(cx).map(Ok)
         }
     }
 
     pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
-        let signal = Arc::new(Signal::new());
+        let ch = Arc::new(Channel::new());
         (
-            Sender { inner: signal.clone() },
-            Receiver { inner: signal },
+            Sender { inner: ch.clone() },
+            Receiver { inner: ch },
         )
     }
 }
