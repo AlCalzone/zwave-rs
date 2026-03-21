@@ -2,7 +2,7 @@ use crate::frame::SerialControlByte;
 use crate::frame::SerialFrame;
 use crate::util::with_hex_fmt;
 use bytes::{Bytes, BytesMut};
-use std::fmt::Debug;
+use core::fmt::Debug;
 use zwave_core::prelude::*;
 use zwave_core::serialize;
 use zwave_core::{
@@ -26,7 +26,7 @@ pub struct CommandRaw {
 }
 
 impl Debug for CommandRaw {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("CommandRaw")
             .field("command_type", &self.command_type)
             .field("function_type", &self.function_type)

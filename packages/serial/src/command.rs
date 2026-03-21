@@ -2,7 +2,7 @@ use crate::prelude::*;
 use crate::util::with_hex_fmt;
 use bytes::Bytes;
 use enum_dispatch::enum_dispatch;
-use std::fmt::Debug;
+use core::fmt::Debug;
 use typed_builder::TypedBuilder;
 use zwave_core::prelude::*;
 use zwave_core::submodule;
@@ -42,7 +42,7 @@ where
 
 #[enum_dispatch(Command)]
 /// Command-specific functionality that may need to be implemented for each command
-pub trait CommandBase: std::fmt::Debug + Sync + Send {
+pub trait CommandBase: core::fmt::Debug + Sync + Send {
     // Used to test responses and callbacks whether they indicate an OK result
     fn is_ok(&self) -> bool {
         true
@@ -115,7 +115,7 @@ pub struct NotImplemented {
 }
 
 impl Debug for NotImplemented {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("CommandRaw")
             .field("command_type", &self.command_type)
             .field("function_type", &self.function_type)

@@ -1,7 +1,7 @@
 use crate::prelude::CommandRaw;
 use bytes::{Buf, Bytes, BytesMut};
 use proc_macros::TryFromRepr;
-use std::fmt::Display;
+use core::fmt::Display;
 use zwave_core::parse;
 use zwave_core::parse::Needed;
 use zwave_core::prelude::*;
@@ -31,7 +31,7 @@ pub enum ControlFlow {
 }
 
 impl Display for ControlFlow {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ControlFlow::ACK => write!(f, "ACK"),
             ControlFlow::NAK => write!(f, "NAK"),

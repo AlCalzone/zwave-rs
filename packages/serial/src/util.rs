@@ -1,7 +1,7 @@
 use ::core::fmt::Debug;
 use core::fmt::{Formatter, Result};
 
-pub fn hex_fmt<T: AsRef<[u8]>>(n: &T, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+pub fn hex_fmt<T: AsRef<[u8]>>(n: &T, f: &mut core::fmt::Formatter) -> core::fmt::Result {
     write!(f, "0x{}", hex::encode(n))
 }
 
@@ -14,6 +14,6 @@ impl<'a, T: 'a + AsRef<[u8]>> Debug for HexFmt<'a, T> {
     }
 }
 
-pub fn with_hex_fmt<T: std::fmt::Debug + AsRef<[u8]>>(n: &T) -> HexFmt<'_, T> {
+pub fn with_hex_fmt<T: core::fmt::Debug + AsRef<[u8]>>(n: &T) -> HexFmt<'_, T> {
     HexFmt { data: n }
 }
