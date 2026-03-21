@@ -6,12 +6,11 @@ edition.workspace = true
 
 [features]
 default = ["std"]
-std = ["zwave-core/std", "zwave-cc/std", "zwave-serial/std", "zwave-logging/std", "zwave-pal/std", "petgraph"]
+std = ["zwave-core/std", "zwave-cc/std", "zwave-serial/std", "zwave-logging/std", "zwave-pal/std"]
 embassy = ["zwave-core/embassy", "zwave-cc/embassy", "zwave-serial/embassy", "zwave-logging/embassy", "zwave-pal/embassy"]
 
 [dependencies]
 paste.workspace = true
-petgraph = { workspace = true, optional = true }
 proc-macros.workspace = true
 thiserror.workspace = true
 typed-builder.workspace = true
