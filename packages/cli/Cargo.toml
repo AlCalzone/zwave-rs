@@ -14,7 +14,6 @@ zwave-serial.workspace = true
 zwave-logging.workspace = true
 zwave-pal.workspace = true
 termcolor.workspace = true
-futures.workspace = true
 embedded-io-adapters = { version = "0.7", features = ["futures-03"] }
 anyhow = "1.0.97"
 async-channel = "2.3.1"
