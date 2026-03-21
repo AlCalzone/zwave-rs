@@ -6,7 +6,8 @@ edition.workspace = true
 
 [features]
 default = ["std"]
-std = []
+std = ["zwave-core/std"]
+embassy = ["zwave-core/embassy"]
 
 [dependencies]
 bytes.workspace = true
@@ -16,5 +17,5 @@ paste.workspace = true
 proc-macros.workspace = true
 typed-builder.workspace = true
 ux.workspace = true
-zwave-core.workspace = true
+zwave-core = { workspace = true, default-features = false }
 zwave-pal.workspace = true

@@ -6,7 +6,8 @@ edition.workspace = true
 
 [features]
 default = ["std"]
-std = ["futures-io"]
+std = ["zwave-core/std", "zwave-cc/std", "futures-io"]
+embassy = ["zwave-core/embassy", "zwave-cc/embassy"]
 futures-io = ["dep:futures"]
 
 [dependencies]
@@ -20,6 +21,6 @@ proc-macros.workspace = true
 thiserror.workspace = true
 typed-builder.workspace = true
 ux.workspace = true
-zwave-core.workspace = true
-zwave-cc.workspace = true
+zwave-core = { workspace = true, default-features = false }
+zwave-cc = { workspace = true, default-features = false }
 zwave-pal.workspace = true

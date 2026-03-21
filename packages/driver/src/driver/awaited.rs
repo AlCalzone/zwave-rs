@@ -1,6 +1,6 @@
 use crate::error::{Error, Result};
 use zwave_pal::prelude::*;
-use core::sync::atomic::{AtomicI64, Ordering};
+use core::sync::atomic::{AtomicI32, Ordering};
 use zwave_pal::time::MaybeSleep;
 use zwave_pal::channel::oneshot;
 
@@ -12,14 +12,14 @@ pub type Predicate<T> = Box<dyn Fn(&T) -> bool + Sync + Send>;
 /// Adding an entry hands out an `AwaitedRef`, which is used to receive the value when it is
 /// available. The `AwaitedRef` is automatically removed from the registry when it is dropped.
 pub struct AwaitedRegistry<T> {
-    next_id: AtomicI64,
+    next_id: AtomicI32,
     store: zwave_pal::sync::Mutex<Vec<Awaited<T>>>,
 }
 
 impl<T> Default for AwaitedRegistry<T> {
     fn default() -> Self {
         Self {
-            next_id: AtomicI64::new(0),
+            next_id: AtomicI32::new(0),
             store: zwave_pal::sync::Mutex::default(),
         }
     }
@@ -63,13 +63,13 @@ impl<T> AwaitedRegistry<T> {
 }
 
 pub struct Awaited<T> {
-    pub id: i64,
+    pub id: i32,
     pub predicate: Predicate<T>,
     pub channel: oneshot::Sender<T>,
 }
 
 pub struct AwaitedRef<T> {
-    id: i64,
+    id: i32,
     registry: Arc<AwaitedRegistry<T>>,
     timeout: Option<core::time::Duration>,
     channel: Option<oneshot::Receiver<T>>,
@@ -77,7 +77,7 @@ pub struct AwaitedRef<T> {
 
 impl<T> AwaitedRef<T> {
     pub fn new(
-        id: i64,
+        id: i32,
         registry: Arc<AwaitedRegistry<T>>,
         timeout: Option<core::time::Duration>,
         channel: oneshot::Receiver<T>,

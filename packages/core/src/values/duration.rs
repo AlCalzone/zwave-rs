@@ -69,9 +69,9 @@ impl Canonical for DurationSet {
             Self::Default => Self::Default,
             Self::Minutes(m) => Self::Minutes(clamp(*m, 1, 127)),
             Self::Seconds(s) if s <= &127u8 => *self,
-            // Round seconds > 127 to minutes
+            // Round seconds > 127 to the nearest minute
             Self::Seconds(s) => {
-                let minutes = (*s as f32 / 60.0).round() as u8;
+                let minutes = ((*s as u16 + 30) / 60) as u8;
                 Self::Minutes(clamp(minutes, 1, 127))
             }
         }
@@ -149,9 +149,9 @@ impl Canonical for DurationReport {
             Self::Unknown => Self::Unknown,
             Self::Minutes(m) => Self::Minutes(clamp(*m, 1, 126)),
             Self::Seconds(s) if s <= &127u8 => *self,
-            // Round seconds > 127 to minutes
+            // Round seconds > 127 to the nearest minute
             Self::Seconds(s) => {
-                let minutes = (*s as f32 / 60.0).round() as u8;
+                let minutes = ((*s as u16 + 30) / 60) as u8;
                 Self::Minutes(clamp(minutes, 1, 126))
             }
         }

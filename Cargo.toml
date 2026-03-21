@@ -28,12 +28,12 @@ enum-iterator = "1.4.1"
 futures = { version = "0.3.29", default-features = false, features = ["async-await"] }
 getrandom = "0.2.15"
 hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
-num-traits = "0.2.17"
+num-traits = { version = "0.2.17", default-features = false }
 ofb = "0.6.1"
 paste = "1.0.14"
 termcolor = "1.4.0"
 thiserror = { version = "2.0", default-features = false }
-tinyvec = { git = "https://github.com/AlCalzone/tinyvec", version = "0.1.0" }
+tinyvec = { git = "https://github.com/AlCalzone/tinyvec", default-features = false, features = ["alloc"] }
 typed-builder = "0.18.0"
 unicode-segmentation = "1.10.1"
 ux = { version = "0.1.5", default-features = false }
@@ -42,12 +42,12 @@ embedded-io-async = "0.7"
 embedded-io = "0.7"
 proc-macros = { path = "packages/proc-macros" }
 walkdir = "2.4.0"
-zwave-cc = { path = "packages/cc" }
-zwave-core = { path = "packages/core" }
-zwave-driver = { path = "packages/driver" }
+zwave-cc = { path = "packages/cc", default-features = false }
+zwave-core = { path = "packages/core", default-features = false }
+zwave-driver = { path = "packages/driver", default-features = false }
 zwave-pal = { path = "packages/pal" }
-zwave-serial = { path = "packages/serial" }
-zwave-logging = { path = "packages/logging" }
+zwave-serial = { path = "packages/serial", default-features = false }
+zwave-logging = { path = "packages/logging", default-features = false }
 
 [profile.release]
 incremental = true

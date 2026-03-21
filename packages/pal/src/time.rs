@@ -11,7 +11,7 @@ use core::time::Duration;
 pub use std::time::Instant;
 
 #[cfg(feature = "embassy")]
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Instant(embassy_time::Instant);
 
 #[cfg(feature = "embassy")]
