@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use super::Driver;
 use thiserror::Error;
 use typed_builder::TypedBuilder;

@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use crate::{expect_cc_or_timeout, CCAPIResult, EndpointLike, CCAPI};
 use zwave_cc::commandclass::{basic::*, CCAddressable};
 use zwave_core::{cache::CacheExt, prelude::*};

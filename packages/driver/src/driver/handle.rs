@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use super::{awaited::Predicate, Driver, DriverInput};
 use crate::error::Result;
 use core::time::Duration;

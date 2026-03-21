@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use super::{
     SerialApiActor, SerialApiCommandState, SerialApiEvent, SerialApiInput, SerialApiMachine,
     SerialApiMachineCondition, SerialApiMachineInput, SerialApiMachineState,

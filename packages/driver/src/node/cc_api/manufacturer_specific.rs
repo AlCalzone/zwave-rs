@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use crate::{cc_api_assert_supported, expect_cc_or_timeout};
 use crate::{CCAPIResult, EndpointLike, CCAPI};
 use zwave_cc::commandclass::{manufacturer_specific::*, CCAddressable};

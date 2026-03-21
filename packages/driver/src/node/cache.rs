@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use super::EndpointLike;
 use crate::cache::ValueCache;
 use zwave_core::{
