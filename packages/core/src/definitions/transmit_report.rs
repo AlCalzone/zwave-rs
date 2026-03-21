@@ -1,3 +1,4 @@
+use crate::alloc_prelude::*;
 use crate::parse::{
     bits::bits,
     bytes::{be_i8, be_u16, be_u8},

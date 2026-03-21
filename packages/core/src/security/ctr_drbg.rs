@@ -1,3 +1,4 @@
+use crate::alloc_prelude::*;
 use super::crypto::{
     AesKey, Block, ENTROPY_SIZE, Entropy, PersonalizationString, encrypt_aes_ecb,
     increment_slice_mut, xor_slice_mut,

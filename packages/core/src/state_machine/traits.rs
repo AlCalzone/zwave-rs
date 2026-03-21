@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use crate::alloc_prelude::*;
 use core::{cmp::Ordering, fmt::Debug, marker::Send, time::Duration};
 
 /// Describes a state machine transition to take, with an optional effect to be executed before entering the new state

@@ -1,4 +1,5 @@
-use alloc::{borrow::Cow, string::String};
+use crate::alloc_prelude::*;
+use alloc::borrow::Cow;
 use core::fmt::{Debug, Display};
 use thiserror::Error;
 

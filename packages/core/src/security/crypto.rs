@@ -1,3 +1,4 @@
+use crate::alloc_prelude::*;
 use aes::cipher::{
     BlockEncrypt, BlockEncryptMut, KeyInit, KeyIvInit, StreamCipher,
     block_padding::ZeroPadding,

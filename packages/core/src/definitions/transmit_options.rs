@@ -1,3 +1,4 @@
+use crate::alloc_prelude::*;
 use crate::serialize::{self, Serializable};
 use crate::parse::{self, bits::bool};
 use crate::prelude::*;

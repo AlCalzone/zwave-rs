@@ -1,5 +1,5 @@
+use crate::alloc_prelude::*;
 use alloc::borrow::Cow;
-use alloc::vec::Vec;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[macro_export]

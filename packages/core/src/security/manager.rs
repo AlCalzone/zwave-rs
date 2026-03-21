@@ -1,8 +1,9 @@
+use crate::alloc_prelude::*;
 use super::{AesKey, NetworkKey, encrypt_aes_ecb};
+use alloc::{collections::BTreeMap, sync::Arc};
 use crate::prelude::*;
-use zwave_pal::sync::Locked;
 use getrandom::getrandom;
-use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
+use zwave_pal::sync::Locked;
 use core::ops::Deref;
 
 pub const S0_NONCE_SIZE: usize = 8;

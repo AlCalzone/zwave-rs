@@ -1,4 +1,5 @@
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use crate::alloc_prelude::*;
 use core::ops::Deref;
 use thiserror::Error;
 

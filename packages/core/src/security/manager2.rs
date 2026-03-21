@@ -8,13 +8,10 @@ use crate::{
     definitions::{NodeId, SecurityClass},
     wrapping_counter::WrappingCounter,
 };
+use crate::alloc_prelude::*;
+use alloc::{collections::{BTreeMap, BTreeSet}, sync::Arc};
 use getrandom::getrandom;
 use zwave_pal::sync::Locked;
-use alloc::{
-    collections::{BTreeMap, BTreeSet},
-    sync::Arc,
-    vec::Vec,
-};
 use core::{ops::Deref, time::Duration};
 use zwave_pal::time::Instant;
 
