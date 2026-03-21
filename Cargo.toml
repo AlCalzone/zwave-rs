@@ -38,8 +38,6 @@ typed-builder = "0.18.0"
 unicode-segmentation = "1.10.1"
 ux = { version = "0.1.5", default-features = false }
 petgraph = "0.6.4"
-embedded-io-async = "0.7"
-embedded-io = "0.7"
 proc-macros = { path = "packages/proc-macros" }
 walkdir = "2.4.0"
 zwave-cc = { path = "packages/cc", default-features = false }

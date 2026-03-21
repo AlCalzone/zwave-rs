@@ -1,4 +1,5 @@
 use bytes::BytesMut;
+use futures::io::{AsyncReadExt, AsyncWriteExt};
 use smol::net::TcpStream;
 use std::io::{self, ErrorKind, Read, Write};
 use std::sync::{
@@ -11,18 +12,57 @@ use zwave_core::prelude::Serializable;
 use zwave_serial::binding::SerialBinding;
 use zwave_serial::error::Result;
 use zwave_serial::frame::RawSerialFrame;
-use zwave_serial::serialport::FuturesSerialCodec;
+use zwave_serial::serialport::FrameCodec;
 
-type TcpFramed = FuturesSerialCodec<TcpStream>;
 type SerialSender = async_channel::Sender<RawSerialFrame>;
 type SerialReceiver = async_channel::Receiver<RawSerialFrame>;
 
 const CHANNEL_CAPACITY: usize = 16;
 const SERIAL_PORT_TIMEOUT: Duration = Duration::from_secs(1);
 
+/// A `SerialBinding` backed by a TCP stream (e.g. for tcp:// serial bridges).
+struct TcpBinding {
+    stream: TcpStream,
+    codec: FrameCodec,
+}
+
+impl TcpBinding {
+    fn new(stream: TcpStream) -> Self {
+        Self {
+            stream,
+            codec: FrameCodec::new(),
+        }
+    }
+}
+
+impl SerialBinding for TcpBinding {
+    async fn write(&mut self, frame: RawSerialFrame) -> Result<()> {
+        let mut buf = BytesMut::new();
+        frame.serialize(&mut buf);
+        self.stream
+            .write_all(&buf)
+            .await
+            .map_err(zwave_serial::error::Error::StdIo)?;
+        Ok(())
+    }
+
+    async fn read(&mut self) -> Option<RawSerialFrame> {
+        loop {
+            if let Some(frame) = self.codec.try_decode() {
+                return Some(frame);
+            }
+            let mut tmp = [0u8; 256];
+            match self.stream.read(&mut tmp).await {
+                Ok(0) | Err(_) => return None,
+                Ok(n) => self.codec.push_bytes(&tmp[..n]),
+            }
+        }
+    }
+}
+
 pub enum ZWavePort {
     Serial(SerialThreadPort),
-    Tcp(TcpFramed),
+    Tcp(TcpBinding),
 }
 
 impl ZWavePort {
@@ -32,7 +72,7 @@ impl ZWavePort {
 
     pub async fn open_tcp(addr: &str) -> io::Result<Self> {
         let stream = TcpStream::connect(addr).await?;
-        Ok(Self::Tcp(FuturesSerialCodec::new(stream)))
+        Ok(Self::Tcp(TcpBinding::new(stream)))
     }
 }
 

@@ -3,9 +3,6 @@ pub enum Error {
     #[cfg(feature = "std")]
     #[error(transparent)]
     StdIo(#[from] std::io::Error),
-
-    #[error("I/O error: {0:?}")]
-    EmbeddedIo(embedded_io::ErrorKind),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;

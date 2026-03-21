@@ -12,6 +12,7 @@ zwave-driver = { workspace = true, features = ["std"] }
 zwave-serial = { workspace = true, features = ["std"] }
 zwave-logging = { workspace = true, features = ["std"] }
 zwave-pal = { workspace = true, features = ["std"] }
+futures = { workspace = true, features = ["std"] }
 termcolor.workspace = true
 anyhow = "1.0.97"
 async-channel = "2.3.1"

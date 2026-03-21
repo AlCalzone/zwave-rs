@@ -1,40 +1,30 @@
-use crate::binding::SerialBinding;
-use crate::error::*;
 use crate::frame::RawSerialFrame;
 use bytes::BytesMut;
-use embedded_io::Error as _;
-use embedded_io_async::{Read, Write};
 use zwave_core::parse::Needed;
 use zwave_core::prelude::*;
 
-/// Codec that frames raw serial bytes into Z-Wave serial frames.
-/// Works with any stream implementing `embedded_io_async` traits.
-pub struct SerialCodec<S> {
-    stream: S,
+/// Reusable framing codec that buffers incoming bytes and extracts
+/// Z-Wave serial frames. Platform-agnostic — callers feed it raw
+/// bytes and consume parsed frames.
+pub struct FrameCodec {
     read_buf: BytesMut,
 }
 
-impl<S: Read + Write> SerialCodec<S> {
-    pub fn new(stream: S) -> Self {
+impl FrameCodec {
+    pub fn new() -> Self {
         Self {
-            stream,
             read_buf: BytesMut::with_capacity(256),
         }
     }
-}
 
-impl<S: Read + Write + Unpin> SerialBinding for SerialCodec<S> {
-    async fn write(&mut self, frame: RawSerialFrame) -> Result<()> {
-        let mut buf = BytesMut::new();
-        frame.serialize(&mut buf);
-        self.stream
-            .write_all(&buf)
-            .await
-            .map_err(|e| Error::EmbeddedIo(e.kind()))?;
-        Ok(())
+    /// Feed raw bytes into the codec's buffer.
+    pub fn push_bytes(&mut self, data: &[u8]) {
+        self.read_buf.extend_from_slice(data);
     }
 
-    async fn read(&mut self) -> Option<RawSerialFrame> {
+    /// Try to extract the next complete frame from the buffer.
+    /// Returns `None` if more data is needed.
+    pub fn try_decode(&mut self) -> Option<RawSerialFrame> {
         loop {
             match RawSerialFrame::parse_mut(&mut self.read_buf) {
                 Ok(frame) => return Some(frame),
@@ -42,74 +32,14 @@ impl<S: Read + Write + Unpin> SerialBinding for SerialCodec<S> {
                     if let Needed::Size(n) = needed {
                         self.read_buf.reserve(n);
                     }
-                    let mut tmp = [0u8; 256];
-                    match self.stream.read(&mut tmp).await {
-                        Ok(0) | Err(_) => return None,
-                        Ok(n) => self.read_buf.extend_from_slice(&tmp[..n]),
-                    }
+                    return None;
                 }
                 Err(_) => {
-                    if !self.read_buf.is_empty() {
-                        let _ = self.read_buf.split_to(1);
+                    // Garbage byte — discard and retry
+                    if self.read_buf.is_empty() {
+                        return None;
                     }
-                }
-            }
-        }
-    }
-}
-
-/// Codec that frames raw serial bytes into Z-Wave serial frames.
-/// Works with any stream implementing `futures::io` traits.
-#[cfg(feature = "futures-io")]
-pub struct FuturesSerialCodec<S> {
-    stream: S,
-    read_buf: BytesMut,
-}
-
-#[cfg(feature = "futures-io")]
-impl<S: futures::io::AsyncRead + futures::io::AsyncWrite> FuturesSerialCodec<S> {
-    pub fn new(stream: S) -> Self {
-        Self {
-            stream,
-            read_buf: BytesMut::with_capacity(256),
-        }
-    }
-}
-
-#[cfg(feature = "futures-io")]
-impl<S: futures::io::AsyncRead + futures::io::AsyncWrite + Unpin> SerialBinding
-    for FuturesSerialCodec<S>
-{
-    async fn write(&mut self, frame: RawSerialFrame) -> Result<()> {
-        use futures::io::AsyncWriteExt;
-        let mut buf = BytesMut::new();
-        frame.serialize(&mut buf);
-        self.stream
-            .write_all(&buf)
-            .await
-            .map_err(Error::StdIo)?;
-        Ok(())
-    }
-
-    async fn read(&mut self) -> Option<RawSerialFrame> {
-        use futures::io::AsyncReadExt;
-        loop {
-            match RawSerialFrame::parse_mut(&mut self.read_buf) {
-                Ok(frame) => return Some(frame),
-                Err(ParseError::Incomplete(needed)) => {
-                    if let Needed::Size(n) = needed {
-                        self.read_buf.reserve(n);
-                    }
-                    let mut tmp = [0u8; 256];
-                    match self.stream.read(&mut tmp).await {
-                        Ok(0) | Err(_) => return None,
-                        Ok(n) => self.read_buf.extend_from_slice(&tmp[..n]),
-                    }
-                }
-                Err(_) => {
-                    if !self.read_buf.is_empty() {
-                        let _ = self.read_buf.split_to(1);
-                    }
+                    let _ = self.read_buf.split_to(1);
                 }
             }
         }

@@ -6,16 +6,12 @@ edition.workspace = true
 
 [features]
 default = ["std"]
-std = ["zwave-core/std", "zwave-cc/std", "futures-io"]
+std = ["zwave-core/std", "zwave-cc/std"]
 embassy = ["zwave-core/embassy", "zwave-cc/embassy"]
-futures-io = ["dep:futures"]
 
 [dependencies]
 bytes.workspace = true
 enum_dispatch.workspace = true
-embedded-io-async.workspace = true
-embedded-io.workspace = true
-futures = { workspace = true, optional = true }
 hex.workspace = true
 proc-macros.workspace = true
 thiserror.workspace = true
