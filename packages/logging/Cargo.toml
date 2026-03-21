@@ -6,8 +6,8 @@ edition.workspace = true
 
 [features]
 default = ["std"]
-std = ["zwave-core/std", "zwave-serial/std", "zwave-pal/std", "termcolor"]
-embassy = ["zwave-core/embassy", "zwave-serial/embassy", "zwave-pal/embassy"]
+std = ["zwave-core/std", "zwave-pal/std", "termcolor"]
+embassy = ["zwave-core/embassy", "zwave-pal/embassy"]
 
 [dependencies]
 zwave-core.workspace = true

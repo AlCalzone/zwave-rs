@@ -8,7 +8,8 @@ use zwave_core::security::{
     SecurityManager, SecurityManager2, SecurityManager2Storage, SecurityManagerOptions,
     SecurityManagerStorage,
 };
-use zwave_core::{log::Loglevel, util::MaybeSleep};
+use zwave_core::log::Loglevel;
+use zwave_pal::time::MaybeSleep;
 use zwave_logging::loggers::node::NodeLogger;
 use zwave_logging::{
     loggers::{controller::ControllerLogger, driver::DriverLogger},
@@ -20,6 +21,7 @@ use zwave_serial::prelude::*;
 impl DriverActor {
     pub async fn run(&mut self) {
         loop {
+            // Figure out if there is a timeout we need to wait for
             let min_sleep_duration = self
                 .awaited_ccs
                 .iter()
@@ -53,6 +55,7 @@ impl DriverActor {
         NodeLogger::new(self, node_id, endpoint)
     }
 
+    /// Passes an input that the driver needs to handle
     fn handle_input(&mut self, input: DriverInput) {
         match input {
             DriverInput::Unsolicited { command } => {
@@ -84,12 +87,15 @@ impl DriverActor {
     }
 
     fn handle_timeouts(&mut self) {
+        // Figure out which timeout(s) elapsed and take them out of the awaited list
         let now = Instant::now();
         let mut awaited_ccs = Vec::new();
         for cc in self.awaited_ccs.drain(..) {
+            // Preserve the awaited CCs that haven't timed out yet
             if cc.timeout.map(|t| now >= t).unwrap_or(false) {
                 awaited_ccs.push(cc);
             } else {
+                // This CC has timed out, send an error to the callback
                 let _ = cc.callback.send(Err(Error::Timeout));
             }
         }
@@ -115,17 +121,21 @@ impl DriverActor {
     }
 
     fn handle_unsolicited_command(&mut self, mut command: Command) {
+        // Figure out if this is a command that contains a CC...
         let cc = match &mut command {
             Command::ApplicationCommandRequest(cmd) => Some(&mut cmd.command),
             Command::BridgeApplicationCommandRequest(cmd) => Some(&mut cmd.command),
             _ => None,
         };
+        // ...and handle it
         if let Some(cc) = cc {
+            // FIXME: Can we get rid of all these clones()?
             let (address, cc_or_raw) = cc.as_parts_mut();
 
             let ctx = self.get_cc_parsing_context(address);
             match cc_or_raw.clone().try_as_cc(ctx) {
                 Ok(parsed_cc) => {
+                    // Update the command, so it gets logged correctly
                     *cc_or_raw = CcOrRaw::CC(parsed_cc);
                 }
                 Err(e) => {
@@ -135,11 +145,13 @@ impl DriverActor {
                 }
             };
 
+            // TODO: This back and forth is pretty awkward
             let CcOrRaw::CC(cc) = cc_or_raw else {
                 panic!("The CC should have been parsed already")
             };
             let mut cc = cc.clone().with_address(address.clone());
 
+            // Check if there is someone waiting for this CC
             if let Some(callback) = self.take_matching_awaited_cc(&cc) {
                 self.node_log(cc.address().source_node_id, cc.address().endpoint_index)
                     .command(&command, Direction::Inbound);
@@ -151,7 +163,10 @@ impl DriverActor {
             let node_logger =
                 self.node_log(cc.address().source_node_id, cc.address().endpoint_index);
 
+            // Check if the CC is split across multiple partial CCs
             if let Some(_session_id) = cc.session_id() {
+                // FIXME: Look up other partial CCs and pass them to merge_session
+                // If so, try to merge it
                 let ctx = self.get_cc_parsing_context(cc.address());
                 if let Err(e) = cc.merge_session(ctx, alloc::vec![]) {
                     node_logger.error(|| format!("failed to merge partial CCs: {}", e));

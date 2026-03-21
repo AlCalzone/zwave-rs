@@ -2,10 +2,6 @@ use alloc::borrow::Cow;
 use alloc::vec::Vec;
 use unicode_segmentation::UnicodeSegmentation;
 
-// Re-export PAL types that were previously defined here
-pub use zwave_pal::sync::Locked;
-pub use zwave_pal::time::MaybeSleep;
-
 #[macro_export]
 macro_rules! submodule {
     ($name:ident) => {

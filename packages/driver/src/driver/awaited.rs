@@ -1,7 +1,7 @@
 use crate::error::{Error, Result};
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::sync::atomic::{AtomicI64, Ordering};
-use zwave_core::util::MaybeSleep;
+use zwave_pal::time::MaybeSleep;
 use zwave_pal::channel::oneshot;
 
 pub type Predicate<T> = Box<dyn Fn(&T) -> bool + Sync + Send>;

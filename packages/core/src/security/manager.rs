@@ -1,6 +1,6 @@
 use super::{AesKey, NetworkKey, encrypt_aes_ecb};
 use crate::prelude::*;
-use crate::util::Locked;
+use zwave_pal::sync::Locked;
 use getrandom::getrandom;
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 use core::ops::Deref;

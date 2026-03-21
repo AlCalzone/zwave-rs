@@ -11,10 +11,9 @@ use zwave_core::prelude::Serializable;
 use zwave_serial::binding::SerialBinding;
 use zwave_serial::error::Result;
 use zwave_serial::frame::RawSerialFrame;
-use embedded_io_adapters::futures_03::FromFutures;
-use zwave_serial::serialport::SerialCodec;
+use zwave_serial::serialport::FuturesSerialCodec;
 
-type TcpFramed = SerialCodec<FromFutures<TcpStream>>;
+type TcpFramed = FuturesSerialCodec<TcpStream>;
 type SerialSender = async_channel::Sender<RawSerialFrame>;
 type SerialReceiver = async_channel::Receiver<RawSerialFrame>;
 
@@ -33,7 +32,7 @@ impl ZWavePort {
 
     pub async fn open_tcp(addr: &str) -> io::Result<Self> {
         let stream = TcpStream::connect(addr).await?;
-        Ok(Self::Tcp(SerialCodec::new(FromFutures::new(stream))))
+        Ok(Self::Tcp(FuturesSerialCodec::new(stream)))
     }
 }
 

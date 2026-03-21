@@ -6,8 +6,7 @@ edition.workspace = true
 
 [features]
 default = ["std"]
-std = ["zwave-core/std"]
-embassy = ["zwave-core/embassy"]
+std = []
 
 [dependencies]
 bytes.workspace = true

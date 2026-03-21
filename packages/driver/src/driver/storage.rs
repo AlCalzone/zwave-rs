@@ -2,11 +2,15 @@ use alloc::collections::BTreeMap;
 use zwave_core::{
     cache::CacheValue,
     security::{SecurityManager, SecurityManager2},
-    util::Locked,
     value_id::EndpointValueId,
 };
+use zwave_pal::sync::Locked;
 
 /// Internal storage for the driver instance and shared API instances.
+/// Since the driver is meant be used from external (application) code,
+/// in several locations at once, often simultaneously, we need to use
+/// interior mutability to allow for concurrent access without requiring
+/// a mutable reference.
 pub(crate) struct DriverStorage {
     value_cache: Locked<BTreeMap<EndpointValueId, CacheValue>>,
     security_manager: Locked<Option<SecurityManager>>,

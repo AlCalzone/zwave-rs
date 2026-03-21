@@ -7,7 +7,7 @@ edition.workspace = true
 [features]
 default = ["std"]
 std = ["zwave-core/std", "zwave-cc/std", "zwave-serial/std", "zwave-logging/std", "zwave-pal/std", "petgraph"]
-embassy = ["zwave-core/embassy", "zwave-cc/embassy", "zwave-serial/embassy", "zwave-logging/embassy", "zwave-pal/embassy"]
+embassy = ["zwave-core/embassy", "zwave-logging/embassy", "zwave-pal/embassy"]
 
 [dependencies]
 paste.workspace = true

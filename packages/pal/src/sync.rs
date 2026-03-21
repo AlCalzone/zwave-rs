@@ -1,5 +1,6 @@
 // =============================================================================
-// Locked<T>
+// Locked<T> — a wrapper around a lock that exposes semantic read/update
+// operations instead of raw lock guards.
 // =============================================================================
 
 #[cfg(feature = "std")]
@@ -7,6 +8,15 @@ pub struct Locked<T> {
     inner: std::sync::RwLock<T>,
 }
 
+#[cfg(feature = "embassy")]
+pub struct Locked<T> {
+    inner: embassy_sync::blocking_mutex::Mutex<
+        embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex,
+        core::cell::RefCell<T>,
+    >,
+}
+
+// Platform-specific: construction and primitive access
 #[cfg(feature = "std")]
 impl<T> Locked<T> {
     pub fn new(value: T) -> Self {
@@ -30,36 +40,6 @@ impl<T> Locked<T> {
             .expect("failed to lock storage for writing");
         update(&mut guard)
     }
-
-    pub fn set(&self, value: T) {
-        self.update(|slot| *slot = value);
-    }
-
-    pub fn replace(&self, value: T) -> T {
-        self.update(|slot| core::mem::replace(slot, value))
-    }
-}
-
-#[cfg(feature = "std")]
-impl<T: Copy> Locked<T> {
-    pub fn get(&self) -> T {
-        self.inspect(|value| *value)
-    }
-}
-
-#[cfg(feature = "std")]
-impl<T: Clone> Locked<T> {
-    pub fn cloned(&self) -> T {
-        self.inspect(Clone::clone)
-    }
-}
-
-#[cfg(feature = "embassy")]
-pub struct Locked<T> {
-    inner: embassy_sync::blocking_mutex::Mutex<
-        embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex,
-        core::cell::RefCell<T>,
-    >,
 }
 
 #[cfg(feature = "embassy")]
@@ -77,7 +57,10 @@ impl<T> Locked<T> {
     pub fn update<R>(&self, update: impl FnOnce(&mut T) -> R) -> R {
         self.inner.lock(|cell| update(&mut cell.borrow_mut()))
     }
+}
 
+// Shared: methods that only depend on inspect/update
+impl<T> Locked<T> {
     pub fn set(&self, value: T) {
         self.update(|slot| *slot = value);
     }
@@ -87,14 +70,12 @@ impl<T> Locked<T> {
     }
 }
 
-#[cfg(feature = "embassy")]
 impl<T: Copy> Locked<T> {
     pub fn get(&self) -> T {
         self.inspect(|value| *value)
     }
 }
 
-#[cfg(feature = "embassy")]
 impl<T: Clone> Locked<T> {
     pub fn cloned(&self) -> T {
         self.inspect(Clone::clone)
@@ -115,9 +96,8 @@ pub use embassy_sync::once_lock::OnceLock;
 // Mutex<T> — closure-based API that works on both platforms
 // =============================================================================
 
-/// A mutex with a closure-based access pattern that works on both std and no_std.
+/// A mutex with a closure-based access pattern.
 ///
-/// Usage:
 /// ```ignore
 /// let mutex = Mutex::new(vec![1, 2, 3]);
 /// mutex.lock(|vec| vec.push(4));
@@ -126,6 +106,14 @@ pub use embassy_sync::once_lock::OnceLock;
 #[cfg(feature = "std")]
 pub struct Mutex<T> {
     inner: std::sync::Mutex<T>,
+}
+
+#[cfg(feature = "embassy")]
+pub struct Mutex<T> {
+    inner: embassy_sync::blocking_mutex::Mutex<
+        embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex,
+        core::cell::RefCell<T>,
+    >,
 }
 
 #[cfg(feature = "std")]
@@ -142,21 +130,6 @@ impl<T> Mutex<T> {
     }
 }
 
-#[cfg(feature = "std")]
-impl<T: Default> Default for Mutex<T> {
-    fn default() -> Self {
-        Self::new(T::default())
-    }
-}
-
-#[cfg(feature = "embassy")]
-pub struct Mutex<T> {
-    inner: embassy_sync::blocking_mutex::Mutex<
-        embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex,
-        core::cell::RefCell<T>,
-    >,
-}
-
 #[cfg(feature = "embassy")]
 impl<T> Mutex<T> {
     pub fn new(value: T) -> Self {
@@ -170,7 +143,6 @@ impl<T> Mutex<T> {
     }
 }
 
-#[cfg(feature = "embassy")]
 impl<T: Default> Default for Mutex<T> {
     fn default() -> Self {
         Self::new(T::default())

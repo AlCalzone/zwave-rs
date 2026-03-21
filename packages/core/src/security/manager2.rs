@@ -6,10 +6,10 @@ use super::{
 };
 use crate::{
     definitions::{NodeId, SecurityClass},
-    util::Locked,
     wrapping_counter::WrappingCounter,
 };
 use getrandom::getrandom;
+use zwave_pal::sync::Locked;
 use alloc::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
