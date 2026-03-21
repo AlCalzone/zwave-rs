@@ -25,7 +25,7 @@ chrono = "0.4.31"
 crc16 = "0.4.0"
 enum_dispatch = "0.3.12"
 enum-iterator = "1.4.1"
-futures = { version = "0.3.29", default-features = false, features = ["std", "async-await"] }
+futures = { version = "0.3.29", default-features = false, features = ["async-await"] }
 getrandom = "0.2.15"
 hex = "0.4.3"
 num-traits = "0.2.17"

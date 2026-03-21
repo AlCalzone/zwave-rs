@@ -119,6 +119,7 @@ pub struct Timer(futures_timer::Delay);
 #[cfg(feature = "embassy")]
 pub struct Timer(embassy_time::Timer);
 
+#[cfg(any(feature = "std", feature = "embassy"))]
 impl Timer {
     pub fn after(duration: Duration) -> Self {
         #[cfg(feature = "std")]
@@ -134,6 +135,7 @@ impl Timer {
     }
 }
 
+#[cfg(any(feature = "std", feature = "embassy"))]
 impl Future for Timer {
     type Output = ();
 
@@ -155,10 +157,12 @@ impl Future for Timer {
 // MaybeSleep
 // =============================================================================
 
+#[cfg(any(feature = "std", feature = "embassy"))]
 pub struct MaybeSleep {
     sleep: Option<Timer>,
 }
 
+#[cfg(any(feature = "std", feature = "embassy"))]
 impl MaybeSleep {
     pub fn new(duration: Option<Duration>) -> Self {
         Self {
@@ -167,6 +171,7 @@ impl MaybeSleep {
     }
 }
 
+#[cfg(any(feature = "std", feature = "embassy"))]
 impl Future for MaybeSleep {
     type Output = ();
 

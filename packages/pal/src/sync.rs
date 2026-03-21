@@ -60,6 +60,7 @@ impl<T> Locked<T> {
 }
 
 // Shared: methods that only depend on inspect/update
+#[cfg(any(feature = "std", feature = "embassy"))]
 impl<T> Locked<T> {
     pub fn set(&self, value: T) {
         self.update(|slot| *slot = value);
@@ -70,12 +71,14 @@ impl<T> Locked<T> {
     }
 }
 
+#[cfg(any(feature = "std", feature = "embassy"))]
 impl<T: Copy> Locked<T> {
     pub fn get(&self) -> T {
         self.inspect(|value| *value)
     }
 }
 
+#[cfg(any(feature = "std", feature = "embassy"))]
 impl<T: Clone> Locked<T> {
     pub fn cloned(&self) -> T {
         self.inspect(Clone::clone)
@@ -143,6 +146,7 @@ impl<T> Mutex<T> {
     }
 }
 
+#[cfg(any(feature = "std", feature = "embassy"))]
 impl<T: Default> Default for Mutex<T> {
     fn default() -> Self {
         Self::new(T::default())

@@ -5,7 +5,6 @@ rust-version.workspace = true
 edition.workspace = true
 
 [features]
-default = ["std"]
 std = ["futures/std", "futures-timer", "chrono"]
 embassy = ["embassy-sync", "embassy-time", "embassy-futures", "critical-section"]
 
