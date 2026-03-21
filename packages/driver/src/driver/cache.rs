@@ -1,5 +1,5 @@
 use super::{storage::DriverStorage, Driver};
-use std::sync::Arc;
+use alloc::sync::Arc;
 use zwave_core::{
     cache::{Cache, CacheValue},
     value_id::EndpointValueId,

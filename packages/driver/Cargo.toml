@@ -4,17 +4,19 @@ version = "0.1.0"
 rust-version.workspace = true
 edition.workspace = true
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = ["std"]
+std = ["zwave-core/std", "zwave-cc/std", "zwave-serial/std", "zwave-logging/std", "zwave-pal/std", "petgraph"]
+embassy = ["zwave-core/embassy", "zwave-cc/embassy", "zwave-serial/embassy", "zwave-logging/embassy", "zwave-pal/embassy"]
 
 [dependencies]
 paste.workspace = true
-petgraph.workspace = true
+petgraph = { workspace = true, optional = true }
 proc-macros.workspace = true
 thiserror.workspace = true
 typed-builder.workspace = true
-unique_id.workspace = true
 zwave-cc.workspace = true
 zwave-core.workspace = true
 zwave-logging.workspace = true
+zwave-pal.workspace = true
 zwave-serial.workspace = true
-futures.workspace = true

@@ -1,10 +1,7 @@
 use crate::{
     ControllerCommandError, ControllerCommandResult, Driver, NodeStorage,
 };
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-};
+use alloc::{collections::BTreeMap, sync::Arc};
 use zwave_core::{definitions::*, log::Loglevel, submodule, util::Locked};
 use zwave_serial::command::SerialApiSetupCommand;
 

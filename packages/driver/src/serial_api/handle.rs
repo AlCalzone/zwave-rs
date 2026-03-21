@@ -1,7 +1,7 @@
 use super::serial_api_machine::SerialApiMachineResult;
 use super::{ExecutableCommand, SerialApi, SerialApiInput};
 use crate::error::Result;
-use futures::channel::oneshot;
+use alloc::boxed::Box;
 use zwave_core::log::Loglevel;
 use zwave_logging::{LocalImmutableLogger, LogInfo};
 
@@ -17,7 +17,7 @@ impl SerialApi {
     where
         C: ExecutableCommand + 'static,
     {
-        let (tx, rx) = oneshot::channel();
+        let (tx, rx) = zwave_pal::channel::oneshot::channel();
         let cmd = SerialApiInput::ExecCommand {
             command: Box::new(command),
             callback: tx,
@@ -37,7 +37,7 @@ impl LocalImmutableLogger for SerialApi {
         Loglevel::Debug
     }
 
-    fn set_log_level(&self, level: Loglevel) {
+    fn set_log_level(&self, _level: Loglevel) {
         todo!()
     }
 }

@@ -12,6 +12,7 @@ zwave-core.workspace = true
 zwave-driver.workspace = true
 zwave-serial.workspace = true
 zwave-logging.workspace = true
+zwave-pal.workspace = true
 termcolor.workspace = true
 futures.workspace = true
 embedded-io-adapters = { version = "0.7", features = ["futures-03"] }

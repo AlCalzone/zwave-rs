@@ -2,8 +2,7 @@ use super::{
     SerialApiActor, SerialApiCommandState, SerialApiEvent, SerialApiInput, SerialApiMachine,
     SerialApiMachineCondition, SerialApiMachineInput, SerialApiMachineState,
 };
-use futures::{select_biased, FutureExt, StreamExt};
-use std::time::{Duration, Instant};
+use core::time::Duration;
 use zwave_core::prelude::*;
 use zwave_core::state_machine::{StateMachine, StateMachineTransition};
 use zwave_core::util::MaybeSleep;
@@ -12,6 +11,7 @@ use zwave_logging::{
     loggers::{controller::ControllerLogger, driver::DriverLogger, serial::SerialLogger},
     Direction, LocalImmutableLogger, LogInfo,
 };
+use zwave_pal::time::Instant;
 use zwave_serial::frame::{ControlFlow, RawSerialFrame, SerialFrame};
 use zwave_serial::prelude::*;
 
@@ -22,11 +22,9 @@ impl SerialApiActor {
             driver_logger.logo();
             driver_logger.info(|| "version 0.0.1-alpha");
             driver_logger.info(|| "");
-            // driver_logger.info(|| format!("opening serial port {}", PORT));
         }
 
         loop {
-            // We may or may not have a timeout to wait for. Construct a MaybeSleep to deal with this.
             let serial_api_timeout_duration = self
                 .serial_api_command
                 .as_ref()
@@ -34,21 +32,18 @@ impl SerialApiActor {
                 .and_then(|i| i.checked_duration_since(Instant::now()));
             let serial_api_sleep = MaybeSleep::new(serial_api_timeout_duration);
 
-            select_biased! {
-                // Handle incoming frames
-                frame = self.serial_in.next() => {
+            zwave_pal::select_biased! {
+                frame = self.serial_in.recv() => {
                     if let Some(frame) = frame {
                         self.handle_serial_frame(frame);
                     }
                 },
-                // before inputs
-                input = self.input_rx.next() => {
+                input = self.input_rx.recv() => {
                     if let Some(input) = input {
                         self.handle_input(input);
                     }
                 },
-                // before timeouts
-                _ = serial_api_sleep.fuse() => {
+                _ = serial_api_sleep => {
                     self.try_advance_serial_api_machine(SerialApiMachineInput::Timeout);
                 }
             }
@@ -67,9 +62,6 @@ impl SerialApiActor {
         ControllerLogger::new(self)
     }
 
-    /// Handles a frame that was written to the input buffer
-    /// This should typically be handled before any other events,
-    /// so the Z-Wave module can go back to do what it was doing
     pub fn handle_serial_frame(&mut self, frame: RawSerialFrame) {
         match frame {
             RawSerialFrame::ControlFlow(byte) => {
@@ -80,32 +72,25 @@ impl SerialApiActor {
             }
             RawSerialFrame::Data(mut bytes) => {
                 self.serial_log().data(&bytes, Direction::Inbound);
-                // Try to parse the frame
                 match CommandRaw::parse(&mut bytes) {
                     Ok(raw) => {
-                        // The first step of parsing was successful, ACK the frame
                         self.queue_transmit(RawSerialFrame::ControlFlow(ControlFlow::ACK));
                         self.queue_input(SerialApiInput::Receive {
                             frame: SerialFrame::Command(raw),
                         });
                     }
-                    Err(e) => {
-                        println!("error: {}", e);
-                        // Parsing failed, this means we've received garbage after all
-                        // Try to re-synchronize with the Z-Wave module
+                    Err(_e) => {
                         self.queue_transmit(RawSerialFrame::ControlFlow(ControlFlow::NAK));
                     }
                 }
             }
             RawSerialFrame::Garbage(bytes) => {
                 self.serial_log().discarded(&bytes);
-                // Try to re-synchronize with the Z-Wave module
                 self.queue_transmit(RawSerialFrame::ControlFlow(ControlFlow::NAK));
             }
         }
     }
 
-    /// Passes an input that the driver needs to handle
     fn handle_input(&mut self, input: SerialApiInput) {
         match input {
             SerialApiInput::Transmit { frame } => {
@@ -118,12 +103,8 @@ impl SerialApiActor {
                 mut command,
                 callback,
             } => {
-                // FIXME: handle busy state
-
-                // Set up state machine and interpreter
                 let machine = SerialApiMachine::new();
 
-                // Give the command a callback ID if it needs one
                 if command.needs_callback_id() && command.callback_id().is_none() {
                     command.set_callback_id(Some(self.get_next_callback_id()));
                 }
@@ -165,7 +146,6 @@ impl SerialApiActor {
     fn handle_frame(&mut self, frame: SerialFrame) {
         match frame {
             SerialFrame::ControlFlow(control_flow) => {
-                // Forward control flow frames to the state machine if it's waiting for an ACK
                 if let Some(SerialApiCommandState { machine, .. }) = &self.serial_api_command {
                     if *machine.state() == SerialApiMachineState::WaitingForACK {
                         let handled = match control_flow {
@@ -185,12 +165,10 @@ impl SerialApiActor {
                     }
                 }
 
-                // TODO: What else to do with this frame?
                 #[expect(clippy::needless_return)]
                 return;
             }
             SerialFrame::Command(raw) => {
-                // Try to convert it into an actual command
                 let cmd = {
                     let ctx = CommandParsingContext::builder()
                         .own_node_id(self.storage.own_node_id().get())
@@ -199,15 +177,12 @@ impl SerialApiActor {
                         .build();
                     match zwave_serial::command::Command::try_from_raw(raw, ctx) {
                         Ok(cmd) => cmd,
-                        Err(e) => {
-                            println!("failed to decode CommandRaw: {}", e);
-                            // TODO: Handle misformatted frames
+                        Err(_e) => {
                             return;
                         }
                     }
                 };
 
-                // Check if this is an expected response or callback
                 if let Some(SerialApiCommandState {
                     command,
                     machine,
@@ -241,20 +216,16 @@ impl SerialApiActor {
                     }
                 }
 
-                // Not expected. Logging must happen upstream, so embedded CCs can be decoded
                 self.queue_event(SerialApiEvent::Unsolicited { command: cmd });
             }
-            // Not much we can do with a raw frame at this point
             _ => {
                 todo!("handle received frame: {:?}", frame);
             }
         }
     }
 
-    // Passes the input to the running serial API machine and returns whether it was handled
     fn try_advance_serial_api_machine(&mut self, input: SerialApiMachineInput) -> bool {
         let Some(SerialApiCommandState {
-            // ref command,
             ref mut timeout,
             expects_response,
             expects_callback,
@@ -271,7 +242,6 @@ impl SerialApiActor {
         }
 
         let Some(transition) = machine.next(
-            // We need to clone the input here, so we can use it for logging later
             input.clone(),
             |condition: SerialApiMachineCondition| match condition {
                 SerialApiMachineCondition::ExpectsResponse => expects_response,
@@ -281,23 +251,18 @@ impl SerialApiActor {
             return false;
         };
 
-        // Transition to the new state
         machine.transition(transition.new_state());
 
         match machine.state() {
             SerialApiMachineState::WaitingForACK => {
                 *timeout = Instant::now().checked_add(Duration::from_millis(1600));
             }
-
-            // FIXME: Set better timeouts
             SerialApiMachineState::WaitingForResponse => {
                 *timeout = Instant::now().checked_add(Duration::from_millis(10000));
             }
-
             SerialApiMachineState::WaitingForCallback => {
                 *timeout = Instant::now().checked_add(Duration::from_millis(30000));
             }
-
             SerialApiMachineState::Done(result) => {
                 callback
                     .take()
@@ -306,12 +271,9 @@ impl SerialApiActor {
                     .expect("Failed to send Serial API command result");
                 self.serial_api_command = None;
             }
-
             _ => {}
         }
 
-        // Ending up here means the machine performed a transition, which means it NOT an unsolicited
-        // command which could contain a CC. Log it here.
         if let SerialApiMachineInput::Response(cmd)
         | SerialApiMachineInput::ResponseNOK(cmd)
         | SerialApiMachineInput::Callback(cmd)
@@ -367,7 +329,7 @@ impl LocalImmutableLogger for SerialApiActor {
         Loglevel::Debug
     }
 
-    fn set_log_level(&self, level: Loglevel) {
+    fn set_log_level(&self, _level: Loglevel) {
         todo!()
     }
 }

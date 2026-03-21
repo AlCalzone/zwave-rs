@@ -1,7 +1,6 @@
 use super::{awaited::Predicate, Driver, DriverInput};
 use crate::error::Result;
-use futures::channel::oneshot;
-use std::time::Duration;
+use core::time::Duration;
 use zwave_cc::prelude::*;
 use zwave_core::log::Loglevel;
 use zwave_core::prelude::*;
@@ -39,7 +38,7 @@ impl Driver {
         predicate: Predicate<WithAddress<CC>>,
         timeout: Option<Duration>,
     ) -> Result<WithAddress<CC>> {
-        let (tx, rx) = oneshot::channel();
+        let (tx, rx) = zwave_pal::channel::oneshot::channel();
         let cmd = DriverInput::AwaitCC {
             predicate,
             timeout,
@@ -60,7 +59,7 @@ impl LocalImmutableLogger for Driver {
         Loglevel::Debug
     }
 
-    fn set_log_level(&self, level: Loglevel) {
+    fn set_log_level(&self, _level: Loglevel) {
         todo!()
     }
 }
