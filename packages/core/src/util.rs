@@ -1,107 +1,10 @@
-use futures_timer::Delay;
-use std::borrow::Cow;
-use std::{
-    future::Future,
-    pin::Pin,
-    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
-    task::{Context, Poll},
-    time::Duration,
-};
+use alloc::borrow::Cow;
+use alloc::vec::Vec;
 use unicode_segmentation::UnicodeSegmentation;
 
-/// A small wrapper around `RwLock<T>` for storage fields that
-/// are shared across the codebase and should expose
-/// semantic read/update operations instead of raw lock guards.
-pub struct Locked<T> {
-    inner: RwLock<T>,
-}
-
-impl<T> Locked<T> {
-    /// Creates a new locked value.
-    pub fn new(value: T) -> Self {
-        Self {
-            inner: RwLock::new(value),
-        }
-    }
-
-    /// Reads the contained value and derives a result from it.
-    pub fn inspect<R>(&self, inspect: impl FnOnce(&T) -> R) -> R {
-        let guard = self.read();
-        inspect(&guard)
-    }
-
-    /// Mutates the contained value and returns the closure result.
-    pub fn update<R>(&self, update: impl FnOnce(&mut T) -> R) -> R {
-        let mut guard = self.write();
-        update(&mut guard)
-    }
-
-    /// Replaces the contained value.
-    pub fn set(&self, value: T) {
-        self.update(|slot| *slot = value);
-    }
-
-    /// Replaces the contained value and returns the previous one.
-    pub fn replace(&self, value: T) -> T {
-        self.update(|slot| std::mem::replace(slot, value))
-    }
-
-    fn read(&self) -> RwLockReadGuard<'_, T> {
-        self.inner
-            .read()
-            .expect("failed to lock storage for reading")
-    }
-
-    fn write(&self) -> RwLockWriteGuard<'_, T> {
-        self.inner
-            .write()
-            .expect("failed to lock storage for writing")
-    }
-}
-
-impl<T: Copy> Locked<T> {
-    /// Returns a copy of the contained value.
-    pub fn get(&self) -> T {
-        self.inspect(|value| *value)
-    }
-}
-
-impl<T: Clone> Locked<T> {
-    /// Returns a clone of the contained value.
-    pub fn cloned(&self) -> T {
-        self.inspect(Clone::clone)
-    }
-}
-
-pub struct MaybeSleep {
-    sleep: Option<Delay>,
-}
-
-impl MaybeSleep {
-    pub fn new(duration: Option<Duration>) -> Self {
-        Self {
-            sleep: duration.map(Delay::new),
-        }
-    }
-}
-
-impl Future for MaybeSleep {
-    type Output = ();
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match &mut self.get_mut().sleep {
-            Some(delay) => Pin::new(delay).poll(cx),
-            None => Poll::Pending,
-        }
-    }
-}
-
-pub fn now() -> String {
-    use time::{OffsetDateTime, macros::format_description};
-    let format =
-        format_description!("[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:4]Z");
-    OffsetDateTime::now_utc().format(format).unwrap()
-}
+// Re-export PAL types that were previously defined here
+pub use zwave_pal::sync::Locked;
+pub use zwave_pal::time::MaybeSleep;
 
 #[macro_export]
 macro_rules! submodule {
@@ -133,7 +36,7 @@ pub fn to_lines(text: impl Into<Cow<'static, str>>) -> Vec<Cow<'static, str>> {
     let text = text.into();
     if text.is_empty() {
         // Return at least one empty line
-        return vec!["".into()];
+        return alloc::vec!["".into()];
     }
 
     text.lines().map(|line| line.to_owned().into()).collect()

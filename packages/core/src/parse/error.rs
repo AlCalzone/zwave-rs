@@ -1,7 +1,5 @@
-use std::{
-    borrow::Cow,
-    fmt::{Debug, Display},
-};
+use alloc::{borrow::Cow, string::String};
+use core::fmt::{Debug, Display};
 use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -19,7 +17,7 @@ pub enum ErrorContext {
 }
 
 impl Display for ErrorContext {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ErrorContext::None => write!(f, "No context"),
             ErrorContext::String(s)
@@ -115,7 +113,7 @@ pub fn parser_not_implemented<T>(message: impl Into<Cow<'static, str>>) -> Parse
 }
 
 #[derive(Error, Debug, PartialEq)]
-pub enum TryFromReprError<T: std::fmt::Debug> {
+pub enum TryFromReprError<T: core::fmt::Debug> {
     #[error("{0:?} is not a valid value for this enum")]
     Invalid(T),
     #[error("{0:?} resolves to a non-primitive enum variant")]

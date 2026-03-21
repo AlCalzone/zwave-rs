@@ -1,7 +1,7 @@
 use crate::parse::{bytes::be_u8, combinators::map};
 use crate::prelude::*;
 use bytes::Bytes;
-use std::fmt::{self, Display};
+use core::fmt::{self, Display};
 #[derive(Clone, Copy, Eq, PartialOrd)]
 pub struct Version {
     pub major: u8,
@@ -17,7 +17,7 @@ impl PartialEq for Version {
     }
 }
 
-impl std::fmt::Debug for Version {
+impl core::fmt::Debug for Version {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(patch) = self.patch {
             write!(f, "{}.{}.{}", self.major, self.minor, patch)

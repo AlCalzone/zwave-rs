@@ -2,7 +2,7 @@ use crate::serialize::{self, Serializable};
 use crate::parse::{bytes::be_u8, combinators::map_res};
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
-use std::fmt::Display;
+use core::fmt::Display;
 
 pub const LEVEL_MAX: u8 = 99;
 pub const LEVEL_UNKNOWN: u8 = 0xfe;
@@ -29,7 +29,7 @@ impl TryFrom<u8> for LevelReport {
 }
 
 impl Display for LevelReport {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             LevelReport::Level(level) => write!(f, "{}", level),
             LevelReport::Unknown => write!(f, "Unknown"),
@@ -94,7 +94,7 @@ impl TryFrom<u8> for LevelSet {
 }
 
 impl Display for LevelSet {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             LevelSet::Off => write!(f, "Off"),
             LevelSet::Level(level) => write!(f, "{}", level),
@@ -125,7 +125,7 @@ impl Serializable for LevelSet {
 mod test {
     use super::{LevelReport, LevelSet};
     use crate::prelude::*;
-    use std::convert::TryFrom;
+
 
     #[test]
     fn test_level_report() {

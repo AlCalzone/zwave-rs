@@ -1,5 +1,11 @@
 use crate::util::{str_width, to_lines};
-use std::{borrow::Cow, convert::From};
+use alloc::{
+    borrow::Cow,
+    boxed::Box,
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Loglevel {

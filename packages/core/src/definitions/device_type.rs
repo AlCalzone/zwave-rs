@@ -3,7 +3,7 @@ use crate::parse::{bytes::be_u8, combinators::map_res};
 use bytes::{Bytes, BytesMut};
 use crate::prelude::*;
 use proc_macros::TryFromRepr;
-use std::fmt::Display;
+use core::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
 #[repr(u8)]
@@ -15,7 +15,7 @@ pub enum BasicDeviceType {
 }
 
 impl Display for BasicDeviceType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             BasicDeviceType::PortableController => write!(f, "Portable Controller"),
             BasicDeviceType::StaticController => write!(f, "Static Controller"),

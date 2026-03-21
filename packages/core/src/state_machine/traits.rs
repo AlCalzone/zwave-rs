@@ -1,4 +1,5 @@
-use std::{cmp::Ordering, fmt::Debug, marker::Send, time::Duration};
+use alloc::vec::Vec;
+use core::{cmp::Ordering, fmt::Debug, marker::Send, time::Duration};
 
 /// Describes a state machine transition to take, with an optional effect to be executed before entering the new state
 pub trait StateMachineTransition: Sized + Clone + Debug + Send {

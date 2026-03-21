@@ -6,7 +6,7 @@ use crate::prelude::*;
 use bytes::{BytesMut, Bytes};
 use crate::serialize::{self, Serializable};
 use proc_macros::TryFromRepr;
-use std::fmt::Display;
+use core::fmt::Display;
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
 #[repr(u8)]
@@ -29,7 +29,7 @@ pub enum RfRegion {
 }
 
 impl Display for RfRegion {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             RfRegion::EU => write!(f, "Europe"),
             RfRegion::US => write!(f, "USA"),

@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use zwave_core::prelude::*;
 use zwave_core::state_machine::{StateMachine, StateMachineTransition};
 use zwave_core::util::MaybeSleep;
-use zwave_core::{log::Loglevel, parse::Parsable, util::now};
+use zwave_core::{log::Loglevel, parse::Parsable};
 use zwave_logging::{
     loggers::{controller::ControllerLogger, driver::DriverLogger, serial::SerialLogger},
     Direction, LocalImmutableLogger, LogInfo,
@@ -90,7 +90,7 @@ impl SerialApiActor {
                         });
                     }
                     Err(e) => {
-                        println!("{} error: {}", now(), e);
+                        println!("error: {}", e);
                         // Parsing failed, this means we've received garbage after all
                         // Try to re-synchronize with the Z-Wave module
                         self.queue_transmit(RawSerialFrame::ControlFlow(ControlFlow::NAK));
@@ -200,7 +200,7 @@ impl SerialApiActor {
                     match zwave_serial::command::Command::try_from_raw(raw, ctx) {
                         Ok(cmd) => cmd,
                         Err(e) => {
-                            println!("{} failed to decode CommandRaw: {}", now(), e);
+                            println!("failed to decode CommandRaw: {}", e);
                             // TODO: Handle misformatted frames
                             return;
                         }

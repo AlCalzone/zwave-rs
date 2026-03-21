@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use core::fmt::Display;
 
 use crate::serialize::{self, Serializable};
 use crate::parse::{bytes::be_u8, combinators::map_res};
@@ -30,7 +30,7 @@ impl TryFrom<u8> for DurationSet {
 }
 
 impl Display for DurationSet {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Seconds(s) => write!(f, "{} seconds", s),
             Self::Minutes(m) => write!(f, "{} minutes", m),
@@ -97,7 +97,7 @@ pub enum DurationReport {
 }
 
 impl Display for DurationReport {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Seconds(s) => write!(f, "{} seconds", s),
             Self::Minutes(m) => write!(f, "{} minutes", m),
@@ -171,7 +171,7 @@ impl PartialEq for DurationReport {
 #[cfg(test)]
 mod test {
     use crate::prelude::*;
-    use std::convert::TryFrom;
+
 
     #[test]
     fn test_duration_report() {

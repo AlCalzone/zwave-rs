@@ -8,8 +8,9 @@ use crate::{
 };
 use enum_iterator::Sequence;
 use proc_macros::TryFromRepr;
-use std::sync::OnceLock;
-use std::{collections::BTreeSet, fmt::Display};
+use alloc::collections::BTreeSet;
+use core::fmt::Display;
+use zwave_pal::sync::OnceLock;
 
 pub const COMMAND_CLASS_SUPPORT_CONTROL_MARK: u8 = 0xef;
 
@@ -337,7 +338,7 @@ impl CommandClasses {
 }
 
 impl Display for CommandClasses {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             CommandClasses::AlarmSensor => write!(f, "Alarm Sensor"),
             CommandClasses::AlarmSilence => write!(f, "Alarm Silence"),

@@ -2,7 +2,7 @@ use crate::serialize::{self, Serializable};
 use crate::parse::{self, bits::bool};
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
-use std::fmt::Display;
+use core::fmt::Display;
 use ux::{u1, u2};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25,7 +25,7 @@ impl Default for TransmitOptions {
 }
 
 impl Display for TransmitOptions {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let mut parts = Vec::new();
         if self.ack {
             parts.push("request ACK");
@@ -44,7 +44,7 @@ impl Display for TransmitOptions {
 }
 
 // impl Debug for TransmitOptions {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 //         f.debug_struct("TransmitOptions")
 //             .field("ack", &self.ack)
 //             .field("auto_route", &self.auto_route)
