@@ -1,5 +1,5 @@
 #[cfg(not(feature = "std"))]
-use crate::alloc_prelude::*;
+use zwave_pal::prelude::*;
 use core::ops::Deref;
 use thiserror::Error;
 

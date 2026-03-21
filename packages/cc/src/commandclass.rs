@@ -1,7 +1,7 @@
+use zwave_pal::prelude::*;
 use crate::commandclass_raw::CCRaw;
 use bytes::Bytes;
 use enum_dispatch::enum_dispatch;
-use alloc::{format, vec, vec::Vec};
 use core::ops::{Deref, DerefMut};
 use typed_builder::TypedBuilder;
 use zwave_core::{cache::CacheValue, value_id::ValueId};

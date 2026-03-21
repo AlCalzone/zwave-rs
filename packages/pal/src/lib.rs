@@ -7,6 +7,26 @@ pub mod select;
 pub mod sync;
 pub mod time;
 
+/// Alloc types that the std prelude provides but `extern crate alloc` does not.
+/// In std builds the module is empty (the std prelude already provides these).
+/// Library crates import this unconditionally via `use zwave_pal::prelude::*`.
+/// Common alloc types and macros.
+///
+/// In std builds, most of these are redundant (already in the std prelude),
+/// but re-exporting them unconditionally means downstream no_std crates get
+/// them regardless of whether their own `std` feature is enabled.
+pub mod prelude {
+    pub use alloc::{
+        borrow::{Cow, ToOwned},
+        boxed::Box,
+        format,
+        string::{String, ToString},
+        sync::Arc,
+        vec,
+        vec::Vec,
+    };
+}
+
 // Re-exports needed by the select_biased! macro.
 // These must be public so the macro can reference them from downstream crates.
 #[cfg(feature = "std")]

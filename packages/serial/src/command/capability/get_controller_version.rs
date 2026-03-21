@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use crate::{command::CommandId, prelude::*};
 use bytes::{Bytes, BytesMut};
 use zwave_core::serialize;

@@ -22,3 +22,4 @@ typed-builder.workspace = true
 ux.workspace = true
 zwave-core.workspace = true
 zwave-cc.workspace = true
+zwave-pal.workspace = true

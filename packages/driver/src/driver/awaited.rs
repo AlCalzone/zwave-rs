@@ -1,5 +1,5 @@
 use crate::error::{Error, Result};
-use alloc::{boxed::Box, sync::Arc, vec::Vec};
+use zwave_pal::prelude::*;
 use core::sync::atomic::{AtomicI64, Ordering};
 use zwave_pal::time::MaybeSleep;
 use zwave_pal::channel::oneshot;

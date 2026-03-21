@@ -1,7 +1,7 @@
 use super::serial_api_machine::SerialApiMachineResult;
 use super::{ExecutableCommand, SerialApi, SerialApiInput};
 use crate::error::Result;
-use alloc::boxed::Box;
+use zwave_pal::prelude::*;
 use zwave_core::log::Loglevel;
 use zwave_logging::{LocalImmutableLogger, LogInfo};
 

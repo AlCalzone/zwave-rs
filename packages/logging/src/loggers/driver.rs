@@ -1,4 +1,4 @@
-use alloc::borrow::Cow;
+use zwave_pal::prelude::*;
 use crate::{LocalImmutableLogger, LogInfo};
 use zwave_core::log::{LogPayload, Loglevel};
 

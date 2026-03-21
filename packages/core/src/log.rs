@@ -1,5 +1,4 @@
-use crate::alloc_prelude::*;
-use alloc::borrow::Cow;
+use zwave_pal::prelude::*;
 use crate::util::{str_width, to_lines};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

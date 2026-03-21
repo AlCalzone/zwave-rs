@@ -1,4 +1,4 @@
-use crate::alloc_prelude::*;
+use zwave_pal::prelude::*;
 use crate::{
     parse::{
         bytes::{be_u8, be_u16},

@@ -1,4 +1,4 @@
-use crate::alloc_prelude::*;
+use zwave_pal::prelude::*;
 use aes::cipher::{
     BlockEncrypt, BlockEncryptMut, KeyInit, KeyIvInit, StreamCipher,
     block_padding::ZeroPadding,

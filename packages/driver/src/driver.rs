@@ -1,7 +1,7 @@
 use crate::LogSender;
 use crate::error::Result;
 use crate::serial_api::SerialApi;
-use alloc::{sync::Arc, vec::Vec};
+use zwave_pal::prelude::*;
 use awaited::Predicate;
 use core::time::Duration;
 use storage::DriverStorage;

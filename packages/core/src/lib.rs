@@ -2,22 +2,6 @@
 
 extern crate alloc;
 
-/// Alloc types that the std prelude provides but `extern crate alloc` does not.
-/// In std builds these are already in scope and this module is empty.
-/// Modules that need `Vec`, `String`, `Box`, `format!`, etc. import this
-/// unconditionally via `use crate::alloc_prelude::*`.
-mod alloc_prelude {
-    #[cfg(not(feature = "std"))]
-    pub use alloc::{
-        borrow::ToOwned,
-        boxed::Box,
-        format,
-        string::{String, ToString},
-        vec,
-        vec::Vec,
-    };
-}
-
 pub mod cache;
 pub mod checksum;
 pub mod definitions;

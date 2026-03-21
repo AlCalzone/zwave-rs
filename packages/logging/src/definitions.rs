@@ -1,5 +1,4 @@
-use alloc::borrow::Cow;
-use alloc::vec::Vec;
+use zwave_pal::prelude::*;
 #[cfg(feature = "std")]
 use termcolor::ColorSpec;
 use typed_builder::TypedBuilder;

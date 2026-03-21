@@ -18,7 +18,7 @@ pub enum InterviewStage {
 mod interview_impl {
     use super::InterviewStage;
     use crate::{error::Result, interview_cc, interview_depends_on, Endpoint, EndpointLike, Node};
-    use alloc::{format, string::String, vec::Vec};
+    use zwave_pal::prelude::*;
     use core::fmt::Write;
     use petgraph::{algo, graphmap::DiGraphMap};
     use zwave_core::definitions::*;

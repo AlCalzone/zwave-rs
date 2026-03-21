@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use zwave_core::parse::combinators::opt;

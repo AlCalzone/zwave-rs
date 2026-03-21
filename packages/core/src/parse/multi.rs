@@ -1,4 +1,4 @@
-use crate::alloc_prelude::*;
+use zwave_pal::prelude::*;
 use super::{
     ToLength,
     bytes::{

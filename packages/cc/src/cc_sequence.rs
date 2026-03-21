@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use crate::{
     commandclass::{CC, WithAddress},
     prelude::{CCAddressable, CCEncodingContext},

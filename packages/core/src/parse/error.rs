@@ -1,5 +1,4 @@
-use crate::alloc_prelude::*;
-use alloc::borrow::Cow;
+use zwave_pal::prelude::*;
 use core::fmt::{Debug, Display};
 use thiserror::Error;
 

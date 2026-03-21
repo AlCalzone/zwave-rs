@@ -1,6 +1,6 @@
-use crate::alloc_prelude::*;
+use zwave_pal::prelude::*;
 use super::{AesKey, NetworkKey, encrypt_aes_ecb};
-use alloc::{collections::BTreeMap, sync::Arc};
+use alloc::collections::BTreeMap;
 use crate::prelude::*;
 use getrandom::getrandom;
 use zwave_pal::sync::Locked;

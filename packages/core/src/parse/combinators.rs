@@ -1,4 +1,4 @@
-use crate::alloc_prelude::*;
+use zwave_pal::prelude::*;
 use super::{Alt, ErrorContext, ParseError, Parser};
 
 pub fn map<I, O1, O2, P, F>(parser: P, f: F) -> impl Parser<I, O2>

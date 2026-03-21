@@ -1,5 +1,4 @@
-use crate::alloc_prelude::*;
-use alloc::borrow::Cow;
+use zwave_pal::prelude::*;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[macro_export]

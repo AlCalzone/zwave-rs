@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use crate::frame::SerialControlByte;
 use crate::frame::SerialFrame;
 use crate::util::with_hex_fmt;

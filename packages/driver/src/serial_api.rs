@@ -1,6 +1,6 @@
 use crate::error::Result;
 use crate::LogSender;
-use alloc::{boxed::Box, sync::Arc};
+use zwave_pal::prelude::*;
 use storage::SerialApiStorage;
 use zwave_core::log::Loglevel;
 use zwave_core::prelude::*;

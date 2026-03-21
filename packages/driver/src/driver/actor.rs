@@ -1,6 +1,6 @@
 use super::{AwaitedCC, DriverActor, DriverInput};
 use crate::error::{Error, Result};
-use alloc::{format, sync::Arc, vec::Vec};
+use zwave_pal::prelude::*;
 use zwave_cc::commandclass::{CCSession, CcOrRaw};
 use zwave_cc::prelude::*;
 use zwave_core::prelude::*;

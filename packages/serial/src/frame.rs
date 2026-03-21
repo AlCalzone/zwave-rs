@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use crate::prelude::CommandRaw;
 use bytes::{Buf, Bytes, BytesMut};
 use proc_macros::TryFromRepr;

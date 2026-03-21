@@ -1,4 +1,4 @@
-use alloc::boxed::Box;
+use zwave_pal::prelude::*;
 use core::time::Duration;
 
 use super::ExecControllerCommandError;
