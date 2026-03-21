@@ -23,14 +23,14 @@ impl<S: Read + Write> SerialCodec<S> {
     }
 }
 
-impl<S: Read + Write + Unpin + Send> SerialBinding for SerialCodec<S> {
+impl<S: Read + Write + Unpin> SerialBinding for SerialCodec<S> {
     async fn write(&mut self, frame: RawSerialFrame) -> Result<()> {
         let mut buf = BytesMut::new();
         frame.serialize(&mut buf);
         self.stream
             .write_all(&buf)
             .await
-            .map_err(|e| Error::Io(e.kind()))?;
+            .map_err(|e| Error::EmbeddedIo(e.kind()))?;
         Ok(())
     }
 
@@ -77,7 +77,7 @@ impl<S: futures::io::AsyncRead + futures::io::AsyncWrite> FuturesSerialCodec<S> 
 }
 
 #[cfg(feature = "futures-io")]
-impl<S: futures::io::AsyncRead + futures::io::AsyncWrite + Unpin + Send> SerialBinding
+impl<S: futures::io::AsyncRead + futures::io::AsyncWrite + Unpin> SerialBinding
     for FuturesSerialCodec<S>
 {
     async fn write(&mut self, frame: RawSerialFrame) -> Result<()> {
@@ -87,7 +87,7 @@ impl<S: futures::io::AsyncRead + futures::io::AsyncWrite + Unpin + Send> SerialB
         self.stream
             .write_all(&buf)
             .await
-            .map_err(Error::IO)?;
+            .map_err(Error::StdIo)?;
         Ok(())
     }
 

@@ -1,7 +1,7 @@
 /// A `select_biased!` macro that works on both std (via `futures::select_biased!`)
 /// and embassy (via `embassy_futures::select`).
 ///
-/// Supports 2-branch and 3-branch variants. The first branch has highest priority.
+/// Supports 2, 3, and 4-branch variants. The first branch has highest priority.
 ///
 /// Usage:
 /// ```ignore

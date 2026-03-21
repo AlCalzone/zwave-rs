@@ -34,6 +34,12 @@ pub struct Receiver<T> {
 }
 
 impl<T> Receiver<T> {
+    /// Receives the next value from the channel.
+    ///
+    /// Note: Unlike the std backend, this will never return `None` when all senders
+    /// are dropped — embassy's Channel has no disconnect detection. Our actor loops
+    /// run indefinitely, so this is acceptable. If termination is needed in the future,
+    /// send an explicit shutdown message through the channel.
     pub async fn recv(&mut self) -> Option<T> {
         Some(self.inner.receive().await)
     }

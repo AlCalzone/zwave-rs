@@ -89,17 +89,18 @@ impl DriverActor {
     fn handle_timeouts(&mut self) {
         // Figure out which timeout(s) elapsed and take them out of the awaited list
         let now = Instant::now();
-        let mut awaited_ccs = Vec::new();
+        let mut remaining = Vec::new();
         for cc in self.awaited_ccs.drain(..) {
-            // Preserve the awaited CCs that haven't timed out yet
-            if cc.timeout.map(|t| now >= t).unwrap_or(false) {
-                awaited_ccs.push(cc);
-            } else {
+            let timed_out = cc.timeout.map(|t| now >= t).unwrap_or(false);
+            if timed_out {
                 // This CC has timed out, send an error to the callback
                 let _ = cc.callback.send(Err(Error::Timeout));
+            } else {
+                // Preserve the awaited CCs that haven't timed out yet
+                remaining.push(cc);
             }
         }
-        self.awaited_ccs = awaited_ccs;
+        self.awaited_ccs = remaining;
     }
 
     fn take_matching_awaited_cc(

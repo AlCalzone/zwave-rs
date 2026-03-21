@@ -2,10 +2,10 @@
 pub enum Error {
     #[cfg(feature = "std")]
     #[error(transparent)]
-    IO(#[from] std::io::Error),
+    StdIo(#[from] std::io::Error),
 
     #[error("I/O error: {0:?}")]
-    Io(embedded_io::ErrorKind),
+    EmbeddedIo(embedded_io::ErrorKind),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;

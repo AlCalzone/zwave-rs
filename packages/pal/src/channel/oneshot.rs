@@ -52,7 +52,7 @@ mod std_impl {
 }
 
 // =============================================================================
-// embassy backend
+// embassy backend — uses Signal as a single-value oneshot
 // =============================================================================
 
 #[cfg(feature = "embassy")]
@@ -66,43 +66,45 @@ mod embassy_impl {
     use core::pin::Pin;
     use core::task::{Context, Poll};
     use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-    use embassy_sync::channel::Channel;
+    use embassy_sync::signal::Signal;
+
+    type SharedSignal<T> = Arc<Signal<CriticalSectionRawMutex, T>>;
 
     pub struct Sender<T> {
-        inner: Arc<Channel<CriticalSectionRawMutex, T, 1>>,
+        inner: SharedSignal<T>,
     }
 
     impl<T> Sender<T> {
         pub fn send(self, value: T) -> Result<(), T> {
-            self.inner.try_send(value).map_err(|e| match e {
-                embassy_sync::channel::TrySendError::Full(v) => v,
-            })
+            self.inner.signal(value);
+            Ok(())
         }
     }
 
+    /// A oneshot receiver backed by an embassy `Signal`.
+    ///
+    /// Unlike the std backend, this cannot detect sender disconnection —
+    /// if the sender is dropped without sending, this future will pend forever.
+    /// Callers should always use this with a timeout via `select_biased!`.
     pub struct Receiver<T> {
-        inner: Arc<Channel<CriticalSectionRawMutex, T, 1>>,
+        inner: SharedSignal<T>,
     }
 
     impl<T> Future for Receiver<T> {
         type Output = Result<T, Canceled>;
 
         fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-            match self.inner.try_receive() {
-                Ok(value) => Poll::Ready(Ok(value)),
-                Err(_) => {
-                    cx.waker().wake_by_ref();
-                    Poll::Pending
-                }
-            }
+            self.inner
+                .poll_wait(cx)
+                .map(Ok)
         }
     }
 
     pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
-        let ch = Arc::new(Channel::new());
+        let signal = Arc::new(Signal::new());
         (
-            Sender { inner: ch.clone() },
-            Receiver { inner: ch },
+            Sender { inner: signal.clone() },
+            Receiver { inner: signal },
         )
     }
 }
