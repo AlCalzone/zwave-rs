@@ -18,8 +18,10 @@ pub fn with_hex_fmt<T: core::fmt::Debug + AsRef<[u8]>>(n: &T) -> HexFmt<'_, T> {
     HexFmt { data: n }
 }
 
-/// Round an f32 to the nearest integer. Equivalent to f32::round() but
-/// available on no_std targets where the inherent method requires std.
+/// Round a finite f32 to the nearest integer (ties away from zero).
+/// Only valid for finite values within `i32` range — intended for small
+/// values like dBm power levels. On no_std targets `f32::round()` is
+/// unavailable, so we use an integer cast instead.
 pub fn round_f32(x: f32) -> f32 {
     if x >= 0.0 {
         (x + 0.5) as i32 as f32

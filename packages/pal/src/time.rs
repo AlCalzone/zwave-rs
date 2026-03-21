@@ -21,7 +21,8 @@ impl Instant {
     }
 
     pub fn checked_add(&self, d: Duration) -> Option<Self> {
-        let ticks = embassy_time::Duration::from_micros(d.as_micros() as u64);
+        let micros = u64::try_from(d.as_micros()).ok()?;
+        let ticks = embassy_time::Duration::from_micros(micros);
         Some(Self(self.0 + ticks))
     }
 
