@@ -1,19 +1,29 @@
-use chrono::{DateTime, Utc};
-use std::borrow::Cow;
+use alloc::borrow::Cow;
+use alloc::vec::Vec;
+#[cfg(feature = "std")]
 use termcolor::ColorSpec;
 use typed_builder::TypedBuilder;
 use zwave_core::log::{LogPayload, Loglevel};
 
 pub struct FormattedString {
     pub string: Cow<'static, str>,
+    #[cfg(feature = "std")]
     pub color: Option<ColorSpec>,
 }
 
 impl FormattedString {
+    #[cfg(feature = "std")]
     pub fn new(string: impl Into<Cow<'static, str>>, color: Option<ColorSpec>) -> Self {
         Self {
             string: string.into(),
             color,
+        }
+    }
+
+    #[cfg(not(feature = "std"))]
+    pub fn new(string: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            string: string.into(),
         }
     }
 }
@@ -23,14 +33,19 @@ where
     T: Into<Cow<'static, str>>,
 {
     fn from(string: T) -> Self {
-        Self::new(string, None)
+        #[cfg(feature = "std")]
+        { Self::new(string, None) }
+        #[cfg(not(feature = "std"))]
+        { Self::new(string) }
     }
 }
 
+#[cfg(feature = "std")]
 pub trait WithColor {
     fn with_color(self, color: ColorSpec) -> FormattedString;
 }
 
+#[cfg(feature = "std")]
 impl<T> WithColor for T
 where
     T: Into<Cow<'static, str>>,
@@ -80,8 +95,8 @@ pub enum Direction {
 
 #[derive(Clone, TypedBuilder)]
 pub struct LogInfo {
-    #[builder(default = Utc::now())]
-    pub timestamp: DateTime<Utc>,
+    #[builder(default = zwave_pal::time::Timestamp::now())]
+    pub timestamp: zwave_pal::time::Timestamp,
     #[builder(default)]
     pub direction: Direction,
     pub label: &'static str,

@@ -1,5 +1,5 @@
+use alloc::borrow::Cow;
 use crate::{LocalImmutableLogger, LogInfo};
-use std::borrow::Cow;
 use zwave_core::log::{LogPayload, Loglevel};
 
 pub struct DriverLogger<'a> {

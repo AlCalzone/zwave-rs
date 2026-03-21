@@ -1,4 +1,5 @@
-use crate::{Direction, LocalImmutableLogger, LogInfo, Logger};
+use alloc::{format, string::ToString, vec};
+use crate::{Direction, LocalImmutableLogger, LogInfo};
 use zwave_core::log::{LogPayload, Loglevel};
 use zwave_serial::frame::ControlFlow;
 

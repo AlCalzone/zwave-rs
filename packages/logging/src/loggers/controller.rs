@@ -1,5 +1,5 @@
-use crate::{Direction, LocalImmutableLogger, LogInfo, Logger};
-use std::borrow::Cow;
+use alloc::{borrow::Cow, format, vec, vec::Vec};
+use crate::{Direction, LocalImmutableLogger, LogInfo};
 use zwave_core::{
     definitions::*,
     log::{LogPayload, LogPayloadText, Loglevel},
