@@ -1,10 +1,8 @@
 use crate::commandclass_raw::CCRaw;
 use bytes::Bytes;
 use enum_dispatch::enum_dispatch;
-use std::{
-    marker::Sized,
-    ops::{Deref, DerefMut},
-};
+use alloc::{format, vec, vec::Vec};
+use core::ops::{Deref, DerefMut};
 use typed_builder::TypedBuilder;
 use zwave_core::{cache::CacheValue, value_id::ValueId};
 use zwave_core::{
@@ -75,7 +73,7 @@ pub trait CCValues {
 #[enum_dispatch(CC)]
 /// Command-specific functionality that may need to be implemented for each command
 pub trait CCBase:
-    CCValues + ToLogPayload + std::fmt::Debug + Sync + Send + Clone + PartialEq
+    CCValues + ToLogPayload + core::fmt::Debug + Sync + Send + Clone + PartialEq
 {
     /// Whether this CC expects a response
     fn expects_response(&self) -> bool {

@@ -1,8 +1,8 @@
-use std::borrow::Cow;
+use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use zwave_core::value_id::ValueId;
 
 pub type CCValuePredicate = Box<dyn Fn(&ValueId) -> bool + 'static + Sync + Send>;
-pub type CCValueEval = Box<dyn Fn(Box<dyn std::any::Any>) -> CCValue + 'static + Sync + Send>;
+pub type CCValueEval = Box<dyn Fn(Box<dyn core::any::Any>) -> CCValue + 'static + Sync + Send>;
 
 pub struct StaticCCValue {
     pub id: ValueId,
@@ -26,7 +26,7 @@ pub struct DynamicCCValue<Args> {
     pub(crate) eval: CCValueEval,
     pub(crate) is: CCValuePredicate,
     pub options: CCValueOptions,
-    _args: std::marker::PhantomData<Args>,
+    _args: core::marker::PhantomData<Args>,
 }
 
 impl<Args> DynamicCCValue<Args>
@@ -38,7 +38,7 @@ where
             eval,
             is,
             options,
-            _args: std::marker::PhantomData,
+            _args: core::marker::PhantomData,
         }
     }
 
@@ -465,7 +465,7 @@ macro_rules! cc_value_static_property {
     ($cc:ident, $method_name:ident, $property_name:ident, $metadata:expr, $options:expr) => {
         paste::paste! {
             pub fn $method_name() -> &'static StaticCCValue {
-                use std::sync::OnceLock;
+                use zwave_pal::sync::OnceLock;
                 use zwave_core::value_id::{ValueId, ValueIdProperties};
 
                 static RET: OnceLock<StaticCCValue> = OnceLock::new();
@@ -577,7 +577,7 @@ macro_rules! cc_value_dynamic_property {
     (@inner; $cc:ident, $method_name:ident, $property_name:ident, |$($param:ident: $type:ty),+| $metadata:expr, $options:expr) => {
         paste::paste! {
             pub fn $method_name() -> &'static DynamicCCValue<($($type,)*)> {
-                use std::sync::OnceLock;
+                use zwave_pal::sync::OnceLock;
                 use zwave_core::value_id::{ValueId, ValueIdProperties};
 
                 static RET: OnceLock<DynamicCCValue<($($type,)*)>> = OnceLock::new();
@@ -590,7 +590,7 @@ macro_rules! cc_value_dynamic_property {
                         };
                         matches!(prop, [<$cc CCProperties>]::$property_name(..))
                     });
-                    let eval = Box::new(|args: Box<dyn std::any::Any>| {
+                    let eval = Box::new(|args: Box<dyn core::any::Any>| {
                         let ($($param,)*) = *args.downcast::<($($type,)*)>().expect("Arguments should be of the correct type");
 
                         let property_and_key: ValueIdProperties = [<$cc CCProperties>]::$property_name($($param),*).into();

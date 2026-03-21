@@ -2,7 +2,8 @@ use crate::prelude::*;
 use crate::values::*;
 use bytes::{Bytes, BytesMut};
 use proc_macros::{CCValues, TryFromRepr};
-use std::fmt::Display;
+use alloc::{boxed::Box, format, vec, vec::Vec};
+use core::fmt::Display;
 use typed_builder::TypedBuilder;
 use ux::{u3, u5};
 use zwave_core::cache::CacheValue;
@@ -142,7 +143,7 @@ pub enum DeviceIdType {
 }
 
 impl Display for DeviceIdType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             DeviceIdType::FactoryDefault => write!(f, "factory default"),
             DeviceIdType::SerialNumber => write!(f, "serial number"),
