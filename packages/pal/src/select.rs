@@ -2,12 +2,14 @@
 /// and embassy (via `embassy_futures::select`).
 ///
 /// Supports 2, 3, and 4-branch variants. The first branch has highest priority.
+/// The embassy backend maps to `select2`/`select3`/`select4` which caps us at
+/// 4 branches. Add a new arm here if a 5th is ever needed.
 ///
 /// Usage:
 /// ```ignore
-/// pal::select_biased! {
-///     result = some_future => { handle(result); }
-///     other = another_future => { handle(other); }
+/// zwave_pal::select_biased! {
+///     result = some_future => { handle(result); },
+///     other = another_future => { handle(other); },
 /// }
 /// ```
 

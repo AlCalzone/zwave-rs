@@ -100,6 +100,12 @@ mod embassy_impl {
         }
     }
 
+    /// Creates a oneshot channel.
+    ///
+    /// **Important:** On the embassy backend the receiver cannot detect sender
+    /// disconnection. If the sender is dropped without calling `send`, the
+    /// receiver will pend forever. Always pair the receiver with a timeout
+    /// (e.g. via `select_biased!`) to avoid deadlocks.
     pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
         let ch = Arc::new(Channel::new());
         (

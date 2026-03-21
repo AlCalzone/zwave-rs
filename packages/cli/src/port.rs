@@ -21,7 +21,7 @@ const CHANNEL_CAPACITY: usize = 16;
 const SERIAL_PORT_TIMEOUT: Duration = Duration::from_secs(1);
 
 /// A `SerialBinding` backed by a TCP stream (e.g. for tcp:// serial bridges).
-struct TcpBinding {
+pub(crate) struct TcpBinding {
     stream: TcpStream,
     codec: FrameCodec,
 }

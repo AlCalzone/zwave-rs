@@ -14,6 +14,11 @@ impl<T> Clone for Sender<T> {
 }
 
 impl<T> Sender<T> {
+    /// Attempts to send a value on this channel.
+    ///
+    /// Takes `&self` (not `&mut self`) to match the embassy backend's API.
+    /// Internally clones the underlying `mpsc::Sender` since its `try_send`
+    /// requires `&mut self` — the clone is cheap (Arc increment).
     pub fn try_send(&self, item: T) -> Result<(), TrySendError<T>> {
         self.inner
             .clone()

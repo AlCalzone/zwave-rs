@@ -172,7 +172,6 @@ impl PartialEq for DurationReport {
 mod test {
     use crate::prelude::*;
 
-
     #[test]
     fn test_duration_report() {
         assert_eq!(DurationReport::try_from(0), Ok(DurationReport::Seconds(0)));

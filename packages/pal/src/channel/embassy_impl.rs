@@ -45,7 +45,17 @@ impl<T> Receiver<T> {
     }
 }
 
-pub fn channel<T>(_capacity: usize) -> (Sender<T>, Receiver<T>) {
+/// Creates a new channel.
+///
+/// Embassy channels require capacity as a const generic, so the runtime
+/// `capacity` parameter cannot be forwarded. The channel is always created
+/// with `DEFAULT_CAPACITY` (16). A debug assertion ensures callers don't
+/// accidentally request a different size.
+pub fn channel<T>(capacity: usize) -> (Sender<T>, Receiver<T>) {
+    debug_assert_eq!(
+        capacity, DEFAULT_CAPACITY,
+        "embassy backend uses a fixed channel capacity of {DEFAULT_CAPACITY}, got {capacity}"
+    );
     let ch = Arc::new(Channel::new());
     (
         Sender { inner: ch.clone() },

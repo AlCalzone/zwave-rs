@@ -126,7 +126,6 @@ mod test {
     use super::{LevelReport, LevelSet};
     use crate::prelude::*;
 
-
     #[test]
     fn test_level_report() {
         assert_eq!(LevelReport::try_from(0), Ok(LevelReport::Level(0)));

@@ -206,7 +206,6 @@ mod test {
     fn test_binary_report() {
         use super::BinaryReport;
 
-
         assert_eq!(BinaryReport::try_from(0), Ok(BinaryReport::Off));
         assert_eq!(BinaryReport::try_from(1), Err(TryFromReprError::Invalid(1)));
         assert_eq!(BinaryReport::try_from(99), Err(TryFromReprError::Invalid(99)));
@@ -219,7 +218,6 @@ mod test {
     fn test_binary_set() {
         use super::BinarySet;
 
-
         assert_eq!(BinarySet::try_from(0), Ok(BinarySet::Off));
         assert_eq!(BinarySet::try_from(1), Ok(BinarySet::On));
         assert_eq!(BinarySet::try_from(99), Ok(BinarySet::On));
@@ -231,7 +229,6 @@ mod test {
     #[test]
     fn test_binary_bool_conversion() {
         use super::{BinaryReport, BinarySet};
-
 
         assert_eq!(BinaryReport::from(true), BinaryReport::On);
         assert_eq!(BinaryReport::from(false), BinaryReport::Off);

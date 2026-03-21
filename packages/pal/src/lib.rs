@@ -1,5 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(any(feature = "std", feature = "embassy")))]
+compile_error!("zwave-pal requires either the `std` or `embassy` feature to be enabled");
+
 extern crate alloc;
 
 pub mod channel;
