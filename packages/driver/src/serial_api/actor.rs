@@ -90,7 +90,8 @@ impl SerialApiActor {
                         });
                     }
                     Err(_e) => {
-                        // Parsing failed — try to re-synchronize with the Z-Wave module
+                        // Parsing failed, this means we've received garbage after all
+                        // Try to re-synchronize with the Z-Wave module
                         self.queue_transmit(RawSerialFrame::ControlFlow(ControlFlow::NAK));
                     }
                 }
