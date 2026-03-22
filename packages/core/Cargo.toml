@@ -10,7 +10,6 @@ embassy = ["zwave-pal/embassy", "getrandom/custom"]
 
 [dependencies]
 aes.workspace = true
-bitvec.workspace = true
 bytes.workspace = true
 cbc.workspace = true
 ccm.workspace = true

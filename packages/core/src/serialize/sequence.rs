@@ -3,7 +3,7 @@ use super::{
     Serializable,
     bytes::{be_u8, slice},
 };
-use bitvec::prelude::*;
+use crate::bitbuf::build_bitmask;
 use bytes::BytesMut;
 
 pub trait List {
@@ -67,12 +67,9 @@ pub fn bitmask_u8<S: AsRef<[u8]>>(values: S, bit0_value: u8) -> impl Serializabl
                     .collect::<Vec<_>>();
 
                 let bit_len = indizes.iter().max().unwrap_or(&0) + 1;
+                let raw = build_bitmask(&indizes, bit_len);
 
-                let mut bitvec = BitVec::<_, Lsb0>::new();
-                bitvec.resize_with(bit_len, |idx| indizes.contains(&idx));
-                let raw = bitvec.as_raw_slice();
-
-                tuple((be_u8(raw.len() as u8), slice(raw))).serialize(output);
+                tuple((be_u8(raw.len() as u8), slice(&raw))).serialize(output);
             }
         }
     }

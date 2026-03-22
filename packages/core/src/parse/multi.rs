@@ -7,8 +7,8 @@ use super::{
     },
     combinators::map_parser,
 };
+use crate::bitbuf::iter_set_bits;
 use crate::prelude::*;
-use bitvec::prelude::*;
 use bytes::Bytes;
 
 pub fn many_0<I, O, P>(parser: P) -> impl Parser<I, Vec<O>>
@@ -127,9 +127,7 @@ where
 pub fn variable_length_bitmask_u8(i: &mut Bytes, bit0_value: u8) -> ParseResult<Vec<u8>> {
     let bitmask = length_data(be_u8).parse(i)?;
 
-    let view = bitmask.view_bits::<Lsb0>();
-    let ret = view
-        .iter_ones()
+    let ret = iter_set_bits(&bitmask)
         .map(|index| (index as u8) + bit0_value)
         .collect::<Vec<_>>();
     Ok(ret)
@@ -143,9 +141,7 @@ pub fn fixed_length_bitmask_u8(
 ) -> ParseResult<Vec<u8>> {
     let bitmask = take(bitmask_len).parse(i)?;
 
-    let view = bitmask.view_bits::<Lsb0>();
-    let ret = view
-        .iter_ones()
+    let ret = iter_set_bits(&bitmask)
         .map(|index| (index as u8) + bit0_value)
         .collect::<Vec<_>>();
     Ok(ret)

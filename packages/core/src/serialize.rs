@@ -1,5 +1,5 @@
 extern crate bytes as bytes_crate;
-use bitvec::prelude::*;
+use crate::bitbuf::BitBuf;
 use bytes_crate::{BufMut, Bytes, BytesMut};
 
 pub mod bits;
@@ -24,7 +24,7 @@ pub trait Serializable {
     }
 }
 
-pub type BitOutput = BitVec<u8, Msb0>;
+pub type BitOutput = BitBuf;
 
 pub trait BitSerializable {
     fn write(&self, b: &mut BitOutput);
