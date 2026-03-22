@@ -1,6 +1,6 @@
-use zwave_pal::prelude::*;
 use core::ops::Deref;
 use thiserror::Error;
+use zwave_pal::prelude::*;
 
 pub const NETWORK_KEY_SIZE: usize = 16;
 

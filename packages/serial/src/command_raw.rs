@@ -1,4 +1,3 @@
-use zwave_pal::prelude::*;
 use crate::frame::SerialControlByte;
 use crate::frame::SerialFrame;
 use crate::util::with_hex_fmt;
@@ -17,6 +16,7 @@ use zwave_core::{
         validate,
     },
 };
+use zwave_pal::prelude::*;
 
 #[derive(Clone, PartialEq)]
 pub struct CommandRaw {

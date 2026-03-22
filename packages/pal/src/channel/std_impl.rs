@@ -1,5 +1,5 @@
-use futures::channel::mpsc;
 use futures::StreamExt;
+use futures::channel::mpsc;
 
 pub struct Sender<T> {
     inner: mpsc::Sender<T>,
@@ -20,13 +20,10 @@ impl<T> Sender<T> {
     /// Internally clones the underlying `mpsc::Sender` since its `try_send`
     /// requires `&mut self` — the clone is cheap (Arc increment).
     pub fn try_send(&self, item: T) -> Result<(), TrySendError<T>> {
-        self.inner
-            .clone()
-            .try_send(item)
-            .map_err(|e| TrySendError {
-                disconnected: e.is_disconnected(),
-                item: e.into_inner(),
-            })
+        self.inner.clone().try_send(item).map_err(|e| TrySendError {
+            disconnected: e.is_disconnected(),
+            item: e.into_inner(),
+        })
     }
 }
 

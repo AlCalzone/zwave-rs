@@ -1,5 +1,5 @@
-use zwave_pal::prelude::*;
 use unicode_segmentation::UnicodeSegmentation;
+use zwave_pal::prelude::*;
 
 #[macro_export]
 macro_rules! submodule {

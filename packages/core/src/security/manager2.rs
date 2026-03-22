@@ -8,11 +8,11 @@ use crate::{
     definitions::{NodeId, SecurityClass},
     wrapping_counter::WrappingCounter,
 };
-use zwave_pal::prelude::*;
 use alloc::collections::{BTreeMap, BTreeSet};
-use getrandom::getrandom;
-use zwave_pal::sync::Locked;
 use core::{ops::Deref, time::Duration};
+use getrandom::getrandom;
+use zwave_pal::prelude::*;
+use zwave_pal::sync::Locked;
 use zwave_pal::time::Instant;
 
 pub const S2_ENTROPY_INPUT_SIZE: usize = ENTROPY_INPUT_SIZE;

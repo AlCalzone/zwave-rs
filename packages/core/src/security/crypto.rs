@@ -1,4 +1,3 @@
-use zwave_pal::prelude::*;
 use aes::cipher::{
     BlockEncrypt, BlockEncryptMut, KeyInit, KeyIvInit, StreamCipher,
     block_padding::ZeroPadding,
@@ -8,8 +7,9 @@ use aes::cipher::{
     },
 };
 use ccm::AeadInPlace;
-use getrandom::getrandom;
 use core::ops::Deref;
+use getrandom::getrandom;
+use zwave_pal::prelude::*;
 
 type Aes128Ofb = ofb::Ofb<aes::Aes128>;
 type Aes128CbcEnc = cbc::Encryptor<aes::Aes128>;

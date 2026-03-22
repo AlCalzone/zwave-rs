@@ -57,10 +57,7 @@ pub fn channel<T>(capacity: usize) -> (Sender<T>, Receiver<T>) {
         "embassy backend uses a fixed channel capacity of {DEFAULT_CAPACITY}, got {capacity}"
     );
     let ch = Arc::new(Channel::new());
-    (
-        Sender { inner: ch.clone() },
-        Receiver { inner: ch },
-    )
+    (Sender { inner: ch.clone() }, Receiver { inner: ch })
 }
 
 pub struct TrySendError<T> {

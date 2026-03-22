@@ -108,9 +108,6 @@ mod embassy_impl {
     /// (e.g. via `select_biased!`) to avoid deadlocks.
     pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
         let ch = Arc::new(Channel::new());
-        (
-            Sender { inner: ch.clone() },
-            Receiver { inner: ch },
-        )
+        (Sender { inner: ch.clone() }, Receiver { inner: ch })
     }
 }

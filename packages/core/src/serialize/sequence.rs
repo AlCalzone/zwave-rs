@@ -1,10 +1,10 @@
-use zwave_pal::prelude::*;
 use super::{
     Serializable,
     bytes::{be_u8, slice},
 };
 use crate::bitvec::build_bitmask;
 use bytes::BytesMut;
+use zwave_pal::prelude::*;
 
 pub trait List {
     fn write_all(&self, output: &mut BytesMut);

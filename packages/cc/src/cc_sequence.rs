@@ -1,8 +1,8 @@
-use zwave_pal::prelude::*;
 use crate::{
     commandclass::{CC, WithAddress},
     prelude::{CCAddressable, CCEncodingContext},
 };
+use zwave_pal::prelude::*;
 
 /// A sequence of CCs to be transmitted
 pub trait CCSequence {

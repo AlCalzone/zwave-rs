@@ -1,6 +1,6 @@
-use zwave_pal::prelude::*;
 use crate::{LocalImmutableLogger, LogInfo};
 use zwave_core::log::{LogPayload, Loglevel};
+use zwave_pal::prelude::*;
 
 pub struct DriverLogger<'a> {
     inner: &'a dyn LocalImmutableLogger,

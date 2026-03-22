@@ -1,6 +1,6 @@
-use zwave_pal::prelude::*;
 use core::fmt::{Debug, Display};
 use thiserror::Error;
+use zwave_pal::prelude::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Needed {

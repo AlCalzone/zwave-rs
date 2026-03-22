@@ -1,12 +1,12 @@
-use zwave_pal::prelude::*;
 use crate::prelude::CommandRaw;
 use bytes::{Buf, Bytes, BytesMut};
-use proc_macros::TryFromRepr;
 use core::fmt::Display;
+use proc_macros::TryFromRepr;
 use zwave_core::parse;
 use zwave_core::parse::Needed;
 use zwave_core::prelude::*;
 use zwave_core::serialize::{self, Serializable};
+use zwave_pal::prelude::*;
 
 #[derive(Debug, TryFromRepr)]
 #[repr(u8)]

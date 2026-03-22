@@ -39,7 +39,8 @@ impl Instant {
 impl core::ops::Add<Duration> for Instant {
     type Output = Self;
     fn add(self, rhs: Duration) -> Self {
-        self.checked_add(rhs).expect("overflow when adding duration to instant")
+        self.checked_add(rhs)
+            .expect("overflow when adding duration to instant")
     }
 }
 
@@ -72,8 +73,7 @@ impl core::fmt::Display for Timestamp {
         write!(
             f,
             "{}",
-            self.0
-                .to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+            self.0.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
         )
     }
 }
@@ -129,9 +129,9 @@ impl Timer {
         }
         #[cfg(feature = "embassy")]
         {
-            Self(embassy_time::Timer::after(embassy_time::Duration::from_micros(
-                duration.as_micros() as u64,
-            )))
+            Self(embassy_time::Timer::after(
+                embassy_time::Duration::from_micros(duration.as_micros() as u64),
+            ))
         }
     }
 }

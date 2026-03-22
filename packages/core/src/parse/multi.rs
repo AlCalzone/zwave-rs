@@ -1,4 +1,3 @@
-use zwave_pal::prelude::*;
 use super::{
     ToLength,
     bytes::{
@@ -10,6 +9,7 @@ use super::{
 use crate::bitvec::iter_ones;
 use crate::prelude::*;
 use bytes::Bytes;
+use zwave_pal::prelude::*;
 
 pub fn many_0<I, O, P>(parser: P) -> impl Parser<I, Vec<O>>
 where

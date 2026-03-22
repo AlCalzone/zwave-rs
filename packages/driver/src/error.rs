@@ -1,6 +1,6 @@
-use zwave_pal::prelude::*;
 use crate::ControllerCommandError;
 use thiserror::Error;
+use zwave_pal::prelude::*;
 use zwave_serial::error::Error as SerialPortError;
 
 #[derive(Error, Debug)]

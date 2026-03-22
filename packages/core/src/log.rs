@@ -1,5 +1,5 @@
-use zwave_pal::prelude::*;
 use crate::util::{str_width, to_lines};
+use zwave_pal::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Loglevel {

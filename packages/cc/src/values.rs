@@ -1,5 +1,5 @@
-use zwave_pal::prelude::*;
 use zwave_core::value_id::ValueId;
+use zwave_pal::prelude::*;
 
 pub type CCValuePredicate = Box<dyn Fn(&ValueId) -> bool + 'static + Sync + Send>;
 pub type CCValueEval = Box<dyn Fn(Box<dyn core::any::Any>) -> CCValue + 'static + Sync + Send>;

@@ -1,9 +1,9 @@
-use zwave_pal::prelude::*;
 use crate::{Direction, LocalImmutableLogger, LogInfo};
 use zwave_core::{
     definitions::*,
     log::{LogPayload, LogPayloadText, Loglevel},
 };
+use zwave_pal::prelude::*;
 use zwave_serial::command::CommandId;
 
 pub struct ControllerLogger<'a> {

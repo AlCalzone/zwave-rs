@@ -1,12 +1,12 @@
-use zwave_pal::prelude::*;
 use crate::prelude::*;
 use crate::util::with_hex_fmt;
 use bytes::Bytes;
-use enum_dispatch::enum_dispatch;
 use core::fmt::Debug;
+use enum_dispatch::enum_dispatch;
 use typed_builder::TypedBuilder;
 use zwave_core::prelude::*;
 use zwave_core::submodule;
+use zwave_pal::prelude::*;
 
 submodule!(application);
 submodule!(capability);
