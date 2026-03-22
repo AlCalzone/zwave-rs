@@ -3,7 +3,7 @@ use super::{
     Serializable,
     bytes::{be_u8, slice},
 };
-use crate::bitbuf::build_bitmask;
+use crate::bitvec::build_bitmask;
 use bytes::BytesMut;
 
 pub trait List {

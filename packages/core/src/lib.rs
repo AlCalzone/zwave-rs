@@ -2,7 +2,7 @@
 
 extern crate alloc;
 
-pub mod bitbuf;
+pub mod bitvec;
 pub mod cache;
 pub mod checksum;
 pub mod definitions;

@@ -1,17 +1,23 @@
 use zwave_pal::prelude::*;
 
-/// A growable bit buffer that packs bits MSB-first into bytes.
+/// A growable bit vector that packs bits MSB-first into bytes.
 ///
 /// Bits are written left-to-right within each byte (most significant bit first),
 /// matching the Z-Wave serial protocol's bit ordering for serialization.
-pub struct BitBuf {
+pub struct BitVec {
     bytes: Vec<u8>,
     /// Total number of bits written.
     bit_len: usize,
 }
 
-impl BitBuf {
-    /// Creates a new empty bit buffer.
+impl Default for BitVec {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl BitVec {
+    /// Creates a new empty bit vec.
     pub fn new() -> Self {
         Self {
             bytes: Vec::new(),
@@ -51,9 +57,10 @@ impl BitBuf {
 ///
 /// Bit 0 of byte 0 is index 0, bit 1 of byte 0 is index 1, ...,
 /// bit 0 of byte 1 is index 8, etc.
-pub fn iter_set_bits(bytes: &[u8]) -> impl Iterator<Item = usize> + '_ {
+pub fn iter_ones(bytes: &[u8]) -> impl Iterator<Item = usize> + '_ {
     bytes.iter().enumerate().flat_map(|(byte_idx, &byte)| {
-        (0..8u8).filter(move |&bit| byte & (1 << bit) != 0)
+        (0..8u8)
+            .filter(move |&bit| byte & (1 << bit) != 0)
             .map(move |bit| byte_idx * 8 + bit as usize)
     })
 }
@@ -62,7 +69,7 @@ pub fn iter_set_bits(bytes: &[u8]) -> impl Iterator<Item = usize> + '_ {
 ///
 /// Each index in `indices` sets the corresponding bit in the output.
 pub fn build_bitmask(indices: &[usize], bit_len: usize) -> Vec<u8> {
-    let byte_len = (bit_len + 7) / 8;
+    let byte_len = bit_len.div_ceil(8);
     let mut bitmask = vec![0u8; byte_len];
     for &idx in indices {
         if idx < bit_len {
@@ -77,8 +84,9 @@ mod test {
     use super::*;
 
     #[test]
+    #[expect(clippy::unusual_byte_groupings)]
     fn test_push_bits_msb() {
-        let mut buf = BitBuf::new();
+        let mut buf = BitVec::new();
         buf.push_bits(0b10110, 5);
         buf.push_bits(0b101, 3);
         assert_eq!(buf.as_bytes(), &[0b10110_101]);
@@ -86,7 +94,7 @@ mod test {
 
     #[test]
     fn test_push_bool() {
-        let mut buf = BitBuf::new();
+        let mut buf = BitVec::new();
         buf.push(true);
         buf.push(false);
         buf.push(true);
@@ -100,7 +108,7 @@ mod test {
 
     #[test]
     fn test_push_across_byte_boundary() {
-        let mut buf = BitBuf::new();
+        let mut buf = BitVec::new();
         buf.push_bits(0xFF, 8);
         buf.push_bits(0b10, 2);
         assert_eq!(buf.as_bytes(), &[0xFF, 0b10_000000]);
@@ -109,7 +117,7 @@ mod test {
     #[test]
     fn test_iter_set_bits() {
         let bytes = [0b00000101, 0b00000010]; // bits 0,2 in byte0; bit 1 in byte1
-        let bits: Vec<usize> = iter_set_bits(&bytes).collect();
+        let bits: Vec<usize> = iter_ones(&bytes).collect();
         assert_eq!(bits, vec![0, 2, 9]);
     }
 
@@ -123,7 +131,7 @@ mod test {
     fn test_roundtrip_bitmask() {
         let indices = vec![1, 3, 8, 11];
         let mask = build_bitmask(&indices, 16);
-        let recovered: Vec<usize> = iter_set_bits(&mask).collect();
+        let recovered: Vec<usize> = iter_ones(&mask).collect();
         assert_eq!(recovered, indices);
     }
 }
