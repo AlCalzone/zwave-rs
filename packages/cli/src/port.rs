@@ -42,7 +42,7 @@ impl SerialBinding for TcpBinding {
         self.stream
             .write_all(&buf)
             .await
-            .map_err(zwave_serial::error::Error::StdIo)?;
+            .map_err(zwave_serial::error::Error::from)?;
         Ok(())
     }
 
@@ -239,7 +239,7 @@ fn spawn_write_thread(
 }
 
 fn channel_closed(message: &'static str) -> zwave_serial::error::Error {
-    io::Error::new(ErrorKind::BrokenPipe, message).into()
+    zwave_serial::error::Error::Io(message.into())
 }
 
 #[cfg(unix)]
