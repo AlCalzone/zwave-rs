@@ -5,7 +5,6 @@ rust-version.workspace = true
 edition.workspace = true
 
 [features]
-default = ["std"]
 std = ["zwave-pal/std"]
 embassy = ["zwave-pal/embassy", "getrandom/custom"]
 

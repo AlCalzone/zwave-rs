@@ -102,6 +102,7 @@ pub enum DriverInput {
     AwaitCC {
         predicate: Predicate<WithAddress<CC>>,
         timeout: Option<Duration>,
+        // FIXME: Make this a specific result type
         callback: zwave_pal::channel::oneshot::Sender<Result<WithAddress<CC>>>,
     },
 }

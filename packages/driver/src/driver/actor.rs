@@ -31,11 +31,13 @@ impl DriverActor {
             let maybe_sleep = MaybeSleep::new(min_sleep_duration);
 
             zwave_pal::select_biased! {
+                // Handle inputs
                 input = self.input_rx.recv() => {
                     if let Some(input) = input {
                         self.handle_input(input);
                     }
                 },
+                // before timeouts
                 _ = maybe_sleep => {
                     self.handle_timeouts();
                 }

@@ -1,4 +1,3 @@
-#[cfg(not(feature = "std"))]
 use zwave_pal::prelude::*;
 use core::ops::Deref;
 use thiserror::Error;

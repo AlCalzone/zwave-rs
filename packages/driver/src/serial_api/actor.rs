@@ -35,16 +35,19 @@ impl SerialApiActor {
             let serial_api_sleep = MaybeSleep::new(serial_api_timeout_duration);
 
             zwave_pal::select_biased! {
+                // Handle incoming frames
                 frame = self.serial_in.recv() => {
                     if let Some(frame) = frame {
                         self.handle_serial_frame(frame);
                     }
                 },
+                // before inputs
                 input = self.input_rx.recv() => {
                     if let Some(input) = input {
                         self.handle_input(input);
                     }
                 },
+                // before timeouts
                 _ = serial_api_sleep => {
                     self.try_advance_serial_api_machine(SerialApiMachineInput::Timeout);
                 }
@@ -64,9 +67,9 @@ impl SerialApiActor {
         ControllerLogger::new(self)
     }
 
-    /// Handles a frame that was written to the input buffer.
+    /// Handles a frame that was written to the input buffer
     /// This should typically be handled before any other events,
-    /// so the Z-Wave module can go back to do what it was doing.
+    /// so the Z-Wave module can go back to do what it was doing
     pub fn handle_serial_frame(&mut self, frame: RawSerialFrame) {
         match frame {
             RawSerialFrame::ControlFlow(byte) => {

@@ -2,7 +2,7 @@ use crate::prelude::*;
 use typed_builder::TypedBuilder;
 
 /// Uniquely identifies which CC and property a value belongs to
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, TypedBuilder)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, TypedBuilder)]
 pub struct ValueId {
     command_class: CommandClasses,
     #[builder(setter(into))]
@@ -46,7 +46,7 @@ impl ValueId {
 }
 
 /// Uniquely identifies which Node, endpoint, CC and property a value belongs to
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct EndpointValueId {
     node_id: NodeId,
     endpoint: EndpointIndex,

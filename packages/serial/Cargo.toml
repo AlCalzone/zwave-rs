@@ -5,7 +5,6 @@ rust-version.workspace = true
 edition.workspace = true
 
 [features]
-default = ["std"]
 std = ["zwave-core/std", "zwave-cc/std"]
 embassy = ["zwave-core/embassy", "zwave-cc/embassy"]
 
@@ -17,6 +16,6 @@ proc-macros.workspace = true
 thiserror.workspace = true
 typed-builder.workspace = true
 ux.workspace = true
-zwave-core = { workspace = true, default-features = false }
-zwave-cc = { workspace = true, default-features = false }
+zwave-core.workspace = true
+zwave-cc.workspace = true
 zwave-pal.workspace = true

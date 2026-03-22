@@ -1,4 +1,4 @@
-use alloc::collections::BTreeMap;
+use hashbrown::HashMap;
 use zwave_core::{
     cache::CacheValue,
     security::{SecurityManager, SecurityManager2},
@@ -12,7 +12,7 @@ use zwave_pal::sync::Locked;
 /// interior mutability to allow for concurrent access without requiring
 /// a mutable reference.
 pub(crate) struct DriverStorage {
-    value_cache: Locked<BTreeMap<EndpointValueId, CacheValue>>,
+    value_cache: Locked<HashMap<EndpointValueId, CacheValue>>,
     security_manager: Locked<Option<SecurityManager>>,
     security_manager2: Locked<Option<SecurityManager2>>,
 }
@@ -20,13 +20,13 @@ pub(crate) struct DriverStorage {
 impl DriverStorage {
     pub fn new() -> Self {
         Self {
-            value_cache: Locked::new(BTreeMap::new()),
+            value_cache: Locked::new(HashMap::new()),
             security_manager: Locked::new(None),
             security_manager2: Locked::new(None),
         }
     }
 
-    pub(crate) fn value_cache(&self) -> &Locked<BTreeMap<EndpointValueId, CacheValue>> {
+    pub(crate) fn value_cache(&self) -> &Locked<HashMap<EndpointValueId, CacheValue>> {
         &self.value_cache
     }
 

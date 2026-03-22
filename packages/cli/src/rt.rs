@@ -79,36 +79,48 @@ impl Runtime {
 
             loop {
                 zwave_pal::select_biased! {
+                    // If there is something to read from the serialport, handle it first.
                     serial_in = port.read() => {
                         let Some(frame) = serial_in else {
+                            // Port closed => quit
                             break;
                         };
                         if !forward_serial_frame(&mut serial_api_adapter, frame) {
+                            // Channel probably closed => quit
                             break;
                         }
                     },
+                    // If the serial API has something to transmit, do that before handling events.
                     serial_out = serial_api_adapter.serial_out.recv() => {
                         let Some(frame) = serial_out else {
+                            // Channel closed => quit
                             break;
                         };
                         if port.write(frame).await.is_err() {
+                            // Port closed => quit
                             break;
                         }
                     },
+                    // Pass pending events from the serial API to the driver.
                     event_rx = serial_api_adapter.event_rx.recv() => {
                         let Some(event) = event_rx else {
+                            // Channel closed => quit
                             break;
                         };
                         match event {
                             zwave_driver::SerialApiEvent::Unsolicited { command } => {
+                                // Forward unsolicited commands to the driver
                                 if !forward_unsolicited(&mut driver_adapter, command) {
+                                    // Channel probably closed => quit
                                     break;
                                 }
                             }
                         }
                     },
+                    // And finally if there is something to log, do that.
                     log = log_rx.recv() => {
                         let Some((log, level)) = log else {
+                            // Channel closed => quit
                             break;
                         };
                         logger.log(log, level);

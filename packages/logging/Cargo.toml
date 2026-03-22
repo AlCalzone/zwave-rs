@@ -5,13 +5,12 @@ rust-version.workspace = true
 edition.workspace = true
 
 [features]
-default = ["std"]
 std = ["zwave-core/std", "zwave-serial/std", "zwave-pal/std", "termcolor"]
 embassy = ["zwave-core/embassy", "zwave-serial/embassy", "zwave-pal/embassy"]
 
 [dependencies]
-zwave-core = { workspace = true, default-features = false }
-zwave-serial = { workspace = true, default-features = false }
+zwave-core.workspace = true
+zwave-serial.workspace = true
 zwave-pal.workspace = true
 termcolor = { workspace = true, optional = true }
 typed-builder.workspace = true
