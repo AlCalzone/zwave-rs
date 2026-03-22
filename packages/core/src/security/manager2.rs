@@ -10,7 +10,7 @@ use crate::{
 };
 use alloc::collections::{BTreeMap, BTreeSet};
 use core::{ops::Deref, time::Duration};
-use getrandom::getrandom;
+use zwave_pal::rng::getrandom;
 use zwave_pal::prelude::*;
 use zwave_pal::sync::Locked;
 use zwave_pal::time::Instant;

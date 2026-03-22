@@ -2,7 +2,7 @@ use super::{AesKey, NetworkKey, encrypt_aes_ecb};
 use crate::prelude::*;
 use alloc::collections::BTreeMap;
 use core::ops::Deref;
-use getrandom::getrandom;
+use zwave_pal::rng::getrandom;
 use zwave_pal::prelude::*;
 use zwave_pal::sync::Locked;
 

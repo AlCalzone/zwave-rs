@@ -8,7 +8,7 @@ use aes::cipher::{
 };
 use ccm::AeadInPlace;
 use core::ops::Deref;
-use getrandom::getrandom;
+use zwave_pal::rng::getrandom;
 use zwave_pal::prelude::*;
 
 type Aes128Ofb = ofb::Ofb<aes::Aes128>;

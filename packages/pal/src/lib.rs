@@ -33,6 +33,12 @@ pub mod prelude {
     };
 }
 
+/// Re-export `getrandom` so downstream crates and applications can use it
+/// without adding a direct dependency. On embassy builds, the `custom` feature
+/// is enabled — applications must call `zwave_pal::rng::register_custom_getrandom!`
+/// to provide an RNG implementation.
+pub use getrandom as rng;
+
 // Re-exports needed by the select_biased! macro.
 // These must be public so the macro can reference them from downstream crates.
 #[cfg(feature = "std")]

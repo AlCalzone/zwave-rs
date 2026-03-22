@@ -6,7 +6,7 @@ edition.workspace = true
 
 [features]
 std = ["zwave-pal/std"]
-embassy = ["zwave-pal/embassy", "getrandom/custom"]
+embassy = ["zwave-pal/embassy"]
 
 [dependencies]
 aes.workspace = true
@@ -15,7 +15,6 @@ cbc.workspace = true
 ccm.workspace = true
 crc16.workspace = true
 enum-iterator.workspace = true
-getrandom.workspace = true
 hex.workspace = true
 num-traits.workspace = true
 ofb.workspace = true
