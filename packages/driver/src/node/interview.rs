@@ -1,7 +1,8 @@
-use crate::{error::Result, interview_cc, interview_depends_on, Endpoint, EndpointLike, Node};
-use zwave_pal::prelude::*;
+use crate::{Endpoint, EndpointLike, Node, error::Result, interview_cc, interview_depends_on};
+use alloc::collections::{BTreeMap, BTreeSet};
 use core::fmt::Write;
 use zwave_core::definitions::*;
+use zwave_pal::prelude::*;
 
 /// Specifies the progress of the interview process for a node
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -214,8 +215,6 @@ fn determine_interview_order<'a>(
     endpoint: &'a dyn EndpointLike<'a>,
     except: &[CommandClasses],
 ) -> impl Iterator<Item = CommandClasses> {
-    use alloc::collections::BTreeSet;
-
     let ccs: Vec<_> = endpoint
         .supported_command_classes()
         .into_iter()
@@ -223,22 +222,22 @@ fn determine_interview_order<'a>(
         .collect();
 
     // Build adjacency: for each CC, collect which CCs must come before it
-    let mut deps_of: alloc::collections::BTreeMap<CommandClasses, Vec<CommandClasses>> =
-        alloc::collections::BTreeMap::new();
+    let mut deps_of: BTreeMap<CommandClasses, Vec<CommandClasses>> = BTreeMap::new();
     for &cc in &ccs {
-        deps_of.entry(cc).or_default();
         if let Some(deps) = interview_depends_on(endpoint, cc) {
-            for dep in deps {
-                if ccs.contains(&dep) {
-                    deps_of.entry(cc).or_default().push(*dep);
-                }
-            }
+            deps_of
+                .entry(cc)
+                .or_default()
+                .extend(deps.iter().copied().filter(|dep| ccs.contains(dep)));
+        } else {
+            // Ensure each supported CC appears in the adjacency map, even if it has no dependencies
+            deps_of.entry(cc).or_default();
         }
     }
 
     // Kahn's algorithm for topological sort.
     // in_degree[cc] = number of dependencies that must be interviewed before cc
-    let mut in_degree: alloc::collections::BTreeMap<CommandClasses, usize> =
+    let mut in_degree: BTreeMap<CommandClasses, usize> =
         deps_of.iter().map(|(cc, deps)| (*cc, deps.len())).collect();
 
     let mut queue: Vec<_> = in_degree
@@ -268,11 +267,7 @@ fn determine_interview_order<'a>(
     }
 
     // FIXME: Do not panic
-    assert_eq!(
-        sorted.len(),
-        ccs.len(),
-        "CC interview graph is cyclic"
-    );
+    assert_eq!(sorted.len(), ccs.len(), "CC interview graph is cyclic");
 
     sorted.into_iter()
 }
