@@ -6,7 +6,7 @@ use crate::prelude::*;
 use bytes::{BytesMut, Bytes};
 use crate::serialize::{self, Serializable};
 use proc_macros::TryFromRepr;
-use std::fmt::Display;
+use core::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromRepr)]
 #[repr(u8)]
@@ -26,7 +26,7 @@ pub enum ZWaveLibraryType {
 }
 
 impl Display for ZWaveLibraryType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ZWaveLibraryType::Unknown => write!(f, "Unknown"),
             ZWaveLibraryType::StaticController => write!(f, "Static Controller"),

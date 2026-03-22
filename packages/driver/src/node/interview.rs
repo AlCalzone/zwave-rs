@@ -1,7 +1,8 @@
-use crate::{error::Result, interview_cc, interview_depends_on, Endpoint, EndpointLike, Node};
-use petgraph::{algo, graphmap::DiGraphMap};
-use std::fmt::Write;
+use crate::{Endpoint, EndpointLike, Node, error::Result, interview_cc, interview_depends_on};
+use alloc::collections::{BTreeMap, BTreeSet};
+use core::fmt::Write;
 use zwave_core::definitions::*;
+use zwave_pal::prelude::*;
 
 /// Specifies the progress of the interview process for a node
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -214,32 +215,59 @@ fn determine_interview_order<'a>(
     endpoint: &'a dyn EndpointLike<'a>,
     except: &[CommandClasses],
 ) -> impl Iterator<Item = CommandClasses> {
-    let mut graph = DiGraphMap::new();
-
-    let graph_ccs: Vec<_> = endpoint
+    let ccs: Vec<_> = endpoint
         .supported_command_classes()
         .into_iter()
         .filter(|cc| !except.contains(cc))
         .collect();
 
-    // Add all supported CCs to the graph, except the ones in the ignore list
-    for cc in graph_ccs.iter() {
-        graph.add_node(*cc);
-    }
-
-    // Now that we have all nodes, determine which CCs depend on which
-    for cc in &graph_ccs {
-        let Some(deps) = interview_depends_on(endpoint, *cc) else {
-            continue;
-        };
-        for dep in deps {
-            graph.add_edge(*dep, *cc, 1);
+    // Build adjacency: for each CC, collect which CCs must come before it
+    let mut deps_of: BTreeMap<CommandClasses, Vec<CommandClasses>> = BTreeMap::new();
+    for &cc in &ccs {
+        if let Some(deps) = interview_depends_on(endpoint, cc) {
+            deps_of
+                .entry(cc)
+                .or_default()
+                .extend(deps.iter().copied().filter(|dep| ccs.contains(dep)));
+        } else {
+            // Ensure each supported CC appears in the adjacency map, even if it has no dependencies
+            deps_of.entry(cc).or_default();
         }
     }
 
-    // Topologically sort the graph
+    // Kahn's algorithm for topological sort.
+    // in_degree[cc] = number of dependencies that must be interviewed before cc
+    let mut in_degree: BTreeMap<CommandClasses, usize> =
+        deps_of.iter().map(|(cc, deps)| (*cc, deps.len())).collect();
+
+    let mut queue: Vec<_> = in_degree
+        .iter()
+        .filter(|(_, deg)| **deg == 0)
+        .map(|(cc, _)| *cc)
+        .collect();
+    let mut sorted = Vec::with_capacity(ccs.len());
+    let mut visited = BTreeSet::new();
+
+    while let Some(cc) = queue.pop() {
+        if !visited.insert(cc) {
+            continue;
+        }
+        sorted.push(cc);
+        // Find all CCs that depend on this one and decrement their in-degree
+        for (&dependent, deps) in &deps_of {
+            if deps.contains(&cc) {
+                if let Some(deg) = in_degree.get_mut(&dependent) {
+                    *deg = deg.saturating_sub(1);
+                    if *deg == 0 && !visited.contains(&dependent) {
+                        queue.push(dependent);
+                    }
+                }
+            }
+        }
+    }
+
     // FIXME: Do not panic
-    let sorted = algo::toposort(&graph, None).expect("CC interview graph is cyclic");
+    assert_eq!(sorted.len(), ccs.len(), "CC interview graph is cyclic");
 
     sorted.into_iter()
 }

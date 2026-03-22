@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use zwave_core::state_machine;
 use zwave_core::state_machine::StateMachine;
 use zwave_serial::prelude::*;

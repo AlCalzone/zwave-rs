@@ -6,7 +6,7 @@ use crate::{
         combinators::{context, map},
     },
 };
-use std::fmt::Display;
+use core::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u16)]
@@ -22,7 +22,7 @@ pub enum ChipType {
 }
 
 impl Display for ChipType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ChipType::ZW0102 => write!(f, "ZW0102"),
             ChipType::ZW0201 => write!(f, "ZW0201"),

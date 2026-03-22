@@ -1,14 +1,14 @@
 use crate::error::Result;
 use crate::LogSender;
-use futures::channel::{mpsc, oneshot};
+use zwave_pal::prelude::*;
 use storage::SerialApiStorage;
-use std::sync::Arc;
-use std::time::Instant;
 use zwave_core::log::Loglevel;
 use zwave_core::prelude::*;
 use zwave_core::submodule;
 use zwave_core::wrapping_counter::WrappingCounter;
 use zwave_logging::LogInfo;
+use zwave_pal::channel::{Receiver, Sender};
+use zwave_pal::time::Instant;
 use zwave_serial::frame::{RawSerialFrame, SerialFrame};
 use zwave_serial::prelude::*;
 
@@ -17,14 +17,14 @@ submodule!(handle);
 submodule!(actor);
 mod storage;
 
-type SerialFrameReceiver = mpsc::Receiver<RawSerialFrame>;
-type SerialFrameSender = mpsc::Sender<RawSerialFrame>;
+type SerialFrameReceiver = Receiver<RawSerialFrame>;
+type SerialFrameSender = Sender<RawSerialFrame>;
 
-type SerialApiInputSender = mpsc::Sender<SerialApiInput>;
-type SerialApiInputReceiver = mpsc::Receiver<SerialApiInput>;
+type SerialApiInputSender = Sender<SerialApiInput>;
+type SerialApiInputReceiver = Receiver<SerialApiInput>;
 
-type SerialApiEventSender = mpsc::Sender<SerialApiEvent>;
-type SerialApiEventReceiver = mpsc::Receiver<SerialApiEvent>;
+type SerialApiEventSender = Sender<SerialApiEvent>;
+type SerialApiEventReceiver = Receiver<SerialApiEvent>;
 
 pub trait ExecutableCommand: CommandRequest + AsCommandRaw {}
 impl<T> ExecutableCommand for T where T: CommandRequest + AsCommandRaw {}
@@ -35,7 +35,7 @@ struct SerialApiCommandState {
     expects_response: bool,
     expects_callback: bool,
     machine: SerialApiMachine,
-    callback: Option<oneshot::Sender<Result<SerialApiMachineResult>>>,
+    callback: Option<zwave_pal::channel::oneshot::Sender<Result<SerialApiMachineResult>>>,
 }
 
 /// An actor to interact with the Serial API in a sans-io fashion:
@@ -78,10 +78,10 @@ pub struct SerialApi {
 
 impl SerialApi {
     pub fn new(log_tx: LogSender) -> (Self, SerialApiActor, SerialApiAdapter) {
-        let (serial_in_tx, serial_in_rx) = mpsc::channel(16);
-        let (serial_out_tx, serial_out_rx) = mpsc::channel(16);
-        let (input_tx, input_rx) = mpsc::channel(16);
-        let (event_tx, event_rx) = mpsc::channel(16);
+        let (serial_in_tx, serial_in_rx) = zwave_pal::channel::channel(16);
+        let (serial_out_tx, serial_out_rx) = zwave_pal::channel::channel(16);
+        let (input_tx, input_rx) = zwave_pal::channel::channel(16);
+        let (event_tx, event_rx) = zwave_pal::channel::channel(16);
 
         let storage = Arc::new(SerialApiStorage::new(NodeIdType::NodeId8Bit));
 
@@ -125,7 +125,7 @@ pub enum SerialApiInput {
     /// Execute the given command and return the result once it's done
     ExecCommand {
         command: Box<dyn ExecutableCommand>,
-        callback: oneshot::Sender<Result<SerialApiMachineResult>>,
+        callback: zwave_pal::channel::oneshot::Sender<Result<SerialApiMachineResult>>,
     },
     /// Log the given message
     Log {

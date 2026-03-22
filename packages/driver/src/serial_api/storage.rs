@@ -1,5 +1,5 @@
 use zwave_core::prelude::*;
-use zwave_core::util::Locked;
+use zwave_pal::sync::Locked;
 
 /// Storage shared between the Serial API and driver actors, containing information
 /// that is needed to correctly parse and serialize commands.

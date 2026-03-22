@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use zwave_core::{
     cache::CacheValue,
     security::{SecurityManager, SecurityManager2},
-    util::Locked,
     value_id::EndpointValueId,
 };
+use zwave_pal::sync::Locked;
 
 /// Internal storage for the driver instance and shared API instances.
 /// Since the driver is meant be used from external (application) code,

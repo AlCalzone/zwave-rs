@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use zwave_core::parse::multi::fixed_length_bitmask_u8;
@@ -281,8 +282,8 @@ impl SerializableWith<&CommandEncodingContext> for SerialApiSetupRequest {
                     },
             } => tuple((
                 // The values are represented as a multiple of 0.1 dBm
-                be_i8((tx_power_dbm * 10f32).round() as i8),
-                be_i8((measured_at_0_dbm * 10f32).round() as i8),
+                be_i8(crate::util::round_f32(tx_power_dbm * 10.0) as i8),
+                be_i8(crate::util::round_f32(measured_at_0_dbm * 10.0) as i8),
             ))
             .serialize(output),
             SerialApiSetupRequestPayload::SetPowerlevel16Bit {
@@ -293,13 +294,13 @@ impl SerializableWith<&CommandEncodingContext> for SerialApiSetupRequest {
                     },
             } => tuple((
                 // The values are represented as a multiple of 0.1 dBm
-                be_i16((tx_power_dbm * 10f32).round() as i16),
-                be_i16((measured_at_0_dbm * 10f32).round() as i16),
+                be_i16(crate::util::round_f32(tx_power_dbm * 10.0) as i16),
+                be_i16(crate::util::round_f32(measured_at_0_dbm * 10.0) as i16),
             ))
             .serialize(output),
             SerialApiSetupRequestPayload::SetLRMaximumTxPower { max_power } => {
                 // The values are represented as a multiple of 0.1 dBm
-                be_i16((max_power * 10f32).round() as i16).serialize(output)
+                be_i16(crate::util::round_f32(max_power * 10.0) as i16).serialize(output)
             }
             SerialApiSetupRequestPayload::SetRFRegion { region } => region.serialize(output),
             SerialApiSetupRequestPayload::SetNodeIDType { node_id_type } => {

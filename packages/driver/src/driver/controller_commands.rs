@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use super::{
     expect_controller_command_result, ControllerCommandError, ControllerCommandResult, Driver,
     ExecControllerCommandOptions,

@@ -1,5 +1,6 @@
 use crate::prelude::*;
 use paste::paste;
+use zwave_pal::prelude::*;
 
 /// Defines the possible values that can be stored in the cache
 #[derive(Debug, Clone)]

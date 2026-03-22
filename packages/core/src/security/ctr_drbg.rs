@@ -2,6 +2,7 @@ use super::crypto::{
     AesKey, Block, ENTROPY_SIZE, Entropy, PersonalizationString, encrypt_aes_ecb,
     increment_slice_mut, xor_slice_mut,
 };
+use zwave_pal::prelude::*;
 
 pub const KEY_LEN: usize = 16;
 pub const BLOCK_LEN: usize = 16;

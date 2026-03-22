@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display};
+use core::fmt::{Debug, Display};
 #[derive(Default, Clone, Copy, PartialEq)]
 pub struct Powerlevel {
     pub tx_power: f32,
@@ -6,7 +6,7 @@ pub struct Powerlevel {
 }
 
 impl Debug for Powerlevel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Powerlevel")
             .field("tx_power", &format_args!("{:.1} dBm", self.tx_power))
             .field(
@@ -18,7 +18,7 @@ impl Debug for Powerlevel {
 }
 
 impl Display for Powerlevel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "{:.1} dBm (measured {:.1} dBm)",

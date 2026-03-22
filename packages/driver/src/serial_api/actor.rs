@@ -1,17 +1,18 @@
+use zwave_pal::prelude::*;
 use super::{
     SerialApiActor, SerialApiCommandState, SerialApiEvent, SerialApiInput, SerialApiMachine,
     SerialApiMachineCondition, SerialApiMachineInput, SerialApiMachineState,
 };
-use futures::{select_biased, FutureExt, StreamExt};
-use std::time::{Duration, Instant};
+use core::time::Duration;
 use zwave_core::prelude::*;
 use zwave_core::state_machine::{StateMachine, StateMachineTransition};
-use zwave_core::util::MaybeSleep;
-use zwave_core::{log::Loglevel, parse::Parsable, util::now};
+use zwave_pal::time::MaybeSleep;
+use zwave_core::{log::Loglevel, parse::Parsable};
 use zwave_logging::{
     loggers::{controller::ControllerLogger, driver::DriverLogger, serial::SerialLogger},
     Direction, LocalImmutableLogger, LogInfo,
 };
+use zwave_pal::time::Instant;
 use zwave_serial::frame::{ControlFlow, RawSerialFrame, SerialFrame};
 use zwave_serial::prelude::*;
 
@@ -22,7 +23,6 @@ impl SerialApiActor {
             driver_logger.logo();
             driver_logger.info(|| "version 0.0.1-alpha");
             driver_logger.info(|| "");
-            // driver_logger.info(|| format!("opening serial port {}", PORT));
         }
 
         loop {
@@ -34,21 +34,21 @@ impl SerialApiActor {
                 .and_then(|i| i.checked_duration_since(Instant::now()));
             let serial_api_sleep = MaybeSleep::new(serial_api_timeout_duration);
 
-            select_biased! {
+            zwave_pal::select_biased! {
                 // Handle incoming frames
-                frame = self.serial_in.next() => {
+                frame = self.serial_in.recv() => {
                     if let Some(frame) = frame {
                         self.handle_serial_frame(frame);
                     }
                 },
                 // before inputs
-                input = self.input_rx.next() => {
+                input = self.input_rx.recv() => {
                     if let Some(input) = input {
                         self.handle_input(input);
                     }
                 },
                 // before timeouts
-                _ = serial_api_sleep.fuse() => {
+                _ = serial_api_sleep => {
                     self.try_advance_serial_api_machine(SerialApiMachineInput::Timeout);
                 }
             }
@@ -89,8 +89,7 @@ impl SerialApiActor {
                             frame: SerialFrame::Command(raw),
                         });
                     }
-                    Err(e) => {
-                        println!("{} error: {}", now(), e);
+                    Err(_e) => {
                         // Parsing failed, this means we've received garbage after all
                         // Try to re-synchronize with the Z-Wave module
                         self.queue_transmit(RawSerialFrame::ControlFlow(ControlFlow::NAK));
@@ -199,8 +198,7 @@ impl SerialApiActor {
                         .build();
                     match zwave_serial::command::Command::try_from_raw(raw, ctx) {
                         Ok(cmd) => cmd,
-                        Err(e) => {
-                            println!("{} failed to decode CommandRaw: {}", now(), e);
+                        Err(_e) => {
                             // TODO: Handle misformatted frames
                             return;
                         }
@@ -254,7 +252,6 @@ impl SerialApiActor {
     // Passes the input to the running serial API machine and returns whether it was handled
     fn try_advance_serial_api_machine(&mut self, input: SerialApiMachineInput) -> bool {
         let Some(SerialApiCommandState {
-            // ref command,
             ref mut timeout,
             expects_response,
             expects_callback,
@@ -288,16 +285,13 @@ impl SerialApiActor {
             SerialApiMachineState::WaitingForACK => {
                 *timeout = Instant::now().checked_add(Duration::from_millis(1600));
             }
-
             // FIXME: Set better timeouts
             SerialApiMachineState::WaitingForResponse => {
                 *timeout = Instant::now().checked_add(Duration::from_millis(10000));
             }
-
             SerialApiMachineState::WaitingForCallback => {
                 *timeout = Instant::now().checked_add(Duration::from_millis(30000));
             }
-
             SerialApiMachineState::Done(result) => {
                 callback
                     .take()
@@ -306,7 +300,6 @@ impl SerialApiActor {
                     .expect("Failed to send Serial API command result");
                 self.serial_api_command = None;
             }
-
             _ => {}
         }
 
@@ -367,7 +360,7 @@ impl LocalImmutableLogger for SerialApiActor {
         Loglevel::Debug
     }
 
-    fn set_log_level(&self, level: Loglevel) {
+    fn set_log_level(&self, _level: Loglevel) {
         todo!()
     }
 }

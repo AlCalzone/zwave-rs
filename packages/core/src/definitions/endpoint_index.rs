@@ -1,5 +1,5 @@
 use crate::values::Canonical;
-use std::fmt::Display;
+use core::fmt::Display;
 
 #[derive(Default, Debug, Copy, Clone, Eq)]
 pub enum EndpointIndex {
@@ -29,7 +29,7 @@ impl PartialEq<EndpointIndex> for EndpointIndex {
 
 impl core::hash::Hash for EndpointIndex {
     // Adapted from the derived implementation
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         let canonical = self.to_canonical();
         core::mem::discriminant(&canonical).hash(state);
         match canonical {
@@ -40,18 +40,18 @@ impl core::hash::Hash for EndpointIndex {
 }
 
 impl Ord for EndpointIndex {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         match (self.to_canonical(), other.to_canonical()) {
-            (EndpointIndex::Root, EndpointIndex::Root) => std::cmp::Ordering::Equal,
-            (EndpointIndex::Root, EndpointIndex::Endpoint(_)) => std::cmp::Ordering::Less,
-            (EndpointIndex::Endpoint(_), EndpointIndex::Root) => std::cmp::Ordering::Greater,
+            (EndpointIndex::Root, EndpointIndex::Root) => core::cmp::Ordering::Equal,
+            (EndpointIndex::Root, EndpointIndex::Endpoint(_)) => core::cmp::Ordering::Less,
+            (EndpointIndex::Endpoint(_), EndpointIndex::Root) => core::cmp::Ordering::Greater,
             (EndpointIndex::Endpoint(a), EndpointIndex::Endpoint(b)) => a.cmp(&b),
         }
     }
 }
 
 impl PartialOrd<EndpointIndex> for EndpointIndex {
-    fn partial_cmp(&self, other: &EndpointIndex) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &EndpointIndex) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
@@ -64,7 +64,7 @@ fn test_endpoint_index_ord() {
 }
 
 impl Display for EndpointIndex {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             EndpointIndex::Root => write!(f, "Root endpoint"),
             EndpointIndex::Endpoint(index) => write!(f, "Endpoint {}", index),

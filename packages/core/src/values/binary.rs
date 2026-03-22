@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use core::fmt::Display;
 
 use crate::parse::{bytes::be_u8, combinators::map_res};
 use crate::prelude::*;
@@ -33,7 +33,7 @@ impl TryFrom<u8> for BinaryReport {
 }
 
 impl Display for BinaryReport {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Off => write!(f, "off"),
             Self::Unknown => write!(f, "unknown"),
@@ -138,7 +138,7 @@ impl TryFrom<u8> for BinarySet {
 }
 
 impl Display for BinarySet {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Off => write!(f, "off"),
             Self::On => write!(f, "on"),
@@ -205,7 +205,6 @@ mod test {
     #[test]
     fn test_binary_report() {
         use super::BinaryReport;
-        use std::convert::TryFrom;
 
         assert_eq!(BinaryReport::try_from(0), Ok(BinaryReport::Off));
         assert_eq!(BinaryReport::try_from(1), Err(TryFromReprError::Invalid(1)));
@@ -218,7 +217,6 @@ mod test {
     #[test]
     fn test_binary_set() {
         use super::BinarySet;
-        use std::convert::TryFrom;
 
         assert_eq!(BinarySet::try_from(0), Ok(BinarySet::Off));
         assert_eq!(BinarySet::try_from(1), Ok(BinarySet::On));
@@ -231,7 +229,6 @@ mod test {
     #[test]
     fn test_binary_bool_conversion() {
         use super::{BinaryReport, BinarySet};
-        use std::convert::TryFrom;
 
         assert_eq!(BinaryReport::from(true), BinaryReport::On);
         assert_eq!(BinaryReport::from(false), BinaryReport::Off);

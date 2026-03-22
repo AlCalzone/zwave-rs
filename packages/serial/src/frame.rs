@@ -1,11 +1,12 @@
 use crate::prelude::CommandRaw;
 use bytes::{Buf, Bytes, BytesMut};
+use core::fmt::Display;
 use proc_macros::TryFromRepr;
-use std::fmt::Display;
 use zwave_core::parse;
 use zwave_core::parse::Needed;
 use zwave_core::prelude::*;
 use zwave_core::serialize::{self, Serializable};
+use zwave_pal::prelude::*;
 
 #[derive(Debug, TryFromRepr)]
 #[repr(u8)]
@@ -31,7 +32,7 @@ pub enum ControlFlow {
 }
 
 impl Display for ControlFlow {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ControlFlow::ACK => write!(f, "ACK"),
             ControlFlow::NAK => write!(f, "NAK"),

@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use crate::parse::{
     bits::bits,
     bytes::{be_i8, be_u16, be_u8},
@@ -7,7 +8,7 @@ use crate::parse::{
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use tinyvec::TinyVec;
-use std::fmt::Display;
+use core::fmt::Display;
 use ux::{u1, u2};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -35,7 +36,7 @@ fn validate_route_fail_location(val: Option<RouteFailLocation>) -> Option<RouteF
 }
 
 impl Display for RouteFailLocation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "{} ↯ {}",

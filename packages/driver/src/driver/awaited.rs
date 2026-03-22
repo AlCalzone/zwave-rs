@@ -1,12 +1,8 @@
 use crate::error::{Error, Result};
-use std::fmt::Debug;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
-use unique_id::sequence::SequenceGenerator;
-use unique_id::Generator;
-use zwave_core::util::MaybeSleep;
-use futures::FutureExt;
-use futures::channel::oneshot;
+use zwave_pal::prelude::*;
+use core::sync::atomic::{AtomicI32, Ordering};
+use zwave_pal::time::MaybeSleep;
+use zwave_pal::channel::oneshot;
 
 pub type Predicate<T> = Box<dyn Fn(&T) -> bool + Sync + Send>;
 
@@ -16,16 +12,15 @@ pub type Predicate<T> = Box<dyn Fn(&T) -> bool + Sync + Send>;
 /// Adding an entry hands out an `AwaitedRef`, which is used to receive the value when it is
 /// available. The `AwaitedRef` is automatically removed from the registry when it is dropped.
 pub struct AwaitedRegistry<T> {
-    // TODO: Consider using something that does not use global state
-    sequence_gen: SequenceGenerator,
-    store: Mutex<Vec<Awaited<T>>>,
+    next_id: AtomicI32,
+    store: zwave_pal::sync::Mutex<Vec<Awaited<T>>>,
 }
 
 impl<T> Default for AwaitedRegistry<T> {
     fn default() -> Self {
         Self {
-            sequence_gen: SequenceGenerator,
-            store: Mutex::default(),
+            next_id: AtomicI32::new(0),
+            store: zwave_pal::sync::Mutex::default(),
         }
     }
 }
@@ -36,19 +31,16 @@ impl<T> AwaitedRegistry<T> {
     pub fn add(
         self: &Arc<Self>,
         predicate: Predicate<T>,
-        timeout: Option<Duration>,
+        timeout: Option<core::time::Duration>,
     ) -> AwaitedRef<T> {
         let (tx, rx) = oneshot::channel::<T>();
-        let id = self.sequence_gen.next_id();
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let awaited = Awaited {
             id,
             predicate,
             channel: tx,
         };
-        {
-            let mut vec = self.store.lock().expect("lock on AwaitedRegistry poisoned");
-            vec.push(awaited);
-        }
+        self.store.lock(|vec| vec.push(awaited));
         AwaitedRef::new(id, self.clone(), timeout, rx)
     }
 
@@ -56,36 +48,38 @@ impl<T> AwaitedRegistry<T> {
     /// that can be used to receive the value when it is available.
     /// The entry is removed from the registry.
     pub fn take_matching(self: &Arc<Self>, value: &T) -> Option<oneshot::Sender<T>> {
-        let mut vec = self.store.lock().expect("lock on AwaitedRegistry poisoned");
-        let index = vec.iter().position(|a| (a.predicate)(value));
-        index.map(|i| vec.remove(i).channel)
+        self.store.lock(|vec| {
+            let index = vec.iter().position(|a| (a.predicate)(value));
+            index.map(|i| vec.remove(i).channel)
+        })
     }
 
     /// Removes an entry from the registry using the given `AwaitedRef`.
     pub fn remove(self: &Arc<Self>, awaited: &AwaitedRef<T>) {
-        let mut vec = self.store.lock().expect("lock on AwaitedRegistry poisoned");
-        vec.retain(|a| a.id != awaited.id);
+        self.store.lock(|vec| {
+            vec.retain(|a| a.id != awaited.id);
+        });
     }
 }
 
 pub struct Awaited<T> {
-    pub id: i64,
+    pub id: i32,
     pub predicate: Predicate<T>,
     pub channel: oneshot::Sender<T>,
 }
 
 pub struct AwaitedRef<T> {
-    id: i64,
+    id: i32,
     registry: Arc<AwaitedRegistry<T>>,
-    timeout: Option<Duration>,
+    timeout: Option<core::time::Duration>,
     channel: Option<oneshot::Receiver<T>>,
 }
 
 impl<T> AwaitedRef<T> {
     pub fn new(
-        id: i64,
+        id: i32,
         registry: Arc<AwaitedRegistry<T>>,
-        timeout: Option<Duration>,
+        timeout: Option<core::time::Duration>,
         channel: oneshot::Receiver<T>,
     ) -> Self {
         Self {
@@ -98,20 +92,20 @@ impl<T> AwaitedRef<T> {
 
     /// Begins awaiting the value
     pub async fn try_await(mut self) -> Result<T> {
-        let mut sleep = MaybeSleep::new(self.timeout).fuse();
-        let mut receiver = self
+        let sleep = MaybeSleep::new(self.timeout);
+        let receiver = self
             .channel
             .take()
             .expect("try_await may only be called once");
-        futures::select! {
+        zwave_pal::select_biased! {
             result = receiver => result.map_err(|_| Error::Internal),
             _ = sleep => Err(Error::Timeout),
         }
     }
 }
 
-impl<T> Debug for AwaitedRef<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<T> core::fmt::Debug for AwaitedRef<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("AwaitedRef").field("id", &self.id).finish()
     }
 }

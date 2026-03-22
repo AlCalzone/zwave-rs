@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 mod cc_sequence;
 pub mod commandclass;
 pub mod commandclass_raw;

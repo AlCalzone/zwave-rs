@@ -1,3 +1,8 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
+pub mod bitvec;
 pub mod cache;
 pub mod checksum;
 pub mod definitions;

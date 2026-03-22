@@ -1,11 +1,16 @@
+#[cfg(feature = "std")]
 use crate::{Direction, FormattedString, LogFormatter, LogInfo, WithColor};
+#[cfg(feature = "std")]
 use termcolor::{Color, ColorSpec};
+#[cfg(feature = "std")]
 use unicode_segmentation::UnicodeSegmentation;
+#[cfg(feature = "std")]
 use zwave_core::{
     log::{Loglevel, NormalizeLogPayload},
     util::str_width,
 };
 
+#[cfg(feature = "std")]
 #[derive(Default)]
 pub struct DefaultFormatter {
     cs_default: ColorSpec,
@@ -26,6 +31,7 @@ pub struct DefaultFormatter {
 
 // FIXME: This needs a way to set color based on the log label (to distinguish SERIAL and CNTRLR)
 
+#[cfg(feature = "std")]
 impl DefaultFormatter {
     pub fn new() -> Self {
         let mut cs_timestamp = ColorSpec::default();
@@ -74,6 +80,7 @@ impl DefaultFormatter {
     }
 }
 
+#[cfg(feature = "std")]
 fn get_primary_tag_color_specs(
     highlight_color: Color,
     text_color: Color,
@@ -89,11 +96,10 @@ fn get_primary_tag_color_specs(
     (cs_text, cs_delim)
 }
 
+#[cfg(feature = "std")]
 impl LogFormatter for DefaultFormatter {
     fn format_log(&self, log: &LogInfo, level: Loglevel) -> Vec<FormattedString> {
-        let timestamp = log
-            .timestamp
-            .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        let timestamp = log.timestamp.to_string();
 
         let direction = match log.direction {
             Direction::None => " ",
@@ -269,7 +275,7 @@ impl LogFormatter for DefaultFormatter {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod test {
     use super::*;
     use zwave_core::log::{LogPayload, LogPayloadDict, LogPayloadText};

@@ -1,4 +1,5 @@
-use std::time::Duration;
+use zwave_pal::prelude::*;
+use core::time::Duration;
 
 use super::ExecControllerCommandError;
 use super::{ControllerCommandError, Driver};

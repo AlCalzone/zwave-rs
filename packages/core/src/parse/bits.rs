@@ -1,7 +1,7 @@
 use super::{Needed, combinators::map};
 use crate::prelude::*;
 use bytes::{Buf, Bytes};
-use std::ops::{Add, Shl, Shr};
+use core::ops::{Add, Shl, Shr};
 
 // Bit-level parsers operate on Bytes and a bit-offset.
 // The bit-offset indicates the number of bits that have been already been consumed from the start of the input.

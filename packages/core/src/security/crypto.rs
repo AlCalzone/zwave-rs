@@ -7,8 +7,9 @@ use aes::cipher::{
     },
 };
 use ccm::AeadInPlace;
-use getrandom::getrandom;
-use std::ops::Deref;
+use core::ops::Deref;
+use zwave_pal::rng::getrandom;
+use zwave_pal::prelude::*;
 
 type Aes128Ofb = ofb::Ofb<aes::Aes128>;
 type Aes128CbcEnc = cbc::Encryptor<aes::Aes128>;
@@ -94,8 +95,8 @@ macro_rules! fixed_bytes_type {
             }
         }
 
-        impl std::fmt::Display for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        impl core::fmt::Display for $name {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 write!(f, "0x{}", hex::encode(self.0))
             }
         }

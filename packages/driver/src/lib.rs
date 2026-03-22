@@ -1,3 +1,7 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
 use zwave_core::submodule;
 
 submodule!(driver);
@@ -7,6 +11,6 @@ submodule!(node);
 submodule!(serial_api);
 
 pub type LogSender =
-    futures::channel::mpsc::Sender<(zwave_logging::LogInfo, zwave_core::log::Loglevel)>;
+    zwave_pal::channel::Sender<(zwave_logging::LogInfo, zwave_core::log::Loglevel)>;
 pub type LogReceiver =
-    futures::channel::mpsc::Receiver<(zwave_logging::LogInfo, zwave_core::log::Loglevel)>;
+    zwave_pal::channel::Receiver<(zwave_logging::LogInfo, zwave_core::log::Loglevel)>;

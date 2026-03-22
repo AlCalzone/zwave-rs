@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use crate::parse::{
     bits::{bits, bool},
     bytes::be_u8,

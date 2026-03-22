@@ -1,9 +1,9 @@
-use crate::{Direction, LocalImmutableLogger, LogInfo, Logger};
-use std::borrow::Cow;
+use crate::{Direction, LocalImmutableLogger, LogInfo};
 use zwave_core::{
     definitions::*,
     log::{LogPayload, LogPayloadText, Loglevel},
 };
+use zwave_pal::prelude::*;
 use zwave_serial::command::CommandId;
 
 pub struct NodeLogger<'a> {
