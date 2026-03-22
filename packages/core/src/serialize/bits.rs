@@ -38,3 +38,24 @@ impl BitSerializable for bool {
         b.push(*self);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::bits;
+    use crate::serialize::{BitSerializable, Serializable};
+    use bytes::BytesMut;
+    use ux::u6;
+
+    #[test]
+    fn serializes_non_zero_ux_values_in_big_endian_bit_order() {
+        let mut output = BytesMut::new();
+        bits(|bo| {
+            false.write(bo);
+            true.write(bo);
+            u6::new(0x01).write(bo);
+        })
+        .serialize(&mut output);
+
+        assert_eq!(output.as_ref(), &[0b0100_0001]);
+    }
+}
