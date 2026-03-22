@@ -5,7 +5,7 @@ use crate::parse::{
 };
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
-use std::fmt::{self, Display};
+use core::fmt::{self, Display};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ZWaveApiVersion {

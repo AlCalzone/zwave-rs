@@ -4,26 +4,25 @@ version = "0.1.0"
 rust-version.workspace = true
 edition.workspace = true
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+std = ["zwave-pal/std"]
+embassy = ["zwave-pal/embassy"]
 
 [dependencies]
 aes.workspace = true
-bitvec.workspace = true
 bytes.workspace = true
 cbc.workspace = true
 ccm.workspace = true
 crc16.workspace = true
 enum-iterator.workspace = true
-getrandom.workspace = true
 hex.workspace = true
 num-traits.workspace = true
 ofb.workspace = true
 paste.workspace = true
 proc-macros.workspace = true
 thiserror.workspace = true
-time.workspace = true
 tinyvec.workspace = true
-futures-timer.workspace = true
 typed-builder.workspace = true
 unicode-segmentation.workspace = true
 ux.workspace = true
+zwave-pal.workspace = true

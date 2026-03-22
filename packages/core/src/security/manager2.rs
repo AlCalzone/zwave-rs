@@ -6,16 +6,14 @@ use super::{
 };
 use crate::{
     definitions::{NodeId, SecurityClass},
-    util::Locked,
     wrapping_counter::WrappingCounter,
 };
-use getrandom::getrandom;
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    ops::Deref,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use alloc::collections::{BTreeMap, BTreeSet};
+use core::{ops::Deref, time::Duration};
+use zwave_pal::rng::getrandom;
+use zwave_pal::prelude::*;
+use zwave_pal::sync::Locked;
+use zwave_pal::time::Instant;
 
 pub const S2_ENTROPY_INPUT_SIZE: usize = ENTROPY_INPUT_SIZE;
 pub const S2_NONCE_SIZE: usize = AES_CCM_NONCE_SIZE;
@@ -94,8 +92,8 @@ macro_rules! fixed_bytes_type {
             }
         }
 
-        impl std::fmt::Display for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        impl core::fmt::Display for $name {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 write!(f, "0x{}", hex::encode(self.0))
             }
         }

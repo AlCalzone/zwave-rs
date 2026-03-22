@@ -1,5 +1,4 @@
 use crate::port::ZWavePort;
-use futures::{FutureExt, StreamExt, select_biased};
 use smol::LocalExecutor;
 use zwave_driver::{
     DriverActor, DriverAdapter, DriverInput, LogReceiver, SerialApiActor, SerialApiAdapter,
@@ -79,9 +78,9 @@ impl Runtime {
             let mut serial_api_adapter = serial_api_adapter;
 
             loop {
-                select_biased! {
+                zwave_pal::select_biased! {
                     // If there is something to read from the serialport, handle it first.
-                    serial_in = port.read().fuse() => {
+                    serial_in = port.read() => {
                         let Some(frame) = serial_in else {
                             // Port closed => quit
                             break;
@@ -90,10 +89,9 @@ impl Runtime {
                             // Channel probably closed => quit
                             break;
                         }
-                    }
-
+                    },
                     // If the serial API has something to transmit, do that before handling events.
-                    serial_out = serial_api_adapter.serial_out.next().fuse() => {
+                    serial_out = serial_api_adapter.serial_out.recv() => {
                         let Some(frame) = serial_out else {
                             // Channel closed => quit
                             break;
@@ -102,10 +100,9 @@ impl Runtime {
                             // Port closed => quit
                             break;
                         }
-                    }
-
+                    },
                     // Pass pending events from the serial API to the driver.
-                    event_rx = serial_api_adapter.event_rx.next().fuse() => {
+                    event_rx = serial_api_adapter.event_rx.recv() => {
                         let Some(event) = event_rx else {
                             // Channel closed => quit
                             break;
@@ -119,10 +116,9 @@ impl Runtime {
                                 }
                             }
                         }
-                    }
-
+                    },
                     // And finally if there is something to log, do that.
-                    log = log_rx.next().fuse() => {
+                    log = log_rx.recv() => {
                         let Some((log, level)) = log else {
                             // Channel closed => quit
                             break;

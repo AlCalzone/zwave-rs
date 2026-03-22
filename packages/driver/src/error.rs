@@ -1,5 +1,6 @@
 use crate::ControllerCommandError;
 use thiserror::Error;
+use zwave_pal::prelude::*;
 use zwave_serial::error::Error as SerialPortError;
 
 #[derive(Error, Debug)]
@@ -16,4 +17,4 @@ pub enum Error {
     Timeout,
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = core::result::Result<T, Error>;

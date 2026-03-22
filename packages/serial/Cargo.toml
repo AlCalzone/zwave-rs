@@ -4,17 +4,18 @@ version = "0.1.0"
 rust-version.workspace = true
 edition.workspace = true
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+std = ["zwave-core/std", "zwave-cc/std"]
+embassy = ["zwave-core/embassy", "zwave-cc/embassy"]
 
 [dependencies]
 bytes.workspace = true
 enum_dispatch.workspace = true
-futures.workspace = true
 hex.workspace = true
 proc-macros.workspace = true
 thiserror.workspace = true
-asynchronous-codec.workspace = true
 typed-builder.workspace = true
 ux.workspace = true
 zwave-core.workspace = true
 zwave-cc.workspace = true
+zwave-pal.workspace = true

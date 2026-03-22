@@ -3,7 +3,7 @@ use crate::{
     parse::bytes::{be_u16, be_u8},
     prelude::*,
 };
-use std::fmt::{Debug, Display};
+use core::fmt::{Debug, Display};
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NodeId(u16);
@@ -29,13 +29,13 @@ impl NodeId {
 }
 
 impl Debug for NodeId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
 impl Display for NodeId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{:0>3}", self.0)
     }
 }
@@ -61,7 +61,7 @@ macro_rules! impl_conversions_for {
         }
 
         impl PartialOrd<$t> for NodeId {
-            fn partial_cmp(&self, other: &$t) -> Option<std::cmp::Ordering> {
+            fn partial_cmp(&self, other: &$t) -> Option<core::cmp::Ordering> {
                 self.partial_cmp(&NodeId::from(*other))
             }
         }

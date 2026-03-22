@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use proc_macros::{CCValues, TryFromRepr};
@@ -622,7 +623,7 @@ fn decrypt_singlecast(
             // To avoid a desync where both nodes try to resync simultaneously, accept commands
             // encrypted with the previous SPAN under very specific circumstances.
             if let Some(current_span) = current_span
-                && current_span.expires > std::time::Instant::now()
+                && current_span.expires > zwave_pal::time::Instant::now()
                 && ctx
                     .prev_sequence_number
                     .map(|prev| ctx.cur_sequence_number == prev.wrapping_add(1))
@@ -2103,7 +2104,6 @@ impl ToLogPayload for Security2CCCommandsSupportedReport {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::sync::Arc;
     use zwave_core::security::{SecurityManager2, SecurityManager2Storage};
 
     fn create_manager() -> SecurityManager2 {

@@ -1,3 +1,4 @@
+#[cfg(feature = "std")]
 pub mod base;
 pub mod controller;
 pub mod driver;

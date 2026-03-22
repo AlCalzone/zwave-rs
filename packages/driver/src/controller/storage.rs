@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use typed_builder::TypedBuilder;
 use zwave_core::prelude::*;
 use zwave_serial::command::SerialApiSetupCommand;

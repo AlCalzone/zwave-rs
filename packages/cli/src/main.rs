@@ -1,5 +1,6 @@
 use std::time::Duration;
-use zwave_core::{log::Loglevel, prelude::NodeId};
+use zwave_cc::{commandclass, prelude::CCAddressable};
+use zwave_core::log::Loglevel;
 use zwave_driver::{Controller, SecurityKeys};
 use zwave_logging::loggers::base::BaseLogger;
 
@@ -8,7 +9,7 @@ mod rt;
 use rt::Runtime;
 
 #[cfg(target_os = "linux")]
-const PORT: &str = "/dev/serial/by-id/usb-Nabu_Casa_ZWA-2_D83BDA7524E4-if00";
+const PORT: &str = "/dev/serial/by-id/usb-Nabu_Casa_ZWA-2_8CBFEA8F6974-if00";
 // const PORT: &str = "tcp://Z-Net-R2v2.local:2001";
 
 #[cfg(target_os = "windows")]
@@ -33,7 +34,7 @@ fn main() -> Result<(), anyhow::Error> {
             formatter: Box::new(zwave_logging::formatters::DefaultFormatter::new()),
         };
 
-        let (log_tx, log_rx) = futures::channel::mpsc::channel(16);
+        let (log_tx, log_rx) = zwave_pal::channel::channel(16);
 
         let (serial_api, serial_api_actor, serial_api_adapter) =
             zwave_driver::SerialApi::new(log_tx.clone());
@@ -54,17 +55,16 @@ fn main() -> Result<(), anyhow::Error> {
         let runtime_task = runtime.spawn(&local);
 
         let controller = Controller::new(&driver);
-        let controller: Controller<'_, zwave_driver::Ready> = controller.interview().await.unwrap();
+        let _controller: Controller<'_, zwave_driver::Ready> =
+            controller.interview().await.unwrap();
 
         smol::Timer::after(Duration::from_secs(1)).await;
 
-        let node = controller.node(NodeId::new(11u8)).unwrap();
-
-        let result = node
-            .cc_api()
-            .basic()
-            .set(zwave_core::values::LevelSet::Off)
-            .await;
+        let cc = commandclass::BasicCCSet::builder()
+            .target_value(zwave_core::values::LevelSet::On)
+            .build()
+            .with_destination(11u8.into());
+        let result = driver.exec_node_command(&cc.into(), None).await;
         println!("result: {:?}", result);
 
         smol::Timer::after(Duration::from_secs(1)).await;

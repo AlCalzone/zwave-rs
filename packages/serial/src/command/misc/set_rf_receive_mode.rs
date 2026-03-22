@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use crate::prelude::*;
 use bytes::{Bytes, BytesMut};
 use typed_builder::TypedBuilder;
@@ -39,7 +40,7 @@ impl CommandRequest for SetRfReceiveModeRequest {
 
 impl CommandParsable for SetRfReceiveModeRequest {
     fn parse(_i: &mut Bytes, _ctx: CommandParsingContext) -> ParseResult<Self> {
-        eprintln!("ERROR: SetRfReceiveModeRequest::parse() not implemented");
+        // FIXME: SetRfReceiveModeRequest::parse() not implemented
         Ok(Self::default())
     }
 }

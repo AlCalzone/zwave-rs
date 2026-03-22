@@ -1,17 +1,17 @@
-use std::fmt::{Debug, Display, LowerHex, UpperHex};
+use core::fmt::{Debug, Display, LowerHex, UpperHex};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct Id16(u16);
 
 impl Debug for Id16 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "0x{:04x}", self.0)
     }
 }
 
 impl Display for Id16 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{:?}", self.0)
     }
 }
@@ -29,13 +29,13 @@ impl From<Id16> for u16 {
 }
 
 impl LowerHex for Id16 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         LowerHex::fmt(&self.0, f)
     }
 }
 
 impl UpperHex for Id16 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         UpperHex::fmt(&self.0, f)
     }
 }
@@ -45,13 +45,13 @@ impl UpperHex for Id16 {
 pub struct Id32(u32);
 
 impl Debug for Id32 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "0x{:08x}", self.0)
     }
 }
 
 impl Display for Id32 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{:?}", self.0)
     }
 }
@@ -69,13 +69,13 @@ impl From<Id32> for u32 {
 }
 
 impl LowerHex for Id32 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         LowerHex::fmt(&self.0, f)
     }
 }
 
 impl UpperHex for Id32 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         UpperHex::fmt(&self.0, f)
     }
 }

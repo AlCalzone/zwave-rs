@@ -1,10 +1,9 @@
 use crate::LogSender;
 use crate::error::Result;
 use crate::serial_api::SerialApi;
+use zwave_pal::prelude::*;
 use awaited::Predicate;
-use futures::channel::{mpsc, oneshot};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use core::time::Duration;
 use storage::DriverStorage;
 use typed_builder::TypedBuilder;
 use zwave_cc::prelude::*;
@@ -12,6 +11,8 @@ use zwave_core::log::Loglevel;
 use zwave_core::security::NetworkKey;
 use zwave_core::submodule;
 use zwave_logging::LogInfo;
+use zwave_pal::channel::{Receiver, Sender};
+use zwave_pal::time::Instant;
 use zwave_serial::prelude::*;
 
 pub(crate) mod awaited;
@@ -23,8 +24,6 @@ submodule!(controller_commands);
 submodule!(exec_node_command);
 submodule!(actor);
 submodule!(handle);
-// submodule!(node_api);
-// submodule!(node_commands);
 
 #[derive(Clone)]
 pub struct Driver {
@@ -61,8 +60,8 @@ impl Driver {
         log_tx: LogSender,
         security_keys: SecurityKeys,
     ) -> (Self, DriverActor, DriverAdapter) {
-        let (input_tx, input_rx) = mpsc::channel(16);
-        let (event_tx, event_rx) = mpsc::channel(16);
+        let (input_tx, input_rx) = zwave_pal::channel::channel(16);
+        let (event_tx, event_rx) = zwave_pal::channel::channel(16);
 
         let storage = Arc::new(DriverStorage::new());
 
@@ -104,7 +103,7 @@ pub enum DriverInput {
         predicate: Predicate<WithAddress<CC>>,
         timeout: Option<Duration>,
         // FIXME: Make this a specific result type
-        callback: oneshot::Sender<Result<WithAddress<CC>>>,
+        callback: zwave_pal::channel::oneshot::Sender<Result<WithAddress<CC>>>,
     },
 }
 
@@ -112,16 +111,16 @@ pub enum DriverEvent {
     // FIXME: Add command to forward unhandled commands to the application
 }
 
-type DriverInputSender = mpsc::Sender<DriverInput>;
-type DriverInputReceiver = mpsc::Receiver<DriverInput>;
+type DriverInputSender = Sender<DriverInput>;
+type DriverInputReceiver = Receiver<DriverInput>;
 
-type DriverEventSender = mpsc::Sender<DriverEvent>;
-type DriverEventReceiver = mpsc::Receiver<DriverEvent>;
+type DriverEventSender = Sender<DriverEvent>;
+type DriverEventReceiver = Receiver<DriverEvent>;
 
 struct AwaitedCC {
     timeout: Option<Instant>,
     predicate: Predicate<WithAddress<CC>>,
-    callback: oneshot::Sender<Result<WithAddress<CC>>>,
+    callback: zwave_pal::channel::oneshot::Sender<Result<WithAddress<CC>>>,
 }
 
 #[derive(TypedBuilder)]

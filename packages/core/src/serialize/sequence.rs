@@ -2,8 +2,9 @@ use super::{
     Serializable,
     bytes::{be_u8, slice},
 };
-use bitvec::prelude::*;
+use crate::bitvec::build_bitmask;
 use bytes::BytesMut;
+use zwave_pal::prelude::*;
 
 pub trait List {
     fn write_all(&self, output: &mut BytesMut);
@@ -54,18 +55,17 @@ impl_list_for_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
 impl_list_for_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
 
 fn encode_bitmask_values(values: &[u8], bit0_value: u8, bit_len: usize) -> Vec<u8> {
-    let mut bitvec = BitVec::<u8, Lsb0>::repeat(false, bit_len);
+    let indices: Vec<usize> = values
+        .iter()
+        .filter_map(|value| {
+            value
+                .checked_sub(bit0_value)
+                .map(|index| index as usize)
+                .filter(|index| *index < bit_len)
+        })
+        .collect();
 
-    for index in values.iter().filter_map(|value| {
-        value
-            .checked_sub(bit0_value)
-            .map(|index| index as usize)
-            .filter(|index| *index < bit_len)
-    }) {
-        bitvec.set(index, true);
-    }
-
-    bitvec.into_vec()
+    build_bitmask(&indices, bit_len)
 }
 
 /// Encodes a `Vec<u8>` as bitmask_length + bitmask where the least significant bit is mapped to `bit0_value`.

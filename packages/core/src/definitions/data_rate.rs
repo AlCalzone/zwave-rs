@@ -7,7 +7,7 @@ use crate::prelude::*;
 use crate::serialize;
 use bytes::{Bytes, BytesMut};
 use proc_macros::TryFromRepr;
-use std::fmt::Display;
+use core::fmt::Display;
 use ux::u3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,7 +17,7 @@ pub enum ProtocolDataRate {
 }
 
 impl Display for ProtocolDataRate {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ProtocolDataRate::ZWave(rate) => write!(f, "Z-Wave, {}", rate),
             ProtocolDataRate::ZWaveLongRange => write!(f, "Z-Wave Long Range, 100 kbit/s"),
@@ -84,7 +84,7 @@ pub enum DataRate {
 }
 
 impl Display for DataRate {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             DataRate::DataRate_9k6 => write!(f, "9.6 kbit/s"),
             DataRate::DataRate_40k => write!(f, "40 kbit/s"),

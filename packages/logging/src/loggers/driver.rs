@@ -1,6 +1,6 @@
 use crate::{LocalImmutableLogger, LogInfo};
-use std::borrow::Cow;
 use zwave_core::log::{LogPayload, Loglevel};
+use zwave_pal::prelude::*;
 
 pub struct DriverLogger<'a> {
     inner: &'a dyn LocalImmutableLogger,

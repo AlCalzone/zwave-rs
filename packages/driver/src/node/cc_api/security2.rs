@@ -1,3 +1,4 @@
+use zwave_pal::prelude::*;
 use crate::{
     CCAPI, CCAPIResult, EndpointLike, expect_cc_or_timeout, handle_unexpected_cc_or_timeout,
 };

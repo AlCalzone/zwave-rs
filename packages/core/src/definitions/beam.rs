@@ -5,7 +5,7 @@ use crate::parse::{
 use crate::prelude::*;
 use bytes::Bytes;
 use proc_macros::TryFromRepr;
-use std::fmt::Display;
+use core::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, TryFromRepr)]
 #[repr(u8)]
@@ -15,7 +15,7 @@ pub enum Beam {
 }
 
 impl Display for Beam {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Beam::Beam250ms => write!(f, "250 ms"),
             Beam::Beam1000ms => write!(f, "1000 ms"),

@@ -1,5 +1,6 @@
-use crate::{Direction, LocalImmutableLogger, LogInfo, Logger};
+use crate::{Direction, LocalImmutableLogger, LogInfo};
 use zwave_core::log::{LogPayload, Loglevel};
+use zwave_pal::prelude::*;
 use zwave_serial::frame::ControlFlow;
 
 pub struct SerialLogger<'a> {

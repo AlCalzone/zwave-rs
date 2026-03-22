@@ -1,8 +1,10 @@
 use super::{AesKey, NetworkKey, encrypt_aes_ecb};
 use crate::prelude::*;
-use crate::util::Locked;
-use getrandom::getrandom;
-use std::{collections::BTreeMap, ops::Deref, sync::Arc};
+use alloc::collections::BTreeMap;
+use core::ops::Deref;
+use zwave_pal::rng::getrandom;
+use zwave_pal::prelude::*;
+use zwave_pal::sync::Locked;
 
 pub const S0_NONCE_SIZE: usize = 8;
 pub const S0_IV_SIZE: usize = 2 * S0_NONCE_SIZE;
@@ -63,8 +65,8 @@ impl Deref for S0Nonce {
     }
 }
 
-impl std::fmt::Display for S0Nonce {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for S0Nonce {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "0x{}", hex::encode(self.0))
     }
 }

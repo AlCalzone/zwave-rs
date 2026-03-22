@@ -1,8 +1,6 @@
 use super::{AwaitedCC, DriverActor, DriverInput};
 use crate::error::{Error, Result};
-use futures::{channel::oneshot, select_biased, FutureExt, StreamExt};
-use std::sync::Arc;
-use std::time::Instant;
+use zwave_pal::prelude::*;
 use zwave_cc::commandclass::{CCSession, CcOrRaw};
 use zwave_cc::prelude::*;
 use zwave_core::prelude::*;
@@ -10,12 +8,14 @@ use zwave_core::security::{
     SecurityManager, SecurityManager2, SecurityManager2Storage, SecurityManagerOptions,
     SecurityManagerStorage,
 };
-use zwave_core::{log::Loglevel, util::MaybeSleep};
+use zwave_core::log::Loglevel;
+use zwave_pal::time::MaybeSleep;
 use zwave_logging::loggers::node::NodeLogger;
 use zwave_logging::{
     loggers::{controller::ControllerLogger, driver::DriverLogger},
     Direction, LocalImmutableLogger, LogInfo,
 };
+use zwave_pal::time::Instant;
 use zwave_serial::prelude::*;
 
 impl DriverActor {
@@ -30,15 +30,15 @@ impl DriverActor {
                 .map(|t| t - Instant::now());
             let maybe_sleep = MaybeSleep::new(min_sleep_duration);
 
-            select_biased! {
+            zwave_pal::select_biased! {
                 // Handle inputs
-                input = self.input_rx.next() => {
+                input = self.input_rx.recv() => {
                     if let Some(input) = input {
                         self.handle_input(input);
                     }
                 },
                 // before timeouts
-                _ = maybe_sleep.fuse() => {
+                _ = maybe_sleep => {
                     self.handle_timeouts();
                 }
             }
@@ -91,23 +91,24 @@ impl DriverActor {
     fn handle_timeouts(&mut self) {
         // Figure out which timeout(s) elapsed and take them out of the awaited list
         let now = Instant::now();
-        let mut awaited_ccs = Vec::new();
+        let mut remaining = Vec::new();
         for cc in self.awaited_ccs.drain(..) {
-            // Preserve the awaited CCs that haven't timed out yet
-            if cc.timeout.map(|t| now >= t).unwrap_or(false) {
-                awaited_ccs.push(cc);
-            } else {
+            let timed_out = cc.timeout.map(|t| now >= t).unwrap_or(false);
+            if timed_out {
                 // This CC has timed out, send an error to the callback
                 let _ = cc.callback.send(Err(Error::Timeout));
+            } else {
+                // Preserve the awaited CCs that haven't timed out yet
+                remaining.push(cc);
             }
         }
-        self.awaited_ccs = awaited_ccs;
+        self.awaited_ccs = remaining;
     }
 
     fn take_matching_awaited_cc(
         &mut self,
         cc: &WithAddress<CC>,
-    ) -> Option<oneshot::Sender<Result<WithAddress<CC>>>> {
+    ) -> Option<zwave_pal::channel::oneshot::Sender<Result<WithAddress<CC>>>> {
         let index = self.awaited_ccs.iter().position(|a| (a.predicate)(cc));
         index.map(|i| self.awaited_ccs.remove(i).callback)
     }
@@ -167,11 +168,11 @@ impl DriverActor {
                 self.node_log(cc.address().source_node_id, cc.address().endpoint_index);
 
             // Check if the CC is split across multiple partial CCs
-            if let Some(session_id) = cc.session_id() {
+            if let Some(_session_id) = cc.session_id() {
                 // FIXME: Look up other partial CCs and pass them to merge_session
                 // If so, try to merge it
                 let ctx = self.get_cc_parsing_context(cc.address());
-                if let Err(e) = cc.merge_session(ctx, vec![]) {
+                if let Err(e) = cc.merge_session(ctx, alloc::vec![]) {
                     node_logger.error(|| format!("failed to merge partial CCs: {}", e));
                     return;
                 }
@@ -235,7 +236,7 @@ impl LocalImmutableLogger for DriverActor {
         Loglevel::Debug
     }
 
-    fn set_log_level(&self, level: Loglevel) {
+    fn set_log_level(&self, _level: Loglevel) {
         todo!()
     }
 }

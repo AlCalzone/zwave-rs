@@ -1,4 +1,5 @@
 use super::{Alt, ErrorContext, ParseError, Parser};
+use zwave_pal::prelude::*;
 
 pub fn map<I, O1, O2, P, F>(parser: P, f: F) -> impl Parser<I, O2>
 where
