@@ -9,9 +9,10 @@ use crate::{
     wrapping_counter::WrappingCounter,
 };
 use alloc::collections::{BTreeMap, BTreeSet};
+use bytes::Bytes;
 use core::{ops::Deref, time::Duration};
-use zwave_pal::rng::getrandom;
 use zwave_pal::prelude::*;
+use zwave_pal::rng::getrandom;
 use zwave_pal::sync::Locked;
 use zwave_pal::time::Instant;
 
@@ -39,6 +40,17 @@ macro_rules! fixed_bytes_type {
                     );
                 }
                 Self(bytes.try_into().unwrap())
+            }
+        }
+
+        impl TryFrom<Bytes> for $name {
+            type Error = $crate::prelude::TryFromReprError<Bytes>;
+
+            fn try_from(value: Bytes) -> Result<Self, Self::Error> {
+                match value.as_ref().try_into() {
+                    Ok(&bytes) => Ok(Self(bytes)),
+                    Err(_) => Err(Self::Error::Invalid(value)),
+                }
             }
         }
 
@@ -299,6 +311,17 @@ impl SecurityManager2 {
         self.storage
             .state
             .inspect(|state| state.network_keys.contains_key(&security_class))
+    }
+
+    /// Returns all configured S2 security classes from highest to lowest.
+    pub fn possible_s2_security_classes(&self) -> Vec<SecurityClass> {
+        self.storage.state.inspect(|state| {
+            SecurityClass::ALL_S2_DESCENDING
+                .iter()
+                .filter(|security_class| state.network_keys.contains_key(security_class))
+                .copied()
+                .collect()
+        })
     }
 
     /// Returns the permanent keys for the given security class, if they have been configured.
@@ -906,5 +929,20 @@ mod test {
         });
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn possible_s2_security_classes_returns_configured_classes_descending() {
+        let manager = create_manager();
+        manager.set_key(SecurityClass::S2Unauthenticated, s2_key(1));
+        manager.set_key(SecurityClass::S2AccessControl, s2_key(2));
+
+        assert_eq!(
+            manager.possible_s2_security_classes(),
+            vec![
+                SecurityClass::S2AccessControl,
+                SecurityClass::S2Unauthenticated,
+            ]
+        );
     }
 }

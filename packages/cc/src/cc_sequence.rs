@@ -57,6 +57,9 @@ impl IntoCCSequence for WithAddress<CC> {
             CC::SecurityCCCommandEncapsulation(security_cc) => {
                 security_cc.with_address(address).into_cc_sequence()
             }
+            CC::Security2CCMessageEncapsulation(security2_cc) => {
+                security2_cc.with_address(address).into_cc_sequence()
+            }
             cc => Box::new(NonSequenced {
                 cc: cc.with_address(address),
                 finished: false,

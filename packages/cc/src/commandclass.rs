@@ -15,6 +15,7 @@ pub use crate::cc_sequence::*;
 #[derive(Default, TypedBuilder)]
 #[builder(field_defaults(default))]
 pub struct CCEncodingContext {
+    pub(crate) home_id: Id32,
     node_id: NodeId,
     own_node_id: NodeId,
     #[builder(default, setter(into))]
@@ -26,6 +27,7 @@ pub struct CCEncodingContext {
 #[derive(Default, TypedBuilder)]
 #[builder(field_defaults(default))]
 pub struct CCParsingContext {
+    pub(crate) home_id: Id32,
     pub(crate) source_node_id: NodeId,
     pub(crate) own_node_id: NodeId,
     #[builder(default, setter(into))]
@@ -357,6 +359,10 @@ pub enum Destination {
     Singlecast(NodeId),
     Multicast(Vec<NodeId>),
     Broadcast,
+}
+
+pub trait AsDestination {
+    fn as_destination(&self) -> Destination;
 }
 
 macro_rules! impl_destination_conversions_for {

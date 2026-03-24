@@ -1,7 +1,7 @@
 use zwave_pal::prelude::*;
 use crate::{cc_api_assert_supported, expect_cc_or_timeout, get_implemented_version};
 use crate::{CCAPIResult, EndpointLike, CCAPI};
-use zwave_cc::commandclass::{version::*, CCAddressable};
+use zwave_cc::commandclass::{AsDestination, CCAddressable, version::*};
 use zwave_core::{cache::CacheExt, prelude::*};
 
 pub struct VersionCCAPI<'a> {
@@ -147,7 +147,7 @@ impl VersionCCAPI<'_> {
     pub async fn get(&self) -> CCAPIResult<Option<VersionCCReport>> {
         let node = self.endpoint.get_node();
         let driver = node.driver();
-        let cc = VersionCCGet::default().with_destination(node.id().into());
+        let cc = VersionCCGet::default().with_destination(node.as_destination());
         let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, VersionCCReport);
 
@@ -160,7 +160,7 @@ impl VersionCCAPI<'_> {
         let cc = VersionCCCommandClassGet::builder()
             .requested_cc(cc)
             .build()
-            .with_destination(node.id().into());
+            .with_destination(node.as_destination());
         let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, VersionCCCommandClassReport);
 
@@ -176,7 +176,7 @@ impl VersionCCAPI<'_> {
 
         let node = self.endpoint.get_node();
         let driver = node.driver();
-        let cc = VersionCCCapabilitiesGet::default().with_destination(node.id().into());
+        let cc = VersionCCCapabilitiesGet::default().with_destination(node.as_destination());
         let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, VersionCCCapabilitiesReport);
 
@@ -192,7 +192,7 @@ impl VersionCCAPI<'_> {
     pub async fn get_zwave_software(&self) -> CCAPIResult<Option<VersionCCZWaveSoftwareReport>> {
         let node = self.endpoint.get_node();
         let driver = node.driver();
-        let cc = VersionCCZWaveSoftwareGet::default().with_destination(node.id().into());
+        let cc = VersionCCZWaveSoftwareGet::default().with_destination(node.as_destination());
         let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, VersionCCZWaveSoftwareReport);
 

@@ -127,6 +127,10 @@ impl Driver {
             });
         }
 
+        // Remember the IDs
+        self.serial_api.storage.home_id().set(ids.home_id);
+        self.serial_api.storage.own_node_id().set(ids.own_node_id);
+
         Ok(ids)
     }
 

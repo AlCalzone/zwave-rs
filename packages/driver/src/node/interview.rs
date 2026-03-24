@@ -56,7 +56,7 @@ impl<'a> Node<'a> {
         let log = self.logger();
 
         if self.supports_cc(CommandClasses::Security2) {
-            // TODO
+            interview_cc(self, CommandClasses::Security2).await.unwrap();
         }
 
         if self.supports_cc(CommandClasses::Security) {
@@ -171,7 +171,7 @@ impl<'a> Endpoint<'a> {
         let log = self.logger();
 
         if self.supports_cc(CommandClasses::Security2) {
-            // TODO
+            interview_cc(self, CommandClasses::Security2).await.unwrap();
         }
 
         if self.supports_cc(CommandClasses::Security) {

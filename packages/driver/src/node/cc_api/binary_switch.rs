@@ -1,7 +1,7 @@
 use zwave_pal::prelude::*;
 use crate::expect_cc_or_timeout;
 use crate::{CCAPIResult, EndpointLike, CCAPI};
-use zwave_cc::commandclass::{binary_switch::*, CCAddressable};
+use zwave_cc::commandclass::{AsDestination, CCAddressable, binary_switch::*};
 use zwave_core::prelude::*;
 
 pub struct BinarySwitchCCAPI<'a> {
@@ -57,7 +57,7 @@ impl BinarySwitchCCAPI<'_> {
 
         let node = self.endpoint.get_node();
         let driver = node.driver();
-        let cc = BinarySwitchCCGet::default().with_destination(node.id().into());
+        let cc = BinarySwitchCCGet::default().with_destination(node.as_destination());
         let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, BinarySwitchCCReport);
 
@@ -71,7 +71,7 @@ impl BinarySwitchCCAPI<'_> {
             .target_value(value)
             .duration(duration)
             .build()
-            .with_destination(node.id().into());
+            .with_destination(node.as_destination());
         driver.exec_node_command(&cc.into(), None).await?;
         Ok(())
     }

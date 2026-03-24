@@ -1,7 +1,7 @@
 use zwave_pal::prelude::*;
 use crate::expect_cc_or_timeout;
 use crate::{CCAPIResult, EndpointLike, CCAPI};
-use zwave_cc::commandclass::{security::*, CCAddressable};
+use zwave_cc::commandclass::{AsDestination, CCAddressable, security::*};
 use zwave_core::security::S0Nonce;
 use zwave_core::prelude::*;
 
@@ -55,7 +55,7 @@ impl SecurityCCAPI<'_> {
 
         let node = self.endpoint.get_node();
         let driver = node.driver();
-        let cc = SecurityCCNonceGet::default().with_destination(node.id().into());
+        let cc = SecurityCCNonceGet::default().with_destination(node.as_destination());
         let response = driver.exec_node_command(&cc.into(), None).await;
         let response = expect_cc_or_timeout!(response, SecurityCCNonceReport);
 
