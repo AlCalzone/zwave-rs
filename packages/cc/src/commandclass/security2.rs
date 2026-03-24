@@ -1,24 +1,35 @@
-use zwave_pal::prelude::*;
 use crate::prelude::*;
-use bytes::{Bytes, BytesMut};
+use bytes::{Buf, Bytes, BytesMut};
 use proc_macros::{CCValues, TryFromRepr};
 use typed_builder::TypedBuilder;
 use ux::{u6, u7};
-use zwave_core::parse::{
-    bits::{self, bool as parse_bool},
-    bytes::complete::take,
-    multi::fixed_length_bitmask_u8 as parse_fixed_length_bitmask_u8,
-};
+use zwave_core::parse::Alt;
+use zwave_core::parse::bits::bits;
+use zwave_core::parse::bytes::complete::literal;
+use zwave_core::parse::combinators::map;
 use zwave_core::prelude::*;
 use zwave_core::security::{
-    EntropyInput, KeysForNode, MPANTableEntry, S2_ENTROPY_INPUT_SIZE, S2_MPAN_STATE_SIZE,
-    SPANTableEntry, SecurityKey, SecurityManager2, decrypt_aes_128_ccm, encrypt_aes_128_ccm,
+    EntropyInput, KeysForNode, MPANState, MPANTableEntry, MpanState, S2_ENTROPY_INPUT_SIZE,
+    S2_MPAN_STATE_SIZE, SPANTableEntry, SecurityKey, SecurityManager2, decrypt_aes_128_ccm,
+    encrypt_aes_128_ccm,
 };
+use zwave_core::serialize::sequence::{self, tuple};
 use zwave_core::serialize::{self, DEFAULT_CAPACITY, Serializable};
+use zwave_core::{
+    parse::{
+        bits::{self, bool as parse_bool},
+        bytes::complete::take,
+        combinators::alt,
+        combinators::map_res,
+        multi::fixed_length_bitmask_u8 as parse_fixed_length_bitmask_u8,
+    },
+    submodule,
+};
 use zwave_core::{
     parse::{bytes::be_u8, fail_validation, validate},
     security::{AesCcmNonce, AesKey, NETWORK_KEY_SIZE},
 };
+use zwave_pal::prelude::*;
 
 use super::{CCSequence, IntoCCSequence};
 
@@ -88,187 +99,286 @@ enum ValidateS2ExtensionResult {
     DiscardCommand,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Security2Extension {
-    Span {
-        critical: bool,
-        more_to_follow: bool,
-        sender_ei: EntropyInput,
-    },
-    Mpan {
-        critical: bool,
-        more_to_follow: bool,
-        group_id: u8,
-        inner_mpan_state: zwave_core::security::MpanState,
-    },
-    Mgrp {
-        critical: bool,
-        more_to_follow: bool,
-        group_id: u8,
-    },
-    Mos {
-        critical: bool,
-        more_to_follow: bool,
-    },
-    Unknown {
-        ty: u8,
-        critical: bool,
-        more_to_follow: bool,
-        payload: Bytes,
-    },
+#[derive(Debug, Clone)]
+enum ParseS2ExtensionsResult {
+    /// Extensions were parsed, and the command should be processed as normal.
+    /// Some extensions may have failed validation and needed to be ignored.
+    Ok(Vec<S2Extension>),
+    /// At least one parsed extension requires the command to be discarded.
+    /// The extensions that did not need to be ignored are returned to the caller.
+    Discard(Vec<S2Extension>),
 }
 
-impl Security2Extension {
+pub trait Security2Extension {
+    fn extension_type() -> S2ExtensionType;
+    fn critical(&self) -> bool;
+    fn more_to_follow(&self) -> bool;
+    fn with_more_to_follow(&self, more_to_follow: bool) -> Self;
+    fn len(&self) -> usize;
+    fn expected_len() -> usize;
+}
+
+macro_rules! impl_s2_extension_for {
+    ($t:ty, $ext_ty:expr, $expected_len:expr) => {
+        impl Security2Extension for $t {
+            fn extension_type() -> S2ExtensionType {
+                $ext_ty
+            }
+
+            fn critical(&self) -> bool {
+                self.critical
+            }
+
+            fn more_to_follow(&self) -> bool {
+                self.more_to_follow
+            }
+
+            fn with_more_to_follow(&self, more_to_follow: bool) -> Self {
+                Self {
+                    more_to_follow,
+                    ..self.clone()
+                }
+            }
+
+            fn len(&self) -> usize {
+                self.len as usize
+            }
+
+            fn expected_len() -> usize {
+                $expected_len
+            }
+        }
+    };
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct SpanExtension {
+    len: u8,
+    critical: bool,
+    more_to_follow: bool,
+    sender_ei: EntropyInput,
+}
+impl_s2_extension_for!(SpanExtension, S2ExtensionType::Span, 18);
+
+#[derive(Debug, Clone, PartialEq)]
+struct MpanExtension {
+    len: u8,
+    critical: bool,
+    more_to_follow: bool,
+    group_id: u8,
+    inner_mpan_state: zwave_core::security::MpanState,
+}
+impl_s2_extension_for!(MpanExtension, S2ExtensionType::Mpan, 19);
+
+#[derive(Debug, Clone, PartialEq)]
+struct MgrpExtension {
+    len: u8,
+    critical: bool,
+    more_to_follow: bool,
+    group_id: u8,
+}
+impl_s2_extension_for!(MgrpExtension, S2ExtensionType::Mgrp, 3);
+
+#[derive(Debug, Clone, PartialEq)]
+struct MosExtension {
+    len: u8,
+    critical: bool,
+    more_to_follow: bool,
+}
+impl_s2_extension_for!(MosExtension, S2ExtensionType::Mos, 2);
+
+#[derive(Debug, Clone, PartialEq)]
+struct UnknownExtension {
+    len: u8,
+    ty: u8,
+    critical: bool,
+    more_to_follow: bool,
+    payload: Bytes,
+}
+impl_s2_extension_for!(UnknownExtension, S2ExtensionType::Unknown, 0);
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum S2Extension {
+    Span(SpanExtension),
+    Mpan(MpanExtension),
+    Mgrp(MgrpExtension),
+    Mos(MosExtension),
+    Unknown(UnknownExtension),
+}
+
+impl Parsable for S2Extension {
+    fn parse(i: &mut Bytes) -> ParseResult<Self> {
+        let (len, (more_to_follow, critical, ty)) = (
+            be_u8,
+            bits((parse_bool, parse_bool, map(u6::parse, u8::from))),
+        )
+            .parse(i)?;
+
+        // For spec compliance, we need to be able to parse known extensions with invalid length,
+        // so we have to fall back to the expected length where we can.
+        let expected_len = match S2ExtensionType::try_from(ty) {
+            Ok(S2ExtensionType::Span) => SpanExtension::expected_len(),
+            Ok(S2ExtensionType::Mpan) => MpanExtension::expected_len(),
+            Ok(S2ExtensionType::Mgrp) => MgrpExtension::expected_len(),
+            Ok(S2ExtensionType::Mos) => MosExtension::expected_len(),
+            Err(_) => len as usize,
+        };
+        let mut payload = take(expected_len - 2).parse(i)?;
+
+        let result = match S2ExtensionType::try_from(ty) {
+            Ok(S2ExtensionType::Span) => {
+                let sender_ei = map(take(S2_ENTROPY_INPUT_SIZE), |b| EntropyInput::new(&b))
+                    .parse(&mut payload)?;
+                Self::Span(SpanExtension {
+                    len,
+                    critical,
+                    more_to_follow,
+                    sender_ei,
+                })
+            }
+            Ok(S2ExtensionType::Mpan) => {
+                let group_id = be_u8(&mut payload)?;
+                let inner_mpan_state =
+                    map(take(S2_MPAN_STATE_SIZE), |b| MpanState::new(&b)).parse(&mut payload)?;
+                Self::Mpan(MpanExtension {
+                    len,
+                    critical,
+                    more_to_follow,
+                    group_id,
+                    inner_mpan_state,
+                })
+            }
+            Ok(S2ExtensionType::Mgrp) => {
+                let group_id = be_u8(&mut payload)?;
+                Self::Mgrp(MgrpExtension {
+                    len,
+                    critical,
+                    more_to_follow,
+                    group_id,
+                })
+            }
+            Ok(S2ExtensionType::Mos) => Self::Mos(MosExtension {
+                len,
+                critical,
+                more_to_follow,
+            }),
+            Err(_) => Self::Unknown(UnknownExtension {
+                len,
+                ty,
+                critical,
+                more_to_follow,
+                payload,
+            }),
+        };
+
+        Ok(result)
+    }
+}
+
+impl Serializable for S2Extension {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::{
+            bits::bits,
+            bytes::{be_u8, slice},
+        };
+
+        let len = self.len();
+        let critical = self.critical();
+        let more_to_follow = self.more_to_follow();
+        let ty = u6::new(self.ty() & 0b0011_1111);
+
+        be_u8(len).serialize(output);
+        bits(move |bo| {
+            more_to_follow.write(bo);
+            critical.write(bo);
+            ty.write(bo);
+        })
+        .serialize(output);
+
+        match self {
+            Self::Span(SpanExtension { sender_ei, .. }) => {
+                slice(&sender_ei).serialize(output);
+            }
+            Self::Mpan(MpanExtension {
+                group_id,
+                inner_mpan_state,
+                ..
+            }) => {
+                tuple((be_u8(*group_id), slice(&inner_mpan_state))).serialize(output);
+            }
+            Self::Mgrp(MgrpExtension { group_id, .. }) => {
+                be_u8(*group_id).serialize(output);
+            }
+            Self::Mos(_) => {
+                // No payload
+            }
+            Self::Unknown(UnknownExtension { payload, .. }) => {
+                slice(&payload).serialize(output);
+            }
+        }
+    }
+}
+
+impl S2Extension {
     pub fn span(sender_ei: impl Into<EntropyInput>) -> Self {
-        Self::Span {
+        Self::Span(SpanExtension {
+            len: SpanExtension::expected_len() as u8,
             critical: true,
             more_to_follow: false,
             sender_ei: sender_ei.into(),
-        }
+        })
     }
 
     pub fn mpan(
         group_id: u8,
         inner_mpan_state: impl Into<zwave_core::security::MpanState>,
     ) -> Self {
-        Self::Mpan {
+        Self::Mpan(MpanExtension {
+            len: MpanExtension::expected_len() as u8,
             critical: true,
             more_to_follow: false,
             group_id,
             inner_mpan_state: inner_mpan_state.into(),
-        }
-    }
-
-    pub fn mgrp(group_id: u8) -> Self {
-        Self::Mgrp {
-            critical: true,
-            more_to_follow: false,
-            group_id,
-        }
-    }
-
-    pub fn mos() -> Self {
-        Self::Mos {
-            critical: false,
-            more_to_follow: false,
-        }
-    }
-
-    fn with_more_to_follow(&self, more_to_follow: bool) -> Self {
-        match self {
-            Self::Span {
-                critical,
-                sender_ei,
-                ..
-            } => Self::Span {
-                critical: *critical,
-                more_to_follow,
-                sender_ei: *sender_ei,
-            },
-            Self::Mpan {
-                critical,
-                group_id,
-                inner_mpan_state,
-                ..
-            } => Self::Mpan {
-                critical: *critical,
-                more_to_follow,
-                group_id: *group_id,
-                inner_mpan_state: inner_mpan_state.clone(),
-            },
-            Self::Mgrp {
-                critical, group_id, ..
-            } => Self::Mgrp {
-                critical: *critical,
-                more_to_follow,
-                group_id: *group_id,
-            },
-            Self::Mos { critical, .. } => Self::Mos {
-                critical: *critical,
-                more_to_follow,
-            },
-            Self::Unknown {
-                ty,
-                critical,
-                payload,
-                ..
-            } => Self::Unknown {
-                ty: *ty,
-                critical: *critical,
-                more_to_follow,
-                payload: payload.clone(),
-            },
-        }
-    }
-
-    fn parse(data: &[u8]) -> ParseResult<Self> {
-        validate(data.len() >= 2, "Incomplete S2 extension")?;
-        let total_length = data[0] as usize;
-        validate(total_length >= 2, "Invalid S2 extension length")?;
-        validate(
-            data.len() >= total_length,
-            "Incomplete S2 extension payload",
-        )?;
-
-        let mut header = Bytes::copy_from_slice(&data[1..2]);
-        let (more_to_follow, critical, ty) =
-            bits::bits((parse_bool, parse_bool, u6::parse)).parse(&mut header)?;
-        let ty = u8::from(ty);
-        let payload = &data[2..total_length];
-
-        Ok(match S2ExtensionType::try_from(ty) {
-            Ok(S2ExtensionType::Span) => {
-                validate(
-                    payload.len() == S2_ENTROPY_INPUT_SIZE,
-                    "Invalid SPAN extension length",
-                )?;
-                Self::Span {
-                    critical,
-                    more_to_follow,
-                    sender_ei: payload.into(),
-                }
-            }
-            Ok(S2ExtensionType::Mpan) => {
-                validate(
-                    payload.len() == 1 + S2_MPAN_STATE_SIZE,
-                    "Invalid MPAN extension length",
-                )?;
-                Self::Mpan {
-                    critical,
-                    more_to_follow,
-                    group_id: payload[0],
-                    inner_mpan_state: payload[1..].into(),
-                }
-            }
-            Ok(S2ExtensionType::Mgrp) => {
-                validate(payload.len() == 1, "Invalid MGRP extension length")?;
-                Self::Mgrp {
-                    critical,
-                    more_to_follow,
-                    group_id: payload[0],
-                }
-            }
-            Ok(S2ExtensionType::Mos) => {
-                validate(payload.is_empty(), "Invalid MOS extension length")?;
-                Self::Mos {
-                    critical,
-                    more_to_follow,
-                }
-            }
-            Err(_) => Self::Unknown {
-                ty,
-                critical,
-                more_to_follow,
-                payload: Bytes::copy_from_slice(payload),
-            },
         })
     }
 
+    pub fn mgrp(group_id: u8) -> Self {
+        Self::Mgrp(MgrpExtension {
+            len: MgrpExtension::expected_len() as u8,
+            critical: true,
+            more_to_follow: false,
+            group_id,
+        })
+    }
+
+    pub fn mos() -> Self {
+        Self::Mos(MosExtension {
+            len: MosExtension::expected_len() as u8,
+            critical: false,
+            more_to_follow: false,
+        })
+    }
+
+    /// Convenience method to set the "more to follow" flag on an extension. This is needed when serializing
+    fn with_more_to_follow(&self, more_to_follow: bool) -> Self {
+        match self {
+            Self::Span(span) => Self::Span(span.with_more_to_follow(more_to_follow)),
+            Self::Mpan(mpan) => Self::Mpan(mpan.with_more_to_follow(more_to_follow)),
+            Self::Mgrp(mgrp) => Self::Mgrp(mgrp.with_more_to_follow(more_to_follow)),
+            Self::Mos(mos) => Self::Mos(mos.with_more_to_follow(more_to_follow)),
+            Self::Unknown(unknown) => Self::Unknown(unknown.with_more_to_follow(more_to_follow)),
+        }
+    }
+
     fn validate(&self, was_encrypted: bool) -> ValidateS2ExtensionResult {
-        if self.is_unknown_critical() {
+        // A receiving node MUST discard the entire command if the Critical flag
+        // is set to ‘1’ and the Type field advertises a value that the
+        // receiving node does not support.
+        if matches!(self, Self::Unknown(UnknownExtension { critical: true, .. })) {
             return ValidateS2ExtensionResult::DiscardCommand;
         }
 
+        // Of the known extensions, MPAN MUST be encrypted, the others MUST NOT
         match self {
             Self::Mpan { .. } if !was_encrypted => ValidateS2ExtensionResult::DiscardExtension,
             Self::Span { .. } | Self::Mgrp { .. } | Self::Mos { .. } if was_encrypted => {
@@ -278,193 +388,116 @@ impl Security2Extension {
         }
     }
 
-    fn type_id(&self) -> u8 {
+    fn len(&self) -> u8 {
+        match self {
+            Self::Span(SpanExtension { len, .. })
+            | Self::Mpan(MpanExtension { len, .. })
+            | Self::Mgrp(MgrpExtension { len, .. })
+            | Self::Mos(MosExtension { len, .. })
+            | Self::Unknown(UnknownExtension { len, .. }) => *len,
+        }
+    }
+
+    fn ty(&self) -> u8 {
         match self {
             Self::Span { .. } => S2ExtensionType::Span as u8,
             Self::Mpan { .. } => S2ExtensionType::Mpan as u8,
             Self::Mgrp { .. } => S2ExtensionType::Mgrp as u8,
             Self::Mos { .. } => S2ExtensionType::Mos as u8,
-            Self::Unknown { ty, .. } => *ty,
+            Self::Unknown(UnknownExtension { ty, .. }) => *ty,
         }
     }
 
     fn critical(&self) -> bool {
         match self {
-            Self::Span { critical, .. }
-            | Self::Mpan { critical, .. }
-            | Self::Mgrp { critical, .. }
-            | Self::Mos { critical, .. }
-            | Self::Unknown { critical, .. } => *critical,
+            Self::Span(SpanExtension { critical, .. })
+            | Self::Mpan(MpanExtension { critical, .. })
+            | Self::Mgrp(MgrpExtension { critical, .. })
+            | Self::Mos(MosExtension { critical, .. })
+            | Self::Unknown(UnknownExtension { critical, .. }) => *critical,
         }
     }
 
     fn more_to_follow(&self) -> bool {
         match self {
-            Self::Span { more_to_follow, .. }
-            | Self::Mpan { more_to_follow, .. }
-            | Self::Mgrp { more_to_follow, .. }
-            | Self::Mos { more_to_follow, .. }
-            | Self::Unknown { more_to_follow, .. } => *more_to_follow,
+            Self::Span(SpanExtension { more_to_follow, .. })
+            | Self::Mpan(MpanExtension { more_to_follow, .. })
+            | Self::Mgrp(MgrpExtension { more_to_follow, .. })
+            | Self::Mos(MosExtension { more_to_follow, .. })
+            | Self::Unknown(UnknownExtension { more_to_follow, .. }) => *more_to_follow,
         }
-    }
-
-    fn is_unknown_critical(&self) -> bool {
-        matches!(self, Self::Unknown { critical: true, .. })
-    }
-
-    fn is_encrypted(&self) -> bool {
-        matches!(self, Self::Mpan { .. })
-    }
-
-    fn expected_length_for_header(header: &[u8]) -> Option<usize> {
-        if header.len() < 2 {
-            return None;
-        }
-        match header[1] & 0b0011_1111 {
-            x if x == S2ExtensionType::Span as u8 => Some(18),
-            x if x == S2ExtensionType::Mpan as u8 => Some(19),
-            x if x == S2ExtensionType::Mgrp as u8 => Some(3),
-            x if x == S2ExtensionType::Mos as u8 => Some(2),
-            _ => None,
-        }
-    }
-
-    fn payload(&self) -> Bytes {
-        match self {
-            Self::Span { sender_ei, .. } => Bytes::copy_from_slice(sender_ei.as_ref()),
-            Self::Mpan {
-                group_id,
-                inner_mpan_state,
-                ..
-            } => {
-                let mut ret = BytesMut::with_capacity(1 + S2_MPAN_STATE_SIZE);
-                ret.extend_from_slice(&[*group_id]);
-                ret.extend_from_slice(inner_mpan_state.as_ref());
-                ret.freeze()
-            }
-            Self::Mgrp { group_id, .. } => Bytes::copy_from_slice(&[*group_id]),
-            Self::Mos { .. } => Bytes::new(),
-            Self::Unknown { payload, .. } => payload.clone(),
-        }
-    }
-
-}
-
-impl Serializable for Security2Extension {
-    fn serialize(&self, output: &mut BytesMut) {
-        use serialize::{
-            bits::bits,
-            bytes::{be_u8, slice},
-        };
-
-        let payload = self.payload();
-        let critical = self.critical();
-        let more_to_follow = self.more_to_follow();
-        let type_id = self.type_id() & 0b0011_1111;
-
-        be_u8((2 + payload.len()) as u8).serialize(output);
-        bits(move |bo| {
-            more_to_follow.write(bo);
-            critical.write(bo);
-            u6::new(type_id).write(bo);
-        })
-        .serialize(output);
-        slice(payload).serialize(output);
     }
 }
 
-fn parse_extensions(buffer: &[u8], was_encrypted: bool) -> (Vec<Security2Extension>, bool, usize) {
+fn parse_extensions(i: &mut Bytes, was_encrypted: bool) -> ParseS2ExtensionsResult {
     let mut extensions = Vec::new();
     let mut must_discard_command = false;
-    let mut offset = 0usize;
+    let mut more_to_follow = true;
 
-    loop {
-        if buffer.len() < offset + 2 {
-            // An S2 extension was expected, but the buffer is too short.
-            must_discard_command = true;
-            break;
-        }
-
-        let actual_length = buffer[offset] as usize;
-        // The length field could be too large, which would cause part of the actual ciphertext
-        // to be ignored. Try to avoid this for known extensions by checking the actual and
-        // expected length.
-        let expected_length =
-            Security2Extension::expected_length_for_header(&buffer[offset..][..2]);
-        // Parse the extension using the expected length if possible.
-        let extension_length = expected_length.unwrap_or(actual_length);
-
-        if extension_length < 2 {
-            // An S2 extension was expected, but the length is too short.
-            must_discard_command = true;
-            break;
-        } else if extension_length > buffer.len().saturating_sub(offset) {
-            // The supposed length is longer than the space the extensions may occupy.
-            must_discard_command = true;
-            break;
-        }
-
-        let extension_data = &buffer[offset..][..extension_length];
-        offset += extension_length;
-
-        let ext = match Security2Extension::parse(extension_data) {
-            Ok(ext) => ext,
+    while more_to_follow && !i.is_empty() {
+        match S2Extension::parse(i) {
+            Ok(ext) => {
+                more_to_follow = ext.more_to_follow();
+                match ext.validate(was_encrypted) {
+                    ValidateS2ExtensionResult::Ok => extensions.push(ext),
+                    ValidateS2ExtensionResult::DiscardExtension => {
+                        // Do nothing.
+                    }
+                    ValidateS2ExtensionResult::DiscardCommand => {
+                        // Remember the extension, but mark the command for discarding.
+                        extensions.push(ext);
+                        must_discard_command = true;
+                    }
+                }
+            }
             Err(_) => {
+                // Parsing failed, likely due to insufficient bytes. Discard the rest of the command.
                 must_discard_command = true;
                 break;
             }
-        };
-
-        match ext.validate(was_encrypted) {
-            ValidateS2ExtensionResult::Ok => {
-                if expected_length.is_none() || actual_length == extension_length {
-                    extensions.push(ext.clone());
-                } else {
-                    // The extension length field does not match, ignore the extension.
-                }
-            }
-            ValidateS2ExtensionResult::DiscardExtension => {
-                // Do nothing.
-            }
-            ValidateS2ExtensionResult::DiscardCommand => {
-                must_discard_command = true;
-            }
-        }
-
-        // Check if that was the last extension.
-        if !ext.more_to_follow() {
-            break;
         }
     }
 
-    (extensions, must_discard_command, offset)
+    if must_discard_command {
+        ParseS2ExtensionsResult::Discard(extensions)
+    } else {
+        ParseS2ExtensionsResult::Ok(extensions)
+    }
+}
+
+fn serialize_extensions(extensions: &[S2Extension]) -> impl Serializable {
+    move |output: &mut BytesMut| {
+        for (index, extension) in extensions.iter().enumerate() {
+            extension
+                .with_more_to_follow(index + 1 < extensions.len())
+                .serialize(output);
+        }
+    }
 }
 
 /// Returns the Sender's Entropy Input if this command contains a SPAN extension.
-fn get_sender_ei(extensions: &[Security2Extension]) -> Option<EntropyInput> {
+fn get_sender_ei(extensions: &[S2Extension]) -> Option<EntropyInput> {
     extensions.iter().find_map(|ext| match ext {
-        Security2Extension::Span { sender_ei, .. } => Some(*sender_ei),
+        S2Extension::Span(SpanExtension { sender_ei, .. }) => Some(*sender_ei),
         _ => None,
     })
 }
 
 /// Returns the multicast group ID if this command contains an MGRP extension.
-fn get_multicast_group_id(extensions: &[Security2Extension]) -> Option<u8> {
+fn get_multicast_group_id(extensions: &[S2Extension]) -> Option<u8> {
     extensions.iter().find_map(|ext| match ext {
-        Security2Extension::Mgrp { group_id, .. } => Some(*group_id),
+        S2Extension::Mgrp(MgrpExtension { group_id, .. }) => Some(*group_id),
         _ => None,
     })
 }
 
-fn get_mpan_extension(
-    extensions: &[Security2Extension],
-) -> Option<(u8, zwave_core::security::MpanState)> {
+fn get_mpan_extension(extensions: &[S2Extension]) -> Option<(u8, zwave_core::security::MpanState)> {
     extensions.iter().find_map(|ext| match ext {
-        Security2Extension::Mpan {
+        S2Extension::Mpan(MpanExtension {
             group_id,
             inner_mpan_state,
             ..
-        } => Some((*group_id, inner_mpan_state.clone())),
+        }) => Some((*group_id, inner_mpan_state.clone())),
         _ => None,
     })
 }
@@ -493,32 +526,33 @@ fn parse_security_class_bitmask(i: &mut Bytes) -> ParseResult<SecurityClass> {
     security_class_from_bitmask_value(classes[0])
 }
 
-fn get_authentication_data(
+struct S2AuthData<'a> {
     sending_node_id: NodeId,
     destination: u16,
     home_id: Id32,
     command_length: usize,
-    unencrypted_payload: &[u8],
-) -> Bytes {
-    let sending_id: u16 = sending_node_id.into();
-    let node_id_size = if sending_id > u8::MAX as u16 || destination > u8::MAX as u16 {
-        2
-    } else {
-        1
-    };
+    /// This includes the sequence number and all unencrypted extensions.
+    unencrypted_payload: &'a [u8],
+}
 
-    let mut ret = BytesMut::with_capacity(node_id_size * 2 + 6 + unencrypted_payload.len());
-    if node_id_size == 1 {
-        ret.extend_from_slice(&[(sending_id & 0xff) as u8, (destination & 0xff) as u8]);
-    } else {
-        ret.extend_from_slice(&sending_id.to_be_bytes());
-        ret.extend_from_slice(&destination.to_be_bytes());
+impl Serializable for S2AuthData<'_> {
+    fn serialize(&self, output: &mut BytesMut) {
+        use serialize::bytes::{be_u8, be_u16, be_u32, slice};
+
+        let sending_id: u16 = self.sending_node_id.into();
+        if sending_id > u8::MAX as u16 || self.destination > u8::MAX as u16 {
+            sequence::tuple((be_u16(sending_id), be_u16(self.destination))).serialize(output);
+        } else {
+            sequence::tuple((be_u8(sending_id as u8), be_u8(self.destination as u8)))
+                .serialize(output);
+        }
+        sequence::tuple((
+            be_u32(u32::from(self.home_id)),
+            be_u16(self.command_length as u16),
+            slice(self.unencrypted_payload),
+        ))
+        .serialize(output);
     }
-    ret.extend_from_slice(&u32::from(home_id).to_be_bytes());
-    ret.extend_from_slice(&(command_length as u16).to_be_bytes());
-    // This includes the sequence number and all unencrypted extensions.
-    ret.extend_from_slice(unencrypted_payload);
-    ret.freeze()
 }
 
 fn assert_security_rx(ctx: &CCParsingContext) -> ParseResult<&SecurityManager2> {
@@ -564,7 +598,7 @@ struct SinglecastDecryptContext<'a> {
     auth_data: &'a [u8],
     auth_tag: &'a [u8; SECURITY_S2_AUTH_TAG_LENGTH],
     span_state: SPANTableEntry,
-    extensions: &'a [Security2Extension],
+    extensions: &'a [S2Extension],
 }
 
 struct MulticastDecryptContext<'a> {
@@ -576,13 +610,11 @@ struct MulticastDecryptContext<'a> {
     auth_tag: &'a [u8; SECURITY_S2_AUTH_TAG_LENGTH],
 }
 
-fn decrypt_singlecast(
-    ctx: SinglecastDecryptContext<'_>,
-) -> Option<(Vec<u8>, Option<SecurityClass>)> {
+fn decrypt_singlecast(ctx: SinglecastDecryptContext<'_>) -> Option<(Bytes, Option<SecurityClass>)> {
     fn decrypt_with_active_keys(
         ctx: &SinglecastDecryptContext<'_>,
         nonce: &AesCcmNonce,
-    ) -> Option<(Vec<u8>, Option<SecurityClass>)> {
+    ) -> Option<(Bytes, Option<SecurityClass>)> {
         let keys = ctx
             .security_manager
             .get_keys_for_node(ctx.sending_node_id)?;
@@ -704,7 +736,7 @@ fn decrypt_singlecast(
     }
 }
 
-fn decrypt_multicast(ctx: MulticastDecryptContext<'_>) -> Option<Vec<u8>> {
+fn decrypt_multicast(ctx: MulticastDecryptContext<'_>) -> Option<Bytes> {
     let nonce = ctx
         .security_manager
         .next_peer_mpan(ctx.sending_node_id, ctx.group_id)?;
@@ -725,18 +757,7 @@ fn decrypt_multicast(ctx: MulticastDecryptContext<'_>) -> Option<Vec<u8>> {
     )
 }
 
-fn serialize_extensions(extensions: &[Security2Extension], output: &mut BytesMut) {
-    for (index, extension) in extensions.iter().enumerate() {
-        extension
-            .with_more_to_follow(index + 1 < extensions.len())
-            .serialize(output);
-    }
-}
-
-fn destination_group_or_node_id(
-    destination: &Destination,
-    extensions: &[Security2Extension],
-) -> u16 {
+fn destination_group_or_node_id(destination: &Destination, extensions: &[S2Extension]) -> u16 {
     match destination {
         Destination::Singlecast(node_id) => (*node_id).into(),
         Destination::Broadcast => get_multicast_group_id(extensions)
@@ -925,7 +946,7 @@ pub struct Security2CCMessageEncapsulation {
     #[builder(default, setter(strip_option))]
     pub security_class: Option<SecurityClass>,
     #[builder(default)]
-    pub extensions: Vec<Security2Extension>,
+    pub extensions: Vec<S2Extension>,
     #[builder(default, setter(strip_option))]
     pub encapsulated: Option<Box<CC>>,
 }
@@ -989,37 +1010,43 @@ impl CCParsable for Security2CCMessageEncapsulation {
     fn parse(i: &mut Bytes, ctx: CCParsingContext) -> ParseResult<Self> {
         let security_manager = assert_security_rx(&ctx)?;
 
-        let payload = i.clone();
+        // Short circuit if we don't have enough payload for the header and auth tag
         validate(
-            payload.len() >= 2 + SECURITY_S2_AUTH_TAG_LENGTH,
+            i.len() >= 2 + SECURITY_S2_AUTH_TAG_LENGTH,
             "Incomplete S2 payload",
         )?;
-        let mut header = payload.clone();
-        let sequence_number = be_u8(&mut header)?;
-        let (_reserved, has_encrypted_extensions, has_extensions) =
-            bits::bits((u6::parse, parse_bool, parse_bool)).parse(&mut header)?;
-        let payload = payload.as_ref();
 
-        let frame_addressing = ctx.frame_addressing.unwrap_or(FrameAddressing::Singlecast);
-        let mut offset = payload.len() - header.len();
+        // Before parsing, make a copy of the input, so we can rewind to the start of the plaintext
+        let mut unencrypted_payload = i.clone();
+        let message_length = 2 + i.len();
+
+        let sequence_number = be_u8(i)?;
+        let (_reserved, has_encrypted_extensions, has_extensions) =
+            bits::bits((u6::parse, parse_bool, parse_bool)).parse(i)?;
+
         let mut extensions = Vec::new();
         let mut must_discard_command = false;
 
+        // Parse plaintext extensions if possible
         if has_extensions {
-            let (parsed, discard, bytes_read) = parse_extensions(
-                &payload[offset..payload.len() - SECURITY_S2_AUTH_TAG_LENGTH],
-                false,
-            );
-            extensions.extend(parsed);
-            must_discard_command = discard;
-            offset += bytes_read;
+            match parse_extensions(i, false) {
+                ParseS2ExtensionsResult::Ok(parsed) => {
+                    extensions = parsed;
+                }
+                ParseS2ExtensionsResult::Discard(parsed) => {
+                    extensions = parsed;
+                    must_discard_command = true;
+                }
+            }
         }
 
-        let multicast_group_id = get_multicast_group_id(&extensions);
+        let frame_addressing = ctx.frame_addressing.unwrap_or(FrameAddressing::Singlecast);
+        // TODO: Can we make this combination more type-safe?
         let is_multicast = matches!(
             frame_addressing,
             FrameAddressing::Multicast | FrameAddressing::Broadcast
         );
+        let multicast_group_id = get_multicast_group_id(&extensions);
 
         if is_multicast && multicast_group_id.is_none() {
             return fail_validation("Multicast S2 frames require the MGRP extension");
@@ -1059,29 +1086,34 @@ impl CCParsable for Security2CCMessageEncapsulation {
             None
         };
 
+        // Cut the plaintext to the actual length
+        unencrypted_payload.truncate(unencrypted_payload.remaining() - i.remaining());
+
+        // Make sure the rest of the payload is still long enough for the auth tag,
+        // then split off the ciphertext and auth tag.
         validate(
-            payload.len() >= offset + SECURITY_S2_AUTH_TAG_LENGTH,
+            i.remaining() >= SECURITY_S2_AUTH_TAG_LENGTH,
             "Incomplete S2 ciphertext",
         )?;
-        let unencrypted_payload = &payload[..offset];
-        let ciphertext = &payload[offset..payload.len() - SECURITY_S2_AUTH_TAG_LENGTH];
-        let auth_tag: [u8; SECURITY_S2_AUTH_TAG_LENGTH] = payload
-            [payload.len() - SECURITY_S2_AUTH_TAG_LENGTH..]
-            .try_into()
-            .unwrap();
-        let message_length = 2 + payload.len();
+        let ciphertext = i.split_off(i.remaining() - SECURITY_S2_AUTH_TAG_LENGTH);
+        let auth_tag = take(SECURITY_S2_AUTH_TAG_LENGTH).parse(i)?;
+        let auth_tag: &[u8; SECURITY_S2_AUTH_TAG_LENGTH] =
+            auth_tag.as_array().expect("length checked above");
+
         let destination_id = if is_multicast {
             multicast_group_id.expect("checked above") as u16
         } else {
             ctx.own_node_id.into()
         };
-        let auth_data = get_authentication_data(
-            ctx.source_node_id,
-            destination_id,
-            ctx.home_id,
-            message_length,
-            unencrypted_payload,
-        );
+
+        let auth_data = S2AuthData {
+            sending_node_id: ctx.source_node_id,
+            destination: destination_id,
+            home_id: ctx.home_id,
+            command_length: message_length,
+            unencrypted_payload: &unencrypted_payload,
+        }
+        .as_bytes();
 
         // If the receiver is unable to authenticate a singlecast message with the current SPAN,
         // it should try one or more following SPAN values. Likewise, multicast MAY be retried
@@ -1116,9 +1148,9 @@ impl CCParsable for Security2CCMessageEncapsulation {
                     security_manager,
                     sending_node_id: ctx.source_node_id,
                     group_id: multicast_group_id.expect("checked above"),
-                    ciphertext,
+                    ciphertext: &ciphertext,
                     auth_data: &auth_data,
-                    auth_tag: &auth_tag,
+                    auth_tag,
                 });
                 if plaintext.is_some() {
                     break;
@@ -1141,9 +1173,9 @@ impl CCParsable for Security2CCMessageEncapsulation {
                         sending_node_id: ctx.source_node_id,
                         cur_sequence_number: sequence_number,
                         prev_sequence_number: previous_sequence_number.flatten(),
-                        ciphertext,
+                        ciphertext: &ciphertext,
                         auth_data: &auth_data,
-                        auth_tag: &auth_tag,
+                        auth_tag,
                         span_state,
                         extensions: &extensions,
                     })
@@ -1155,7 +1187,7 @@ impl CCParsable for Security2CCMessageEncapsulation {
             }
         }
 
-        let Some(plaintext) = plaintext else {
+        let Some(mut plaintext) = plaintext else {
             if is_multicast {
                 // Mark the MPAN as out of sync.
                 security_manager.store_peer_mpan(
@@ -1177,17 +1209,16 @@ impl CCParsable for Security2CCMessageEncapsulation {
             );
         }
 
-        let mut encrypted_extension_offset = 0usize;
         if has_encrypted_extensions {
-            let (parsed, discard, bytes_read) = parse_extensions(&plaintext, true);
-            extensions.extend(parsed);
-            must_discard_command = discard;
-            encrypted_extension_offset = bytes_read;
-        }
-
-        // Before we can continue, check if the command must be discarded.
-        if must_discard_command {
-            return fail_validation("Invalid S2 extension");
+            match parse_extensions(&mut plaintext, true) {
+                ParseS2ExtensionsResult::Ok(parsed) => {
+                    extensions.extend(parsed);
+                }
+                ParseS2ExtensionsResult::Discard(_) => {
+                    // After decryption we can abort immediately if the command should be discarded
+                    return fail_validation("Invalid S2 extension");
+                }
+            }
         }
 
         // The MPAN and MGRP extensions must not be sent together.
@@ -1209,14 +1240,11 @@ impl CCParsable for Security2CCMessageEncapsulation {
         }
 
         // Not every S2 message includes an encapsulated CC.
-        let decrypted_cc_bytes = &plaintext[encrypted_extension_offset..];
-        let encapsulated = if decrypted_cc_bytes.is_empty() {
+        let encapsulated = if plaintext.is_empty() {
             None
         } else {
             // Make sure this contains a complete CC command and deserialize it.
-            validate(decrypted_cc_bytes.len() >= 2, "Incomplete encapsulated CC")?;
-            let mut cc_bytes = Bytes::copy_from_slice(decrypted_cc_bytes);
-            let encapsulated_raw = CCRaw::parse(&mut cc_bytes)?;
+            let encapsulated_raw = CCRaw::parse(&mut plaintext)?;
             Some(Box::new(CC::try_from_raw(encapsulated_raw, ctx)?))
         };
 
@@ -1232,7 +1260,7 @@ impl CCParsable for Security2CCMessageEncapsulation {
 
 impl SerializableWith<&CCEncodingContext> for Security2CCMessageEncapsulation {
     fn serialize(&self, output: &mut BytesMut, ctx: &CCEncodingContext) {
-        use serialize::{bits::bits, bytes::be_u8};
+        use serialize::{bits::bits, bytes::be_u8, bytes::slice};
 
         let security_manager = assert_security_tx(ctx);
 
@@ -1288,10 +1316,10 @@ impl SerializableWith<&CCEncodingContext> for Security2CCMessageEncapsulation {
                     }
 
                     // Add or update the SPAN extension.
-                    let span_extension = Security2Extension::span(sender_ei);
+                    let span_extension = S2Extension::span(sender_ei);
                     if let Some(index) = extensions
                         .iter()
-                        .position(|ext| matches!(ext, Security2Extension::Span { .. }))
+                        .position(|ext| matches!(ext, S2Extension::Span { .. }))
                     {
                         extensions[index] = span_extension;
                     } else {
@@ -1302,34 +1330,40 @@ impl SerializableWith<&CCEncodingContext> for Security2CCMessageEncapsulation {
             }
         }
 
+        // Ideally we'd define the encryption status on the extension itself, but matching against
+        // the extension type is easier for now.
         let unencrypted_extensions = extensions
             .iter()
-            .filter(|extension| !extension.is_encrypted())
+            .filter(|extension| extension.ty() != S2ExtensionType::Mpan as u8)
             .cloned()
             .collect::<Vec<_>>();
         let encrypted_extensions = extensions
             .iter()
-            .filter(|extension| extension.is_encrypted())
+            .filter(|extension| extension.ty() == S2ExtensionType::Mpan as u8)
             .cloned()
             .collect::<Vec<_>>();
 
+        // Serialize into a temporary buffer first, so we can derive the auth data from it
         let mut unencrypted_payload = BytesMut::with_capacity(DEFAULT_CAPACITY);
-        be_u8(sequence_number).serialize(&mut unencrypted_payload);
         let has_encrypted_extensions = !encrypted_extensions.is_empty();
         let has_extensions = !unencrypted_extensions.is_empty();
-        bits(move |bo| {
-            u6::new(0).write(bo);
-            has_encrypted_extensions.write(bo);
-            has_extensions.write(bo);
-        })
+        tuple((
+            be_u8(sequence_number),
+            bits(move |bo| {
+                u6::new(0).write(bo);
+                has_encrypted_extensions.write(bo);
+                has_extensions.write(bo);
+            }),
+            serialize_extensions(&unencrypted_extensions),
+        ))
         .serialize(&mut unencrypted_payload);
-        serialize_extensions(&unencrypted_extensions, &mut unencrypted_payload);
         let unencrypted_payload = unencrypted_payload.freeze();
 
         let mut plaintext_payload = BytesMut::with_capacity(DEFAULT_CAPACITY);
-        serialize_extensions(&encrypted_extensions, &mut plaintext_payload);
+        serialize_extensions(&encrypted_extensions).serialize(&mut plaintext_payload);
         if let Some(encapsulated) = &self.encapsulated {
-            plaintext_payload.extend_from_slice(&encapsulated.as_raw(ctx).as_bytes());
+            let cc_bytes = encapsulated.as_raw(ctx).as_bytes();
+            slice(cc_bytes).serialize(&mut plaintext_payload);
         }
         let plaintext_payload = plaintext_payload.freeze();
 
@@ -1338,13 +1372,14 @@ impl SerializableWith<&CCEncodingContext> for Security2CCMessageEncapsulation {
         let message_length =
             2 + unencrypted_payload.len() + plaintext_payload.len() + SECURITY_S2_AUTH_TAG_LENGTH;
         // Generate the authentication data for CCM encryption.
-        let auth_data = get_authentication_data(
-            ctx.own_node_id,
-            destination_id,
-            ctx.home_id,
-            message_length,
-            &unencrypted_payload,
-        );
+        let auth_data = S2AuthData {
+            sending_node_id: ctx.own_node_id,
+            destination: destination_id,
+            home_id: ctx.home_id,
+            command_length: message_length,
+            unencrypted_payload: &unencrypted_payload,
+        }
+        .as_bytes();
 
         let (key, iv): (AesKey, AesCcmNonce) = if matches!(ctx.node_id, NODE_ID_BROADCAST) {
             // Multicast:
@@ -1381,9 +1416,12 @@ impl SerializableWith<&CCEncodingContext> for Security2CCMessageEncapsulation {
 
         let encrypted = encrypt_aes_128_ccm(&key, &iv, &plaintext_payload, &auth_data);
 
-        output.extend_from_slice(&unencrypted_payload);
-        output.extend_from_slice(&encrypted.ciphertext);
-        output.extend_from_slice(&encrypted.auth_tag);
+        tuple((
+            slice(&unencrypted_payload),
+            slice(&encrypted.ciphertext),
+            slice(&encrypted.auth_tag),
+        ))
+        .serialize(output);
     }
 }
 
@@ -2112,11 +2150,11 @@ mod test {
 
     #[test]
     fn span_extension_roundtrip() {
-        let extension = Security2Extension::span([0x11; S2_ENTROPY_INPUT_SIZE]);
+        let extension = S2Extension::span([0x11; S2_ENTROPY_INPUT_SIZE]);
 
         let mut serialized = BytesMut::new();
         extension.serialize(&mut serialized);
-        let parsed = Security2Extension::parse(serialized.as_ref()).unwrap();
+        let parsed = S2Extension::parse(&mut serialized.freeze()).unwrap();
 
         assert_eq!(parsed, extension);
     }

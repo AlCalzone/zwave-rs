@@ -9,9 +9,10 @@ use crate::{
     wrapping_counter::WrappingCounter,
 };
 use alloc::collections::{BTreeMap, BTreeSet};
+use bytes::Bytes;
 use core::{ops::Deref, time::Duration};
-use zwave_pal::rng::getrandom;
 use zwave_pal::prelude::*;
+use zwave_pal::rng::getrandom;
 use zwave_pal::sync::Locked;
 use zwave_pal::time::Instant;
 
@@ -39,6 +40,17 @@ macro_rules! fixed_bytes_type {
                     );
                 }
                 Self(bytes.try_into().unwrap())
+            }
+        }
+
+        impl TryFrom<Bytes> for $name {
+            type Error = $crate::prelude::TryFromReprError<Bytes>;
+
+            fn try_from(value: Bytes) -> Result<Self, Self::Error> {
+                match value.as_ref().try_into() {
+                    Ok(&bytes) => Ok(Self(bytes)),
+                    Err(_) => Err(Self::Error::Invalid(value)),
+                }
             }
         }
 

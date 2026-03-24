@@ -2,8 +2,8 @@ use super::{AesKey, NetworkKey, encrypt_aes_ecb};
 use crate::prelude::*;
 use alloc::collections::BTreeMap;
 use core::ops::Deref;
-use zwave_pal::rng::getrandom;
 use zwave_pal::prelude::*;
+use zwave_pal::rng::getrandom;
 use zwave_pal::sync::Locked;
 
 pub const S0_NONCE_SIZE: usize = 8;

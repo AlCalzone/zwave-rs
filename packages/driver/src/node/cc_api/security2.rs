@@ -154,7 +154,7 @@ impl Security2CCAPI<'_> {
         let node = self.endpoint.get_node();
         let driver = node.driver();
         let cc = Security2CCMessageEncapsulation::builder()
-            .extensions(vec![Security2Extension::mpan(group_id, inner_mpan_state)])
+            .extensions(vec![S2Extension::mpan(group_id, inner_mpan_state)])
             .build()
             .with_destination(node.as_destination());
         driver.exec_node_command(&cc.into(), None).await?;

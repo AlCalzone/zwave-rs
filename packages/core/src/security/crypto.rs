@@ -1,15 +1,14 @@
 use aes::cipher::{
-    BlockEncrypt, BlockEncryptMut, KeyInit, KeyIvInit, StreamCipher,
-    block_padding::ZeroPadding,
-    generic_array::{
+    self, BlockEncrypt, BlockEncryptMut, KeyInit, KeyIvInit, StreamCipher, block_padding::ZeroPadding, generic_array::{
         GenericArray,
         typenum::{U8, U13, U16},
-    },
+    }
 };
+use bytes::{Bytes, BytesMut};
 use ccm::AeadInPlace;
 use core::ops::Deref;
-use zwave_pal::rng::getrandom;
 use zwave_pal::prelude::*;
+use zwave_pal::rng::getrandom;
 
 type Aes128Ofb = ofb::Ofb<aes::Aes128>;
 type Aes128CbcEnc = cbc::Encryptor<aes::Aes128>;
@@ -263,22 +262,22 @@ pub fn encrypt_aes_ecb(plaintext: &Block, key: &AesKey) -> Block {
     ret
 }
 
-pub fn encrypt_aes_ofb(plaintext: &[u8], key: &AesKey, iv: &AesIV) -> Vec<u8> {
+pub fn encrypt_aes_ofb(plaintext: &[u8], key: &AesKey, iv: &AesIV) -> Bytes {
     let mut cipher = <Aes128Ofb as KeyIvInit>::new(&key.into(), &iv.into());
 
-    let mut buf = plaintext.to_vec();
+    let mut buf = BytesMut::from(plaintext);
     cipher.apply_keystream(&mut buf);
 
-    buf
+    buf.freeze()
 }
 
-pub fn decrypt_aes_ofb(ciphertext: &[u8], key: &AesKey, iv: &AesIV) -> Vec<u8> {
+pub fn decrypt_aes_ofb(ciphertext: &[u8], key: &AesKey, iv: &AesIV) -> Bytes {
     let mut cipher = <Aes128Ofb as KeyIvInit>::new(&key.into(), &iv.into());
 
-    let mut buf = ciphertext.to_vec();
+    let mut buf = BytesMut::from(ciphertext);
     cipher.apply_keystream(&mut buf);
 
-    buf
+    buf.freeze()
 }
 
 pub fn compute_mac(plaintext: &[u8], key: &AesKey) -> [u8; MAC_SIZE] {
@@ -489,7 +488,7 @@ pub fn derive_mei(nonce_prk: &AesKey) -> Entropy {
 }
 
 pub struct AesCcmEncResult {
-    pub ciphertext: Vec<u8>,
+    pub ciphertext: Bytes,
     pub auth_tag: [u8; SECURITY_S2_AUTH_TAG_LENGTH],
 }
 
@@ -500,7 +499,7 @@ pub fn encrypt_aes_128_ccm(
     additional_data: &[u8],
 ) -> AesCcmEncResult {
     let cipher: Aes128Ccm = Aes128Ccm::new(&key.into());
-    let mut ciphertext = plaintext.to_vec();
+    let mut ciphertext = BytesMut::from(plaintext);
     let auth_tag = cipher
         .encrypt_in_place_detached(&iv.into(), additional_data, &mut ciphertext)
         // FIXME: Proper error handling
@@ -508,12 +507,12 @@ pub fn encrypt_aes_128_ccm(
         .into();
 
     AesCcmEncResult {
-        ciphertext,
+        ciphertext: ciphertext.freeze(),
         auth_tag,
     }
 }
 
-pub type AesCcmDecResult = Option<Vec<u8>>;
+pub type AesCcmDecResult = Option<Bytes>;
 
 pub fn decrypt_aes_128_ccm(
     key: &AesKey,
@@ -523,14 +522,14 @@ pub fn decrypt_aes_128_ccm(
     auth_tag: &[u8; SECURITY_S2_AUTH_TAG_LENGTH],
 ) -> AesCcmDecResult {
     let cipher: Aes128Ccm = Aes128Ccm::new(&key.into());
-    let mut plaintext = ciphertext.to_vec();
+    let mut plaintext = BytesMut::from(ciphertext);
     match cipher.decrypt_in_place_detached(
         &iv.into(),
         additional_data,
         &mut plaintext,
         auth_tag.into(),
     ) {
-        Ok(_) => Some(plaintext),
+        Ok(_) => Some(plaintext.freeze()),
         Err(_) => None,
     }
 }
